@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuditEntry, BackupRun, Invite, OpsInfo, Page, Role, User } from "../../shared/types";
 import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
@@ -9,7 +9,7 @@ import { EmptyState, Field, Select, Spinner, TextInput } from "../components/For
 
 type AdminTab = "users" | "invites" | "audit" | "backups";
 
-export function AdminPage(): JSX.Element {
+export function AdminPage(): ReactElement {
   const [tab, setTab] = useState<AdminTab>("users");
   const tabs: { id: AdminTab; label: string }[] = [
     { id: "users", label: "Users" },
@@ -44,7 +44,7 @@ export function AdminPage(): JSX.Element {
   );
 }
 
-function UsersPanel(): JSX.Element {
+function UsersPanel(): ReactElement {
   const { session } = useSession();
   const queryClient = useQueryClient();
   const users = useQuery({ queryKey: ["admin", "users"], queryFn: () => apiGet<Page<User>>("/api/users?includeInactive=true") });
@@ -106,7 +106,7 @@ function UsersPanel(): JSX.Element {
   );
 }
 
-function InvitesPanel(): JSX.Element {
+function InvitesPanel(): ReactElement {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("manager");
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
@@ -175,7 +175,7 @@ function InvitesPanel(): JSX.Element {
   );
 }
 
-function AuditPanel(): JSX.Element {
+function AuditPanel(): ReactElement {
   const [actionFilter, setActionFilter] = useState("");
   const audit = useQuery({
     queryKey: ["admin", "audit", actionFilter],
@@ -214,7 +214,7 @@ function AuditPanel(): JSX.Element {
   );
 }
 
-function BackupsPanel(): JSX.Element {
+function BackupsPanel(): ReactElement {
   const queryClient = useQueryClient();
   const info = useQuery({ queryKey: ["admin", "ops-info"], queryFn: () => apiGet<OpsInfo>("/api/ops/info") });
   const backups = useQuery({ queryKey: ["admin", "backups"], queryFn: () => apiGet<Page<BackupRun>>("/api/ops/backups") });
@@ -260,7 +260,7 @@ function BackupsPanel(): JSX.Element {
   );
 }
 
-function Stat(props: { label: string; value: string }): JSX.Element {
+function Stat(props: { label: string; value: string }): ReactElement {
   return (
     <div>
       <p className="text-xs uppercase tracking-wide text-slate-400">{props.label}</p>

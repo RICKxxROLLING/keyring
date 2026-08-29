@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, type ReactElement } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { RealtimeProvider, useAnnouncePage, useEntityEvents, useResync } from "../lib/realtime";
@@ -34,7 +34,7 @@ function RealtimeWiring(): null {
   return null;
 }
 
-export function AuthenticatedShell(): JSX.Element {
+export function AuthenticatedShell(): ReactElement {
   return (
     <RealtimeProvider>
       <RealtimeWiring />

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type ReactElement } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useSession } from "../lib/session";
 import { useOnlineStatus } from "../lib/offline";
@@ -17,7 +17,7 @@ const NAV_ITEMS = [
   { to: "/settings", label: "You", icon: UserIcon },
 ];
 
-export function AppShell(props: { children: ReactNode }): JSX.Element {
+export function AppShell(props: { children: ReactNode }): ReactElement {
   const { session, logout } = useSession();
   const online = useOnlineStatus();
   const connection = useConnectionState();

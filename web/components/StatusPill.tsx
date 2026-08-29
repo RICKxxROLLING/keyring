@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, ReactElement } from "react";
 import type { Severity } from "../lib/status";
 
 const SEVERITY_CLASS: Record<Severity, string> = {
@@ -16,7 +16,7 @@ const SEVERITY_MARK: Record<Severity, string> = {
   neutral: "○", // hollow circle
 };
 
-export function StatusPill(props: { severity: Severity; label: string; className?: string }): JSX.Element {
+export function StatusPill(props: { severity: Severity; label: string; className?: string }): ReactElement {
   return (
     <span className={`status-pill ${SEVERITY_CLASS[props.severity]} ${props.className ?? ""}`}>
       <span aria-hidden="true">{SEVERITY_MARK[props.severity]}</span>
@@ -29,7 +29,7 @@ export function StatusStripeCard(props: {
   severity: Severity;
   className?: string;
   children: ReactNode;
-}): JSX.Element {
+}): ReactElement {
   const stripeClass: Record<Severity, string> = {
     ok: "status-stripe-ok",
     warn: "status-stripe-warn",

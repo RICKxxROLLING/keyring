@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Page, Vendor } from "../../shared/types";
 import { apiGet, apiPost } from "../lib/api";
@@ -6,7 +6,7 @@ import { qk } from "../lib/query";
 import { Button } from "../components/Button";
 import { EmptyState, Field, Spinner, TextInput } from "../components/Form";
 
-export function VendorsPage(): JSX.Element {
+export function VendorsPage(): ReactElement {
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState("");
   const [trade, setTrade] = useState("");

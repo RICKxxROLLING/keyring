@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import type { NoteView, PropertyView, WorkOrderView } from "../../shared/types";
@@ -12,7 +12,7 @@ import { CameraIcon } from "./icons";
 
 type QuickKind = "work_order" | "note" | "expense";
 
-export function QuickAddSheet(props: { open: boolean; onClose: () => void; defaultPropertyId?: string }): JSX.Element {
+export function QuickAddSheet(props: { open: boolean; onClose: () => void; defaultPropertyId?: string }): ReactElement {
   const [kind, setKind] = useState<QuickKind | null>(null);
   const [propertyId, setPropertyId] = useState(props.defaultPropertyId ?? "");
   const [title, setTitle] = useState("");
@@ -173,7 +173,7 @@ export function QuickAddSheet(props: { open: boolean; onClose: () => void; defau
   );
 }
 
-function QuickKindButton(props: { label: string; onClick: () => void }): JSX.Element {
+function QuickKindButton(props: { label: string; onClick: () => void }): ReactElement {
   return (
     <button
       type="button"

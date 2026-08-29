@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { LeaseView, Tenant } from "../../../shared/types";
 import { apiPost } from "../../lib/api";
@@ -10,7 +10,7 @@ import { Button } from "../../components/Button";
 import { EmptyState, Field, Select, TextInput } from "../../components/Form";
 import { StatusPill } from "../../components/StatusPill";
 
-export function TenantsTab(): JSX.Element {
+export function TenantsTab(): ReactElement {
   const dossier = useDossier();
   const [showTenant, setShowTenant] = useState(false);
   const [showLease, setShowLease] = useState(false);

@@ -6,8 +6,9 @@ import { formatCents } from "../lib/format";
 import { PropertyCard } from "../components/PropertyCard";
 import { AttentionFeed } from "../components/AttentionFeed";
 import { ErrorNotice, Spinner } from "../components/Form";
+import type { ReactElement } from "react";
 
-export function DashboardPage(): JSX.Element {
+export function DashboardPage(): ReactElement {
   const dashboard = useQuery({
     queryKey: qk.dashboard,
     queryFn: () => apiGet<DashboardPayload>("/api/dashboard"),
@@ -44,7 +45,7 @@ export function DashboardPage(): JSX.Element {
   );
 }
 
-function Totals(props: { label: string; value: string }): JSX.Element {
+function Totals(props: { label: string; value: string }): ReactElement {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3">
       <p className="text-xs uppercase tracking-wide text-slate-400">{props.label}</p>

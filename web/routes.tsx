@@ -25,8 +25,9 @@ import { InboxPage } from "./pages/InboxPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AdminPage } from "./pages/AdminPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import type { ReactElement } from "react";
 
-export function AppRoutes(): JSX.Element {
+export function AppRoutes(): ReactElement {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

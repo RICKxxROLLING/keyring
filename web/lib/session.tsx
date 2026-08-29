@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
   type ReactNode,
+  type ReactElement,
 } from "react";
 import type { SessionInfo } from "../../shared/types";
 import { apiGet, apiPost, setUnauthenticatedHandler } from "./api";
@@ -24,7 +25,7 @@ interface SessionContextValue {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-export function SessionProvider(props: { children: ReactNode }): JSX.Element {
+export function SessionProvider(props: { children: ReactNode }): ReactElement {
   const [session, setSessionState] = useState<SessionInfo | null>(null);
   const [status, setStatus] = useState<SessionStatus>("loading");
   const [needsSetup, setNeedsSetup] = useState(false);

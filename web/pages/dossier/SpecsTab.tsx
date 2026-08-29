@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { SpecCategory, SpecEntryView } from "../../../shared/types";
 import { apiPost } from "../../lib/api";
@@ -10,7 +10,7 @@ import { LockIcon } from "../../components/icons";
 
 const CATEGORIES: SpecCategory[] = ["appliance", "filter", "paint", "shutoff", "code", "warranty", "utility", "other"];
 
-export function SpecsTab(): JSX.Element {
+export function SpecsTab(): ReactElement {
   const dossier = useDossier();
   const [showNew, setShowNew] = useState(false);
   const [label, setLabel] = useState("");
@@ -81,7 +81,7 @@ export function SpecsTab(): JSX.Element {
   );
 }
 
-function SpecRow(props: { spec: SpecEntryView; propertyId: string }): JSX.Element {
+function SpecRow(props: { spec: SpecEntryView; propertyId: string }): ReactElement {
   const [revealed, setRevealed] = useState<string | null>(null);
   const reveal = useMutation({
     mutationFn: () => apiPost<{ id: string; value: string }>(`/api/specs/${props.spec.id}/reveal`),

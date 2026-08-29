@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import type { ProjectLineKind, ProjectStatus, ProjectView } from "../../../shared/types";
@@ -21,7 +21,7 @@ function statusSeverity(s: ProjectStatus): "ok" | "warn" | "urgent" | "neutral" 
   return "neutral";
 }
 
-export function ProjectsTab(): JSX.Element {
+export function ProjectsTab(): ReactElement {
   const dossier = useDossier();
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
@@ -105,7 +105,7 @@ export function ProjectsTab(): JSX.Element {
   );
 }
 
-function ProjectDialog(props: { project: ProjectView; onClose: () => void; onChanged: () => void }): JSX.Element {
+function ProjectDialog(props: { project: ProjectView; onClose: () => void; onChanged: () => void }): ReactElement {
   const p = props.project;
   const [description, setDescription] = useState(p.description ?? "");
   const [lineLabel, setLineLabel] = useState("");

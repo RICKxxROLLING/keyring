@@ -6,8 +6,9 @@ import { useDossier } from "../../lib/dossier-context";
 import { formatRelativeTime } from "../../lib/format";
 import { EmptyState } from "../../components/Form";
 import { CameraIcon } from "../../components/icons";
+import type { ReactElement } from "react";
 
-export function FilesTab(): JSX.Element {
+export function FilesTab(): ReactElement {
   const dossier = useDossier();
   const queryClient = useQueryClient();
 

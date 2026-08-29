@@ -6,8 +6,9 @@ import { qk } from "../lib/query";
 import { formatRelativeTime } from "../lib/format";
 import { Button } from "../components/Button";
 import { EmptyState, Spinner } from "../components/Form";
+import type { ReactElement } from "react";
 
-export function InboxPage(): JSX.Element {
+export function InboxPage(): ReactElement {
   const queryClient = useQueryClient();
   const notifications = useQuery({
     queryKey: qk.notifications,

@@ -1,7 +1,8 @@
 import type { UserRef } from "../../shared/types";
 import { initials } from "../lib/format";
+import type { ReactElement } from "react";
 
-export function Avatar(props: { user: UserRef; size?: number; ring?: boolean }): JSX.Element {
+export function Avatar(props: { user: UserRef; size?: number; ring?: boolean }): ReactElement {
   const size = props.size ?? 32;
   return (
     <span
@@ -21,7 +22,7 @@ export function Avatar(props: { user: UserRef; size?: number; ring?: boolean }):
   );
 }
 
-export function AvatarStack(props: { users: UserRef[]; max?: number }): JSX.Element {
+export function AvatarStack(props: { users: UserRef[]; max?: number }): ReactElement {
   const max = props.max ?? 4;
   const shown = props.users.slice(0, max);
   const overflow = props.users.length - shown.length;

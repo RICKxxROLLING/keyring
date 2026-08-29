@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactElement } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { SessionInfo } from "../../shared/types";
 import { apiPost, ApiClientError } from "../lib/api";
@@ -8,7 +8,7 @@ import { ErrorNotice, Field, TextInput } from "../components/Form";
 
 type Step = "password" | "totp" | "recovery";
 
-export function LoginPage(): JSX.Element {
+export function LoginPage(): ReactElement {
   const [step, setStep] = useState<Step>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

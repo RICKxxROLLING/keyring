@@ -3,6 +3,7 @@ import type { PropertyCard as PropertyCardType } from "../../shared/types";
 import { formatCents } from "../lib/format";
 import { propertyStatusDisplay } from "../lib/status";
 import { StatusPill } from "./StatusPill";
+import type { ReactElement } from "react";
 
 const STRIPE_CLASS: Record<string, string> = {
   ok: "status-stripe-ok",
@@ -11,7 +12,7 @@ const STRIPE_CLASS: Record<string, string> = {
   neutral: "status-stripe-neutral",
 };
 
-export function PropertyCard(props: { property: PropertyCardType }): JSX.Element {
+export function PropertyCard(props: { property: PropertyCardType }): ReactElement {
   const p = props.property;
   const status = propertyStatusDisplay(p.status);
   const qf = p.quickFacts;
@@ -41,7 +42,7 @@ export function PropertyCard(props: { property: PropertyCardType }): JSX.Element
   );
 }
 
-function QuickFact(props: { label: string; value: string; warn?: boolean }): JSX.Element {
+function QuickFact(props: { label: string; value: string; warn?: boolean }): ReactElement {
   return (
     <div>
       <dt className="text-xs uppercase tracking-wide text-slate-400">{props.label}</dt>

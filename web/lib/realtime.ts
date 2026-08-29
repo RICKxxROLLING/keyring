@@ -1,7 +1,7 @@
 // web/lib/realtime.ts — Category B stub (§C1.2 / §C10.4). Owner: T2.
 // T4 builds against this exact exported API. T2's real implementation replaces this file
 // wholesale at integration. Do not extend the exported surface from outside this file.
-import { Fragment, createElement, type ReactNode } from "react";
+import { Fragment, createElement, type ReactNode, type ReactElement } from "react";
 import type { Notification, UserRef } from "../../shared/types";
 import type { LockKey, LockState, PresenceUser, ServerMessage } from "../../shared/realtime";
 
@@ -19,7 +19,7 @@ export interface EntityEvent {
 }
 
 /** Mount once, inside the authenticated shell, above every route. */
-export function RealtimeProvider(props: { children: ReactNode }): JSX.Element {
+export function RealtimeProvider(props: { children: ReactNode }): ReactElement {
   return createElement(Fragment, null, props.children);
 }
 

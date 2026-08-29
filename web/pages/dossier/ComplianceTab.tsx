@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ComplianceItemView, ComplianceKind } from "../../../shared/types";
 import { apiPost } from "../../lib/api";
@@ -12,7 +12,7 @@ import { StatusPill } from "../../components/StatusPill";
 
 const KINDS: ComplianceKind[] = ["insurance", "tax", "inspection", "license", "hoa", "permit", "other"];
 
-export function ComplianceTab(): JSX.Element {
+export function ComplianceTab(): ReactElement {
   const dossier = useDossier();
   const [showNew, setShowNew] = useState(false);
   const [title, setTitle] = useState("");

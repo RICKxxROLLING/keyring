@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactElement } from "react";
 import { useNavigate } from "react-router-dom";
 import type { EnrollmentChallenge, RecoveryCodes, SessionInfo } from "../../shared/types";
 import { apiPost, ApiClientError } from "../lib/api";
@@ -7,7 +7,7 @@ import { Button } from "../components/Button";
 import { EnrollmentFlow } from "../components/EnrollmentFlow";
 import { ErrorNotice, Field, TextInput } from "../components/Form";
 
-export function SetupPage(): JSX.Element {
+export function SetupPage(): ReactElement {
   const [setupToken, setSetupToken] = useState("");
   const [email, setEmail] = useState("");
   const [handle, setHandle] = useState("");

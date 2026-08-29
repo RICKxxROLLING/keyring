@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ExpenseCategory, PropertyExpense, RentEntry } from "../../../shared/types";
 import { apiPatch, apiPost } from "../../lib/api";
@@ -14,7 +14,7 @@ const CATEGORIES: ExpenseCategory[] = [
   "repair", "capex", "utility", "insurance", "tax", "management", "supplies", "legal", "landscaping", "other",
 ];
 
-export function MoneyTab(): JSX.Element {
+export function MoneyTab(): ReactElement {
   const dossier = useDossier();
   const [showExpense, setShowExpense] = useState(false);
   const [description, setDescription] = useState("");
@@ -147,7 +147,7 @@ export function MoneyTab(): JSX.Element {
   );
 }
 
-function MoneyStat(props: { label: string; value: string; warn?: boolean }): JSX.Element {
+function MoneyStat(props: { label: string; value: string; warn?: boolean }): ReactElement {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3">
       <p className="text-xs uppercase tracking-wide text-slate-400">{props.label}</p>

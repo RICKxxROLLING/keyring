@@ -3,8 +3,9 @@ import { useDossier } from "../../lib/dossier-context";
 import { formatRelativeTime } from "../../lib/format";
 import { AttentionFeed } from "../../components/AttentionFeed";
 import { EmptyState } from "../../components/Form";
+import type { ReactElement } from "react";
 
-export function OverviewTab(): JSX.Element {
+export function OverviewTab(): ReactElement {
   const dossier = useDossier();
   const pinned = dossier.notes.filter((n) => n.pinned);
 

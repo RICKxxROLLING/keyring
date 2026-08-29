@@ -5,9 +5,10 @@ import { attentionSeverityDisplay, ATTENTION_KIND_LABEL } from "../lib/status";
 import { StatusPill } from "./StatusPill";
 import { EmptyState } from "./Form";
 import { AlertIcon } from "./icons";
+import type { ReactElement } from "react";
 
 /** Renders every AttentionKind (design §C4) — required by the dashboard acceptance criterion. */
-export function AttentionFeed(props: { items: AttentionItem[] }): JSX.Element {
+export function AttentionFeed(props: { items: AttentionItem[] }): ReactElement {
   if (props.items.length === 0) {
     return <EmptyState title="Nothing needs attention" detail="You're all caught up across every property." />;
   }

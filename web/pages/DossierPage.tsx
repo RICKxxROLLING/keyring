@@ -9,6 +9,7 @@ import { propertyStatusDisplay } from "../lib/status";
 import { StatusPill } from "../components/StatusPill";
 import { PropertyPresenceBar } from "../components/PresenceBar";
 import { ErrorNotice, Spinner } from "../components/Form";
+import type { ReactElement } from "react";
 
 const TABS = [
   { to: "overview", label: "Overview" },
@@ -24,7 +25,7 @@ const TABS = [
   { to: "timeline", label: "Timeline" },
 ];
 
-export function DossierPage(): JSX.Element {
+export function DossierPage(): ReactElement {
   const { propertyId } = useParams<{ propertyId: string }>();
   usePropertyChannel(propertyId ?? null);
 
@@ -92,7 +93,7 @@ export function DossierPage(): JSX.Element {
   );
 }
 
-function Fact(props: { label: string; value: string }): JSX.Element {
+function Fact(props: { label: string; value: string }): ReactElement {
   return (
     <div>
       <dt className="text-xs uppercase tracking-wide text-slate-400">{props.label}</dt>

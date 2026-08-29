@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { EntityType, User } from "../../shared/types";
 import { apiGet } from "../lib/api";
@@ -30,7 +30,7 @@ export function LockedTextArea(props: {
   rows?: number;
   className?: string;
   mentionable?: boolean;
-}): JSX.Element {
+}): ReactElement {
   const lock = useFieldLock({ entityType: props.entityType, entityId: props.entityId, field: props.field });
   const denied = lock.status === "denied";
   const ref = useRef<HTMLTextAreaElement>(null);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import type { TurnoverItem, TurnoverView } from "../../../shared/types";
@@ -18,7 +18,7 @@ const PHASE_LABEL: Record<string, string> = {
   complete: "Complete",
 };
 
-export function TurnoverTab(): JSX.Element {
+export function TurnoverTab(): ReactElement {
   const dossier = useDossier();
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
@@ -105,7 +105,7 @@ export function TurnoverTab(): JSX.Element {
   );
 }
 
-function TurnoverDialog(props: { turnover: TurnoverView; onClose: () => void; onChanged: () => void }): JSX.Element {
+function TurnoverDialog(props: { turnover: TurnoverView; onClose: () => void; onChanged: () => void }): ReactElement {
   const t = props.turnover;
   const [conditionNotes, setConditionNotes] = useState(t.conditionNotes ?? "");
 

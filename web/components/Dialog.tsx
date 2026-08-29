@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "./icons";
 import { IconButton } from "./Button";
@@ -9,7 +9,7 @@ export function Dialog(props: {
   title: string;
   children: ReactNode;
   wide?: boolean;
-}): JSX.Element | null {
+}): ReactElement | null {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

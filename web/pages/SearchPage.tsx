@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import type { Page, SearchHit } from "../../shared/types";
@@ -8,7 +8,7 @@ import { formatRelativeTime } from "../lib/format";
 import { EmptyState, Spinner, TextInput } from "../components/Form";
 import { SearchIcon } from "../components/icons";
 
-export function SearchPage(): JSX.Element {
+export function SearchPage(): ReactElement {
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState(params.get("q") ?? "");
 

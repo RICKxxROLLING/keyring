@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User, WorkOrderCommentView, WorkOrderStatus, WorkOrderView } from "../../shared/types";
 import { PRIORITIES, WORK_ORDER_STATUSES } from "../../shared/types";
@@ -14,7 +14,7 @@ import { StatusPill } from "./StatusPill";
 import { VersionConflictDialog } from "./VersionConflictDialog";
 import { CameraIcon } from "./icons";
 
-export function WorkOrderDetail(props: { workOrder: WorkOrderView; onClose: () => void }): JSX.Element {
+export function WorkOrderDetail(props: { workOrder: WorkOrderView; onClose: () => void }): ReactElement {
   const wo = props.workOrder;
   const queryClient = useQueryClient();
   const [description, setDescription] = useState(wo.description ?? "");

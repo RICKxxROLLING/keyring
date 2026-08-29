@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import type { PmFrequency, PmTemplate, WorkOrderView } from "../../../shared/types";
@@ -14,7 +14,7 @@ import { WorkOrderDetail } from "../../components/WorkOrderDetail";
 
 const FREQUENCIES: PmFrequency[] = ["monthly", "quarterly", "semiannual", "annual", "custom_days"];
 
-export function MaintenanceTab(): JSX.Element {
+export function MaintenanceTab(): ReactElement {
   const dossier = useDossier();
   const [params, setParams] = useSearchParams();
   const [showNewWo, setShowNewWo] = useState(false);

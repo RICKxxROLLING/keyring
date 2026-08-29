@@ -1,5 +1,6 @@
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
+import type { ReactElement } from "react";
 
 /**
  * Renders both copies on a VERSION_CONFLICT (409, design §C5.11 / §C10.5) and lets the user
@@ -14,7 +15,7 @@ export function VersionConflictDialog(props: {
   changedBy?: string;
   onKeepMine: () => void;
   onTakeTheirs: () => void;
-}): JSX.Element {
+}): ReactElement {
   return (
     <Dialog open={props.open} onClose={props.onClose} title="Someone else changed this" wide>
       <p className="mb-3 text-sm text-slate-600">

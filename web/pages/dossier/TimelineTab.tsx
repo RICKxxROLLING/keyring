@@ -6,8 +6,9 @@ import { qk } from "../../lib/query";
 import { useDossier } from "../../lib/dossier-context";
 import { formatRelativeTime } from "../../lib/format";
 import { EmptyState, ErrorNotice, Spinner } from "../../components/Form";
+import type { ReactElement } from "react";
 
-export function TimelineTab(): JSX.Element {
+export function TimelineTab(): ReactElement {
   const dossier = useDossier();
   const timeline = useQuery({
     queryKey: qk.timeline(dossier.property.id),

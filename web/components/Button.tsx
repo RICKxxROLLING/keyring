@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactElement } from "react";
 import { useOnlineStatus } from "../lib/offline";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
@@ -22,7 +22,7 @@ export function Button({
   disabled,
   allowOffline,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; allowOffline?: boolean }): JSX.Element {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; allowOffline?: boolean }): ReactElement {
   const online = useOnlineStatus();
   const offlineBlocked = !allowOffline && !online && (variant === "primary" || variant === "danger");
   return (
@@ -41,7 +41,7 @@ export function IconButton({
   className = "",
   label,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }): JSX.Element {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }): ReactElement {
   return (
     <button
       {...rest}

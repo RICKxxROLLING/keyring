@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, type ReactElement } from "react";
 import { formatRelativeTime } from "../lib/format";
 import { getLastOnline, markLastOnline, useOnlineStatus } from "../lib/offline";
 import { WifiOffIcon } from "./icons";
 
 /** Shown while offline: last-saved view + last-updated time, per design §C10.7. Never implies a queued write. */
-export function OfflineBanner(): JSX.Element {
+export function OfflineBanner(): ReactElement {
   const online = useOnlineStatus();
   const lastOnline = getLastOnline();
 

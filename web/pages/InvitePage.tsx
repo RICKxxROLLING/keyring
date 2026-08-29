@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactElement } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { EnrollmentChallenge, RecoveryCodes, SessionInfo } from "../../shared/types";
 import { apiGet, apiPost, ApiClientError } from "../lib/api";
@@ -14,7 +14,7 @@ interface InvitePreview {
   expiresAt: string;
 }
 
-export function InvitePage(): JSX.Element {
+export function InvitePage(): ReactElement {
   const { token } = useParams<{ token: string }>();
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [loadError, setLoadError] = useState(false);

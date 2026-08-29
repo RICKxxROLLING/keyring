@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, type ReactElement } from "react";
 import { encodeQrSvg } from "../lib/qrcode";
 
-export function QrCode(props: { text: string; size?: number }): JSX.Element {
+export function QrCode(props: { text: string; size?: number }): ReactElement {
   const svg = useMemo(() => encodeQrSvg(props.text), [props.text]);
   const size = props.size ?? 200;
 

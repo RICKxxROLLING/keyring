@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
+import type { ReactNode, ReactElement } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useSession } from "../lib/session";
 import { Spinner } from "./Form";
 
-export function RequireAuth(props: { children: ReactNode }): JSX.Element {
+export function RequireAuth(props: { children: ReactNode }): ReactElement {
   const { status, needsSetup } = useSession();
   const location = useLocation();
 
@@ -17,7 +17,7 @@ export function RequireAuth(props: { children: ReactNode }): JSX.Element {
   return <>{props.children}</>;
 }
 
-export function RequireOwner(props: { children: ReactNode }): JSX.Element {
+export function RequireOwner(props: { children: ReactNode }): ReactElement {
   const { session } = useSession();
   if (!session) return <Navigate to="/login" replace />;
   if (session.user.role !== "owner") {

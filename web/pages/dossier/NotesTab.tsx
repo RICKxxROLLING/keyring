@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { NoteView } from "../../../shared/types";
 import { apiDelete, apiPatch, apiPost, ApiClientError } from "../../lib/api";
@@ -11,7 +11,7 @@ import { LockedTextArea } from "../../components/LockedField";
 import { VersionConflictDialog } from "../../components/VersionConflictDialog";
 import { TrashIcon } from "../../components/icons";
 
-export function NotesTab(): JSX.Element {
+export function NotesTab(): ReactElement {
   const dossier = useDossier();
   const [newBody, setNewBody] = useState("");
   const queryClient = useQueryClient();
@@ -60,7 +60,7 @@ export function NotesTab(): JSX.Element {
   );
 }
 
-function NoteCard(props: { note: NoteView; propertyId: string; onChanged: () => void }): JSX.Element {
+function NoteCard(props: { note: NoteView; propertyId: string; onChanged: () => void }): ReactElement {
   const [draft, setDraft] = useState(props.note.body);
   const [conflict, setConflict] = useState<NoteView | null>(null);
   const [dirty, setDirty] = useState(false);

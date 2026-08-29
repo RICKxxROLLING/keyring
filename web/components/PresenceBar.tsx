@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactElement } from "react";
 import type { PresenceUser } from "../../shared/realtime";
 import { useGlobalPresence, usePresence } from "../lib/realtime";
 import { AvatarStack } from "./Avatar";
@@ -12,7 +12,7 @@ function dedupeByUser(users: PresenceUser[]) {
   return [...seen.values()];
 }
 
-export function GlobalPresenceBar(): JSX.Element | null {
+export function GlobalPresenceBar(): ReactElement | null {
   const presence = useGlobalPresence();
   const people = useMemo(() => dedupeByUser(presence), [presence]);
   if (people.length === 0) return null;
@@ -23,7 +23,7 @@ export function GlobalPresenceBar(): JSX.Element | null {
   );
 }
 
-export function PropertyPresenceBar(props: { propertyId: string }): JSX.Element | null {
+export function PropertyPresenceBar(props: { propertyId: string }): ReactElement | null {
   const presence = usePresence(props.propertyId);
   const people = useMemo(() => dedupeByUser(presence), [presence]);
   if (people.length === 0) return null;

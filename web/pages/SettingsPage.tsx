@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactElement } from "react";
 import type { RecoveryCodes, SessionInfo, User } from "../../shared/types";
 import { apiPatch, apiPost, ApiClientError } from "../lib/api";
 import { useSession } from "../lib/session";
@@ -7,13 +7,13 @@ import { ErrorNotice, Field, TextInput } from "../components/Form";
 
 const AVATAR_COLORS = ["#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed", "#0891b2"];
 
-export function SettingsPage(): JSX.Element {
+export function SettingsPage(): ReactElement {
   const { session, setSession } = useSession();
   if (!session) return <></>;
   return <SettingsForm session={session} setSession={setSession} />;
 }
 
-function SettingsForm(props: { session: SessionInfo; setSession: (s: SessionInfo) => void }): JSX.Element {
+function SettingsForm(props: { session: SessionInfo; setSession: (s: SessionInfo) => void }): ReactElement {
   const { session, setSession } = props;
   const [displayName, setDisplayName] = useState(session.user.displayName);
   const [avatarColor, setAvatarColor] = useState(session.user.avatarColor);

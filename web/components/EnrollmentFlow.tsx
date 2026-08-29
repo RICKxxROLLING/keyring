@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactElement } from "react";
 import type { EnrollmentChallenge, RecoveryCodes, SessionInfo } from "../../shared/types";
 import { ApiClientError } from "../lib/api";
 import { Button } from "./Button";
@@ -17,7 +17,7 @@ export function EnrollmentFlow(props: {
   enrollment: EnrollmentChallenge;
   onVerify: (code: string) => Promise<{ session: SessionInfo; recovery: RecoveryCodes }>;
   onComplete: (session: SessionInfo) => void;
-}): JSX.Element {
+}): ReactElement {
   const [step, setStep] = useState<Step>("qr");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);

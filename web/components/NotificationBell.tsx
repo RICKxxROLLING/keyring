@@ -4,12 +4,13 @@ import { apiGet } from "../lib/api";
 import { qk } from "../lib/query";
 import { useNotifications } from "../lib/realtime";
 import { BellIcon } from "./icons";
+import type { ReactElement } from "react";
 
 /**
  * The unread badge prefers the live socket count (design §C8.8) and falls back to — or is
  * topped up by — the polled REST count, since the inbox (not the socket) is the record.
  */
-export function NotificationBell(): JSX.Element {
+export function NotificationBell(): ReactElement {
   const live = useNotifications();
   const fetched = useQuery({
     queryKey: qk.unreadCount,
