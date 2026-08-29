@@ -76,13 +76,21 @@ describe("soft field locks", () => {
     a.send({ t: "lock.acquire", key: KEY });
     const granted1 = await a.waitFor((m) => m.t === "lock.granted");
     const expiresAt1 = granted1.t === "lock.granted" ? granted1.expiresAt : "";
+    // acquireLock also broadcasts an initial lock.state to the channel (with the same
+    // expiresAt as the grant) — drain it so the next waitFor below picks up the heartbeat's
+    // lock.state, not this stale one still sitting in the backlog.
+    await a.waitFor((m) => m.t === "lock.state" && m.channel === ch);
 
+    // Keep fake time active until the server has actually processed the heartbeat and replied —
+    // vi.useFakeTimers only fakes Date (not socket I/O), so the real WS round-trip still
+    // completes; restoring real time too early would make the server compute expiresAt from the
+    // (barely advanced) real clock instead, making the two timestamps indistinguishable.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(Date.now() + 5000));
     a.send({ t: "lock.heartbeat", key: KEY });
+    const state = await a.waitFor((m) => m.t === "lock.state" && m.channel === ch && m.locks.length > 0);
     vi.useRealTimers();
 
-    const state = await a.waitFor((m) => m.t === "lock.state" && m.channel === ch && m.locks.length > 0);
     const expiresAt2 = state.t === "lock.state" ? state.locks[0]!.expiresAt : "";
     expect(Date.parse(expiresAt2)).toBeGreaterThan(Date.parse(expiresAt1));
     a.close();
@@ -143,15 +151,17 @@ describe("soft field locks", () => {
     const stillDenied = await b.waitFor((m) => m.t === "lock.denied");
     expect(stillDenied).toMatchObject({ t: "lock.denied", key: KEY, holder: { id: alice.id } });
 
-    // Jump past the idle-takeover window.
+    // Jump past the idle-takeover window. Keep fake time active until both resulting frames
+    // have actually arrived — see the note in the heartbeat test above.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(Date.now() + LOCK_IDLE_TAKEOVER_MS + 1000));
     b.send({ t: "lock.acquire", key: KEY, force: true });
-    vi.useRealTimers();
 
     const released = await a.waitFor((m) => m.t === "lock.released");
-    expect(released).toMatchObject({ t: "lock.released", key: KEY, reason: "takeover" });
     const granted = await b.waitFor((m) => m.t === "lock.granted");
+    vi.useRealTimers();
+
+    expect(released).toMatchObject({ t: "lock.released", key: KEY, reason: "takeover" });
     expect(granted).toMatchObject({ t: "lock.granted", key: KEY, holder: { id: bob.id } });
 
     a.close();

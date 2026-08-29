@@ -100,7 +100,6 @@ export function acquireLock(connId: string, key: LockKey, force: boolean): void 
     }
     // Takeover succeeds.
     const oldConnId = existing.connId;
-    const oldHolder = existing.holder;
     const newExpiresAt = new Date(nowMs + LOCK_TTL_MS).toISOString();
     existing.connId = connId;
     existing.holder = conn.user;

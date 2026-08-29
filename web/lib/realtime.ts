@@ -575,7 +575,6 @@ export function useEntityEvents(handler: (e: EntityEvent) => void): void {
   handlerRef.current = handler;
   useEffect(() => {
     return store.addEntityListener((e) => handlerRef.current(e));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 
@@ -584,7 +583,6 @@ export function useResync(handler: () => void): void {
   handlerRef.current = handler;
   useEffect(() => {
     return store.addResyncListener(() => handlerRef.current());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 
@@ -610,7 +608,6 @@ export function useFieldLock(key: LockKey | null): FieldLock {
         store.send({ t: "lock.release", key });
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyStr]);
 
   if (!key) {
