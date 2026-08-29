@@ -36,10 +36,10 @@ export function LockedTextArea(props: {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [mentionQuery, setMentionQuery] = useState<{ start: number; query: string } | null>(null);
 
+  const release = lock.release;
   useEffect(() => {
-    return () => lock.release();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => release();
+  }, [release]);
 
   const usersQuery = useQuery({
     queryKey: USERS_QUERY_KEY,
