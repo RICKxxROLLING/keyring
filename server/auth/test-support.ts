@@ -48,8 +48,17 @@ export interface EnrolledAccount {
   recoveryCodes: string[];
 }
 
+/**
+ * Deliberately does NOT set `content-type`: `app.inject()` auto-detects and sets
+ * `application/json` when a `payload` object is present, and Fastify's JSON body parser
+ * rejects an *empty* body when content-type is forced to json but no payload is sent
+ * (e.g. `POST /api/auth/logout`, `POST /api/users/:id/totp/reset`) — that rejection
+ * happens during body-parsing, before any preHandler (auth/CSRF/role) even runs, so a
+ * hardcoded content-type here would mask real 401/403/409 assertions behind a spurious
+ * 400.
+ */
 export function authHeaders(a: EnrolledAccount): Record<string, string> {
-  return { cookie: a.sessionCookie, "x-csrf-token": a.csrfToken, "content-type": "application/json" };
+  return { cookie: a.sessionCookie, "x-csrf-token": a.csrfToken };
 }
 
 /** Full bootstrap dance: reads the generated setup token, bootstraps, verifies TOTP. */

@@ -164,6 +164,7 @@ describe("login (two-step)", () => {
 
   it("records the client IP via req.ip (trustProxy honors X-Forwarded-For)", async () => {
     ctx = await createTestApp();
+    await bootstrapOwner(ctx.app, ctx.dir); // login is SETUP_REQUIRED until setup completes
     await ctx.app.inject({
       method: "POST",
       url: "/api/auth/login",

@@ -15,7 +15,7 @@ function parseRoutes(tree: string): { method: string; path: string }[] {
   for (const rawLine of tree.split("\n")) {
     if (!rawLine.trim()) continue;
     let i = 0;
-    while (i + 4 <= rawLine.length && /^(│   |    |├── |└── )/.test(rawLine.slice(i))) {
+    while (i + 4 <= rawLine.length && /^(│ {3}| {4}|├── |└── )/.test(rawLine.slice(i))) {
       i += 4;
     }
     const depth = i / 4;

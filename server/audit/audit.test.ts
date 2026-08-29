@@ -1,9 +1,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createTestApp, createTestUser, type TestApp } from "../testing/harness.js";
+import { createTestApp, type TestApp } from "../testing/harness.js";
 import { getDb } from "../db/index.js";
-import { auditFromRequest, writeAudit } from "./audit.js";
+import { writeAudit } from "./audit.js";
 import {
   authHeaders,
   bootstrapOwner,
@@ -65,37 +65,26 @@ describe("audit log", () => {
   });
 
   it("auditFromRequest fills actor/ip/requestId from the authenticated request", async () => {
+    // Routes cannot be added to an already-`ready()` Fastify instance (frozen
+    // createTestApp() boots and readies the app), so exercise auditFromRequest through a
+    // real authenticated route instead of registering a throwaway one: PATCH
+    // /api/users/me runs `auditFromRequest` on every successful self-update.
     ctx = await createTestApp();
-    const user = createTestUser({ role: "owner" });
-    let capturedId = "";
-    ctx.app.get("/__test/audit-from-request", { preHandler: [] }, async (req) => {
-      // Simulate an authenticated request by decorating req.user directly, mirroring
-      // what requireAuth would have done.
-      (req as unknown as { user: typeof user }).user = {
-        id: user.id,
-        email: user.email,
-        handle: user.handle,
-        displayName: user.displayName,
-        role: user.role,
-        avatarColor: "#000000",
-      };
-      capturedId = auditFromRequest(req, {
-        action: "update",
-        entityType: "user",
-        entityId: user.id,
-        propertyId: null,
-        summary: "via auditFromRequest",
-      });
-      return { ok: true };
+    const owner = await bootstrapOwner(ctx.app, ctx.dir);
+    const res = await ctx.app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: authHeaders(owner),
+      payload: { displayName: "Renamed Via Audit Test", expectedVersion: 1 },
     });
-    await ctx.app.inject({ method: "GET", url: "/__test/audit-from-request" });
+    expect(res.statusCode).toBe(200);
     const db = getDb();
-    const row = db.prepare(`SELECT actor_user_id, actor_label FROM audit_log WHERE id = ?`).get(capturedId) as {
-      actor_user_id: string;
-      actor_label: string;
-    };
-    expect(row.actor_user_id).toBe(user.id);
-    expect(row.actor_label).toBe(user.displayName);
+    const row = db
+      .prepare(`SELECT actor_user_id, actor_label, ip, request_id FROM audit_log WHERE action = 'update' AND entity_id = ?`)
+      .get(owner.userId) as { actor_user_id: string; actor_label: string; ip: string | null; request_id: string | null };
+    expect(row.actor_user_id).toBe(owner.userId);
+    expect(row.request_id).toBeTruthy();
+    expect(row.actor_label).toBe("Owner Test");
   });
 
   it("no code path anywhere updates or deletes an audit_log row", () => {
@@ -241,6 +230,20 @@ describe("audit log", () => {
       return { ...owner, sessionCookie: setCookieHeader(totpRes), csrfToken: body.data!.csrfToken };
     })();
 
+    // recovery_used — while the manager is still active.
+    const loginRes2 = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: manager.email, password: manager.password },
+    });
+    const { mfaToken } = parseEnvelope<{ mfaToken: string }>(loginRes2).data!;
+    const recRes = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login/recovery",
+      payload: { mfaToken, recoveryCode: manager.recoveryCodes[0] },
+    });
+    expect(recRes.statusCode).toBe(200);
+
     // role_changed + user_deactivated: promote manager to owner, then deactivate them.
     const db = getDb();
     db.prepare(`UPDATE users SET role = 'owner' WHERE id = ?`).run(manager.userId);
@@ -278,21 +281,6 @@ describe("audit log", () => {
       headers: authHeaders(reOwner),
       payload: { currentPassword: reOwner.password, newPassword: "a brand new passphrase 2000" },
     });
-
-    // recovery_used
-    const loginRes2 = await ctx.app.inject({
-      method: "POST",
-      url: "/api/auth/login",
-      payload: { email: manager.email, password: manager.password },
-    });
-    if (loginRes2.statusCode === 200) {
-      const { mfaToken } = parseEnvelope<{ mfaToken: string }>(loginRes2).data!;
-      await ctx.app.inject({
-        method: "POST",
-        url: "/api/auth/login/recovery",
-        payload: { mfaToken, recoveryCode: manager.recoveryCodes[0] },
-      });
-    }
 
     const actions = (db.prepare(`SELECT DISTINCT action FROM audit_log`).all() as { action: string }[]).map(
       (r) => r.action,

@@ -3,7 +3,7 @@ import { createTestApp, type TestApp } from "../testing/harness.js";
 import { getDb } from "../db/index.js";
 import { newToken } from "../lib/ids.js";
 import { hashToken } from "./middleware.js";
-import { authHeaders, bootstrapOwner, issueAndAcceptInvite, parseEnvelope } from "./test-support.js";
+import { authHeaders, bootstrapOwner, issueAndAcceptInvite, parseEnvelope, totpCodeFor } from "./test-support.js";
 
 describe("invites", () => {
   let ctx: TestApp;
@@ -33,15 +33,27 @@ describe("invites", () => {
     expect(preview.role).toBe("manager");
     expect(preview.valid).toBe(true);
 
-    const manager = await issueAndAcceptInvite(ctx.app, owner, {
-      email: "manager@example.test",
-      handle: "mgr1",
-      displayName: "Manager One",
+    // Accept the SAME invite/token already issued above (issuing a second one for the
+    // same email would correctly CONFLICT — that behavior has its own test below).
+    const acceptRes = await ctx.app.inject({
+      method: "POST",
+      url: `/api/invites/${token}/accept`,
+      payload: { handle: "mgr1", displayName: "Manager One", password: "another very strong passphrase 1" },
     });
-    expect(manager.userId).toBeTruthy();
+    expect(acceptRes.statusCode).toBe(200);
+    const accepted = parseEnvelope<{ userId: string; mfaToken: string; enrollment: { secret: string } }>(
+      acceptRes,
+    ).data!;
+    const code = totpCodeFor(accepted.enrollment.secret, "manager@example.test");
+    const verifyRes = await ctx.app.inject({
+      method: "POST",
+      url: "/api/invites/accept/verify",
+      payload: { mfaToken: accepted.mfaToken, code },
+    });
+    expect(verifyRes.statusCode).toBe(200);
 
     const db = getDb();
-    const row = db.prepare(`SELECT role, totp_enrolled_at FROM users WHERE id = ?`).get(manager.userId) as {
+    const row = db.prepare(`SELECT role, totp_enrolled_at FROM users WHERE id = ?`).get(accepted.userId) as {
       role: string;
       totp_enrolled_at: string | null;
     };
