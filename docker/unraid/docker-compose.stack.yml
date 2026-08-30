@@ -1,0 +1,62 @@
+# Paste this into Unraid: Docker -> Compose -> Add New Stack -> Edit Stack.
+#
+# Differs from the repo's own docker-compose.yml in exactly one way that
+# matters: the build context is an ABSOLUTE path to the source on your array.
+# Compose Manager keeps each stack on the FLASH drive
+# (/boot/config/plugins/compose.manager/projects/<name>/), and you do not want
+# a Node build with node_modules and a native better-sqlite3/sharp compile
+# happening there. So the stack lives on flash; the code it builds does not.
+#
+# The service is named `stoop` on purpose — every command in README.md,
+# docs/OPERATIONS.md and docs/RESTORE.md says `docker compose exec stoop ...`.
+# It gets renamed with the rest of the Keyring rebrand, not before.
+
+services:
+  stoop:
+    build:
+      context: /mnt/user/appdata/keyring/src
+    image: stoop:latest
+    container_name: stoop
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TZ: ${APP_TIMEZONE:-America/New_York}
+    ports:
+      # LAN access. Not needed once the tunnel is up — cloudflared dials out,
+      # so nothing has to be published. 8088 rather than 8080 because 8080
+      # collides with a lot of Unraid containers.
+      - "${STOOP_PORT:-8088}:8080"
+    volumes:
+      # Everything persistent: the database, uploads, backups, setup token.
+      # Deliberately NOT inside the src directory, so replacing the source to
+      # upgrade can never touch your data.
+      - ${STOOP_DATA_DIR:-/mnt/user/appdata/keyring/data}:/data
+    healthcheck:
+      test: ["CMD", "node", "/healthcheck.mjs"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  # ---------------------------------------------------------------------
+  # Uncomment once the app is working on your LAN and you have a tunnel token.
+  # Doing it in two stages means that if something breaks you know whether it
+  # was the app or Cloudflare.
+  #
+  # Before uncommenting, set in .env:
+  #   TUNNEL_TOKEN   your Cloudflare tunnel connector token
+  #   APP_ORIGIN     the https:// hostname, exactly — it gates Secure cookies
+  #                  and the WebSocket origin check, and a mismatch shows up
+  #                  as login loops rather than an obvious error
+  # ---------------------------------------------------------------------
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: stoop-cloudflared
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+  #   depends_on:
+  #     stoop:
+  #       condition: service_healthy

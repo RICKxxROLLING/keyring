@@ -212,3 +212,28 @@ resolved client IP, which makes this obvious in seconds.
 **Ownership problems on `/data`.** The entrypoint chowns it only when the
 current owner differs from `PUID:PGID`, so it will not walk thousands of upload
 files on every boot. If you change `PUID`/`PGID` later, expect one slow start.
+
+---
+
+## Ready-made stack files
+
+`docker/unraid/` in this repo holds two files sized for copy-paste into the
+Compose Manager UI, so you do not have to adapt the root `docker-compose.yml`
+by hand:
+
+| File | Paste into |
+|---|---|
+| `docker/unraid/docker-compose.stack.yml` | **Edit Stack** |
+| `docker/unraid/stack.env` | **Edit .env** |
+
+The stack file differs from the repo's root compose in one way that matters:
+its build context is the absolute path `/mnt/user/appdata/keyring/src`, so the
+stack can live on the flash drive while the build happens on the array.
+
+`cloudflared` ships **commented out**. Bring the app up on your LAN first and
+confirm it works, then uncomment it and switch `APP_ORIGIN` to the https
+hostname. Two stages means a failure tells you whether it was the app or
+Cloudflare, instead of leaving you guessing.
+
+Fill in the four values marked `CHANGE ME` in `stack.env`: `APP_ORIGIN`,
+`SESSION_SECRET`, `BACKUP_PASSPHRASE`, and (later) `TUNNEL_TOKEN`.
