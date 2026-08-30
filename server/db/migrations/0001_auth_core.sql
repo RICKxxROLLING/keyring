@@ -125,4 +125,4 @@ CREATE INDEX ix_audit_entity   ON audit_log (entity_type, entity_id, at DESC);
 CREATE INDEX ix_audit_property ON audit_log (property_id, at DESC);
 CREATE INDEX ix_audit_actor    ON audit_log (actor_user_id, at DESC);
 
-INSERT INTO app_meta (key, value) VALUES ('schema_owner', 'keyring');
+INSERT INTO app_meta (key, value) VALUES ('schema_owner', 'stoop');
