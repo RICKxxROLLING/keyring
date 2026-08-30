@@ -94,6 +94,16 @@ portfolio.
 | `npm run lint` / `npm run typecheck` / `npm test` | The three-part CI gate |
 | `npm run check` | All three, in order |
 
+**Inside the Docker container, use the `:prod` variants** — `migrate:prod`,
+`seed:prod`, `backup:prod`, `restore:prod`. The four scripts above run
+TypeScript through `tsx`, which is a devDependency, and the runtime image runs
+`npm prune --omit=dev`; the `:prod` scripts run the compiled `dist/` build
+instead. For example, to load demo data into a fresh deployment:
+
+```
+docker compose exec stoop npm run seed:prod
+```
+
 ## Repository layout
 
 ```

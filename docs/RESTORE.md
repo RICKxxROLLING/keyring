@@ -182,18 +182,47 @@ no "partial decrypt" that produces plausible garbage.
 Once you have a real `docker compose`-managed deployment, the same commands
 run inside the container against the real `/data` volume:
 
+Two things differ inside the container, and both will bite you if you copy the
+development commands verbatim:
+
+- **Use the `:prod` scripts.** The runtime image runs `npm prune --omit=dev`, so
+  `tsx` — which `npm run restore` uses — does not exist there. `restore:prod`
+  runs the compiled `dist/` equivalent.
+- **`rsync` is not installed.** The runtime image is `node:24-bookworm-slim`
+  plus `gosu` and `tini`; nothing else. Use `cp` and `rm`.
+
+Each step runs in its own one-off container, so `/tmp` does not persist between
+them — do the restore, the review, and the copy in a **single** shell so the
+scratch directory survives:
+
 ```
 docker compose stop stoop
-docker compose run --rm stoop npm run restore -- \
-  --archive /data/backups/stoop-<ts>.tar.gz.enc \
-  --out /tmp/stoop-restore-scratch
-# review the printed integrity check and row counts — do not proceed if
-# integrity_check is not "ok" or the row counts look wrong
-docker compose run --rm stoop cp /tmp/stoop-restore-scratch/stoop.db /data/stoop.db
-docker compose run --rm stoop sh -c 'rm -f /data/stoop.db-wal /data/stoop.db-shm'
-docker compose run --rm stoop rsync -a --delete /tmp/stoop-restore-scratch/uploads/ /data/uploads/
+
+docker compose run --rm stoop sh -c '
+  npm run restore:prod -- \
+    --archive /data/backups/stoop-<ts>.tar.gz.enc \
+    --out /tmp/restore-scratch
+'
+# Review the printed integrity check and row counts above. Do NOT continue if
+# integrity_check is not "ok" or the row counts look wrong.
+
+docker compose run --rm stoop sh -c '
+  set -e
+  npm run restore:prod -- \
+    --archive /data/backups/stoop-<ts>.tar.gz.enc \
+    --out /tmp/restore-scratch
+  cp /tmp/restore-scratch/stoop.db /data/stoop.db
+  rm -f /data/stoop.db-wal /data/stoop.db-shm
+  rm -rf /data/uploads
+  cp -a /tmp/restore-scratch/uploads /data/uploads
+'
+
 docker compose start stoop
 ```
+
+The restore is run twice on purpose: once to read the integrity report before
+you commit to anything, and once to actually overwrite `/data`. It is a pure
+decrypt-and-extract into a scratch path, so running it twice is harmless.
 
 (Or open a shell in a one-off container with the `/data` volume attached and
 run the equivalent commands directly — whichever is more convenient for your

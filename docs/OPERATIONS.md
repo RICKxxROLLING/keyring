@@ -156,14 +156,23 @@ The short version:
 
 ```
 docker compose stop stoop
-npm run restore -- --archive /data/backups/stoop-<ts>.tar.gz.enc \
-                   --out /tmp/stoop-restore-scratch
-# review the printed integrity check and row counts
-cp /tmp/stoop-restore-scratch/stoop.db /data/stoop.db
-rm -f /data/stoop.db-wal /data/stoop.db-shm
-rsync -a --delete /tmp/stoop-restore-scratch/uploads/ /data/uploads/
+docker compose run --rm stoop sh -c '
+  set -e
+  npm run restore:prod -- --archive /data/backups/stoop-<ts>.tar.gz.enc \
+                          --out /tmp/restore-scratch
+  # review the printed integrity check and row counts before the copy below
+  cp /tmp/restore-scratch/stoop.db /data/stoop.db
+  rm -f /data/stoop.db-wal /data/stoop.db-shm
+  rm -rf /data/uploads && cp -a /tmp/restore-scratch/uploads /data/uploads
+'
 docker compose start stoop
 ```
+
+Note `restore:prod`, not `restore`: the runtime image prunes devDependencies,
+so `tsx` is absent and the `:prod` scripts run the compiled `dist/` build
+instead. `rsync` is not installed in the image either — hence `cp -a`.
+`docs/RESTORE.md` gives the safer two-pass version, where you read the
+integrity report before anything overwrites `/data`.
 
 "We have backups" and "we have restored a backup" are different claims —
 `docs/RESTORE.md` exists specifically to make the second one true, with real
