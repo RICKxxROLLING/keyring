@@ -30,7 +30,16 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   runMigrations(db);
 
   const app = Fastify({
-    trustProxy: env.TRUST_PROXY,
+    // TRUST_PROXY is `boolean | number` (a numeric hop count is a documented,
+    // supported value — see §C12). Fastify's option type accepts only
+    // boolean | string | string[] | TrustProxyFunction, so a raw number fails
+    // EVERY fastify() overload; TypeScript then falls through to the last one
+    // (HTTP/2 secure) and infers the whole instance as Http2SecureServer, which
+    // cascaded into 7 further errors at the register* seam below.
+    // proxy-addr accepts the hop count as a string, so normalise here — one
+    // boundary, no cast, and the numeric form stays configurable.
+    trustProxy:
+      typeof env.TRUST_PROXY === "number" ? String(env.TRUST_PROXY) : env.TRUST_PROXY,
     genReqId: () => newId("req"),
     bodyLimit: 1_000_000,
     logger: {

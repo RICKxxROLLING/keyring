@@ -2,7 +2,19 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist/**", "node_modules/**", "web/public/sw.js", "coverage/**"] },
+  // Patterns are recursive (**/) because the agent worktrees under .claude/ are
+  // nested INSIDE the repo: the root-anchored "dist/**" did not match
+  // .claude/worktrees/*/dist/, so eslint was linting a minified production
+  // bundle and reporting ~1900 phantom errors from it.
+  {
+    ignores: [
+      ".claude/**",
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/web/public/sw.js",
+      "**/coverage/**",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

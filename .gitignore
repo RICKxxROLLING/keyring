@@ -4,9 +4,10 @@ dist/
 *.db
 *.db-shm
 *.db-wal
-data/
-uploads/
-backups/
+# Runtime state lives under DATA_DIR. Anchored with a leading slash: the bare
+# patterns "uploads/" and "backups/" also matched server/uploads/ (source code),
+# silently excluding it from `git add`. See .crew/*/known-defects.md D6.
+/data/
 .crew/
 
 # T5 additions — append only, never remove a line above.
@@ -17,3 +18,4 @@ coverage/
 setup-token.txt
 .DS_Store
 Thumbs.db
+.claude/
