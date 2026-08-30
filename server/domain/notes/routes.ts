@@ -118,7 +118,6 @@ export function registerNoteRoutes(app: FastifyInstance, _ctx: AppContext): void
     const { id } = parseParams(req, IdParamSchema);
     const body = parseBody(req, PatchNoteSchema);
     const { expectedVersion, ...patch } = body;
-    const existing = getNoteRow(id);
     const view = tx(() => {
       const changes = patchWithVersionGuard({ table: "notes", id, patch, expectedVersion, actorId: user.id });
       assertVersionMatch({
