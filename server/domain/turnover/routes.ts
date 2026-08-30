@@ -37,7 +37,16 @@ const CreateTurnoverSchema = z
   })
   .strict();
 
-const PatchTurnoverSchema = CreateTurnoverSchema.partial().extend({ expectedVersion: zVersion }).strict();
+// See properties/routes.ts for why defaulted fields must be re-declared without a default here.
+const PatchTurnoverSchema = CreateTurnoverSchema.partial()
+  .extend({
+    phase: z.enum(PHASES).optional(),
+    depositHeldCents: zCents.optional(),
+    depositWithheldCents: zCents.optional(),
+    depositReturnedCents: zCents.optional(),
+    expectedVersion: zVersion,
+  })
+  .strict();
 
 const CreateItemSchema = z
   .object({

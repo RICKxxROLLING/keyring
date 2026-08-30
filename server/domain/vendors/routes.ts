@@ -31,7 +31,10 @@ const CreateVendorSchema = z
   })
   .strict();
 
-const PatchVendorSchema = CreateVendorSchema.partial().extend({ expectedVersion: zVersion }).strict();
+// See properties/routes.ts for why defaulted fields must be re-declared without a default here.
+const PatchVendorSchema = CreateVendorSchema.partial()
+  .extend({ preferred: z.boolean().optional(), expectedVersion: zVersion })
+  .strict();
 
 const ListQuerySchema = z
   .object({ q: z.string().trim().max(200).optional(), trade: z.string().trim().max(100).optional(), includeArchived: z.coerce.boolean().default(false) })

@@ -24,7 +24,10 @@ const CreateNoteSchema = z
   })
   .strict();
 
-const PatchNoteSchema = CreateNoteSchema.partial().extend({ expectedVersion: zVersion }).strict();
+// See properties/routes.ts for why defaulted fields must be re-declared without a default here.
+const PatchNoteSchema = CreateNoteSchema.partial()
+  .extend({ pinned: z.boolean().optional(), expectedVersion: zVersion })
+  .strict();
 
 const ListQuerySchema = z
   .object({

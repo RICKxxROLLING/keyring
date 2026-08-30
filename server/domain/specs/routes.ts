@@ -36,7 +36,10 @@ const CreateSpecSchema = z
   })
   .strict();
 
-const PatchSpecSchema = CreateSpecSchema.partial().extend({ expectedVersion: zVersion }).strict();
+// See properties/routes.ts for why defaulted fields must be re-declared without a default here.
+const PatchSpecSchema = CreateSpecSchema.partial()
+  .extend({ isSecret: z.boolean().optional(), expectedVersion: zVersion })
+  .strict();
 
 /** Never let a secret's value leak into an audit payload. */
 function auditSafe(body: Record<string, unknown>, isSecret: boolean): Record<string, unknown> {

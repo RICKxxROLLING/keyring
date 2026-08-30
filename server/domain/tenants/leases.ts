@@ -47,7 +47,21 @@ const CreateLeaseSchema = z
   })
   .strict();
 
-const PatchLeaseSchema = CreateLeaseSchema.partial().extend({ expectedVersion: zVersion }).strict();
+// zod re-applies a field's .default(...) for any omitted key even through .partial()'s
+// .optional() wrapper, which would otherwise silently reset depositCents/dueDay/status/
+// renewalNoticeDays/tenantIds to their create-time defaults on every unrelated PATCH (for
+// tenantIds specifically: unlinking every tenant from the lease). Re-declare each without a
+// default so an omitted key truly stays untouched, per §C4's PatchInput contract.
+const PatchLeaseSchema = CreateLeaseSchema.partial()
+  .extend({
+    depositCents: zCents.optional(),
+    dueDay: z.number().int().min(1).max(28).optional(),
+    status: z.enum(["upcoming", "active", "ended", "terminated"]).optional(),
+    renewalNoticeDays: z.number().int().nonnegative().optional(),
+    tenantIds: z.array(zId).optional(),
+    expectedVersion: zVersion,
+  })
+  .strict();
 
 function setLeaseTenants(leaseId: string, tenantIds: string[]): void {
   const db = getDb();

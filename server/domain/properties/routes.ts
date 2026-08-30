@@ -71,8 +71,16 @@ const CreatePropertySchema = z
   })
   .strict();
 
+// .partial() on a field that carries .default(...) would otherwise resurrect that default on
+// every PATCH that omits the field, silently overwriting it (zod applies defaults for absent
+// keys even through .optional()). Re-declare defaulted fields here without a default so an
+// omitted key truly stays untouched, per §C4's PatchInput contract.
 const PatchPropertySchema = CreatePropertySchema.partial()
-  .extend({ expectedVersion: zVersion })
+  .extend({
+    country: zText(2).optional(),
+    sortOrder: z.number().int().optional(),
+    expectedVersion: zVersion,
+  })
   .strict();
 
 const ListQuerySchema = z.object({ includeArchived: z.coerce.boolean().default(false) }).strict();
@@ -91,7 +99,13 @@ const CreateUnitSchema = z
   })
   .strict();
 
-const PatchUnitSchema = CreateUnitSchema.partial().extend({ expectedVersion: zVersion }).strict();
+const PatchUnitSchema = CreateUnitSchema.partial()
+  .extend({
+    status: z.enum(["occupied", "vacant", "make_ready", "offline"]).optional(),
+    sortOrder: z.number().int().optional(),
+    expectedVersion: zVersion,
+  })
+  .strict();
 
 export function registerPropertyRoutes(app: FastifyInstance, _ctx: AppContext): void {
   const db = getDb();

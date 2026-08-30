@@ -35,7 +35,15 @@ const CreateComplianceSchema = z
   })
   .strict();
 
-const PatchComplianceSchema = CreateComplianceSchema.partial().extend({ expectedVersion: zVersion }).strict();
+// See properties/routes.ts for why defaulted fields must be re-declared without a default here.
+const PatchComplianceSchema = CreateComplianceSchema.partial()
+  .extend({
+    leadDays: z.number().int().nonnegative().optional(),
+    recurrence: z.enum(RECURRENCE).optional(),
+    state: z.enum(["open", "done", "waived"]).optional(),
+    expectedVersion: zVersion,
+  })
+  .strict();
 
 const CompleteSchema = z
   .object({ completedOn: zIsoDate, costCents: zCents.optional(), expectedVersion: zVersion })

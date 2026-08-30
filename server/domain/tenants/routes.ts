@@ -32,7 +32,10 @@ const CreateTenantSchema = z
   })
   .strict();
 
-const PatchTenantSchema = CreateTenantSchema.partial().extend({ expectedVersion: zVersion }).strict();
+// See properties/routes.ts for why defaulted fields must be re-declared without a default here.
+const PatchTenantSchema = CreateTenantSchema.partial()
+  .extend({ isPrimary: z.boolean().optional(), expectedVersion: zVersion })
+  .strict();
 
 export function registerTenantRoutes(app: FastifyInstance, ctx: AppContext): void {
   const db = getDb();

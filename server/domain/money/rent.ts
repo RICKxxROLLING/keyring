@@ -53,7 +53,10 @@ const CreateRentSchema = z
   })
   .strict();
 
-const PatchRentSchema = CreateRentSchema.partial().extend({ expectedVersion: zVersion }).strict();
+// See properties/routes.ts for why defaulted fields must be re-declared without a default here.
+const PatchRentSchema = CreateRentSchema.partial()
+  .extend({ amountReceivedCents: zCents.optional(), expectedVersion: zVersion })
+  .strict();
 
 /** Idempotent per (unit, period) via ux_rent_unit_period. Used by POST {P}/rent/generate and
  * the monthly `rent-roll` job. Returns every row for that period (created + already existing). */

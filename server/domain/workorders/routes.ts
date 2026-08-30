@@ -55,8 +55,9 @@ const CreateWorkOrderSchema = z
   })
   .strict();
 
+// See properties/routes.ts for why defaulted fields must be re-declared without a default here.
 const PatchWorkOrderSchema = CreateWorkOrderSchema.partial()
-  .extend({ expectedVersion: zVersion })
+  .extend({ status: StatusEnum.optional(), priority: PriorityEnum.optional(), expectedVersion: zVersion })
   .strict();
 
 const ListQuerySchema = z

@@ -34,7 +34,10 @@ const CreateProjectSchema = z
   })
   .strict();
 
-const PatchProjectSchema = CreateProjectSchema.partial().extend({ expectedVersion: zVersion }).strict();
+// See properties/routes.ts for why defaulted fields must be re-declared without a default here.
+const PatchProjectSchema = CreateProjectSchema.partial()
+  .extend({ status: StatusEnum.optional(), priority: PriorityEnum.optional(), expectedVersion: zVersion })
+  .strict();
 
 export function registerProjectRoutes(app: FastifyInstance, ctx: AppContext): void {
   const db = getDb();

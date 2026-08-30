@@ -30,8 +30,11 @@ export function patchWithVersionGuard(opts: {
   const setClauses = cols.map((c) => `${c} = ?`);
   setClauses.push("updated_at = ?", "updated_by = ?", "version = version + 1");
   const sql = `UPDATE ${opts.table} SET ${setClauses.join(", ")} WHERE id = ? AND version = ?`;
+  // SQLite (via better-sqlite3) cannot bind a raw JS boolean; every *_cents/status/flag column
+  // is INTEGER 0/1 or TEXT, never a JS boolean at the storage layer.
+  const toBindable = (v: unknown): unknown => (typeof v === "boolean" ? (v ? 1 : 0) : v);
   const params = [
-    ...cols.map((c) => snake[c]),
+    ...cols.map((c) => toBindable(snake[c])),
     nowIso(),
     opts.actorId,
     opts.id,
