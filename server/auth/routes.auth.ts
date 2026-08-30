@@ -14,7 +14,8 @@ import { accountKey, assertNotLockedOut, recordFailure, recordSuccess } from "./
 import { clearUnusedRecoveryCodes, consumeRecoveryCode, issueRecoveryCodes } from "./recovery.js";
 import { toUser, type UserRow } from "./serialize.js";
 import { clearSessionCookies, createSession, revokeSession, setSessionCookies } from "./session.js";
-import { verifyTotpCode } from "./totp.js";
+import { totpEnrollmentUri, verifyTotpCode } from "./totp.js";
+import { completeEnrollment } from "./enroll.js";
 
 const AUTH_RATE_LIMIT = { max: 10, timeWindow: "5 minutes" } as const;
 
@@ -98,9 +99,49 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       });
       return genericFail();
     }
+    // An owner reset this user's TOTP: the secret was regenerated but they
+    // have not confirmed it yet (totp_enrolled_at IS NULL). Hand back an
+    // ENROLL challenge with the otpauth URI so they can re-enroll themselves,
+    // instead of a login challenge they could never satisfy. The password
+    // check above has already passed, so this is not a bypass — it is the
+    // same standard the invite flow uses to enroll a new account.
+    if (row.totp_secret && !row.totp_enrolled_at) {
+      const { mfaToken, expiresAt } = createMfaChallenge(row.id, "enroll");
+      return ok({
+        mfaToken,
+        expiresAt,
+        enrollment: {
+          secret: row.totp_secret,
+          otpauthUrl: totpEnrollmentUri(row.totp_secret, row.email),
+        },
+      });
+    }
+
     const { mfaToken, expiresAt } = createMfaChallenge(row.id, "login");
     return ok({ mfaToken, expiresAt });
   });
+
+  /**
+   * Confirm a re-enrollment started by POST /api/auth/login above, after an
+   * owner reset this user's TOTP. Same shape as the bootstrap and
+   * invite-accept verify endpoints: consumes the "enroll" challenge, stamps
+   * totp_enrolled_at, issues a fresh set of recovery codes (the old ones were
+   * cleared at reset), and signs the user in.
+   */
+  app.post(
+    "/api/auth/login/enroll",
+    { config: { rateLimit: AUTH_RATE_LIMIT } },
+    async (req, reply) => {
+      const body = parseBody(req, MfaCodeSchema);
+      return completeEnrollment(
+        body.mfaToken,
+        body.code,
+        req,
+        reply,
+        "Re-enrolled TOTP after an administrative reset, and signed in.",
+      );
+    },
+  );
 
   app.post(
     "/api/auth/login/totp",

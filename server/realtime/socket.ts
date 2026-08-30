@@ -6,6 +6,8 @@ import * as presence from "./presence.js";
 import * as locks from "./locks.js";
 import * as drafts from "./drafts.js";
 import { nowIso } from "../lib/time.js";
+import { logger } from "../lib/logger.js";
+import { parseClientFrame } from "./frames.js";
 import type { ResolvedSession } from "../auth/middleware.js";
 import {
   RT_PROTOCOL_VERSION,
@@ -141,13 +143,25 @@ export function handleConnection(socket: WsLike, session: ResolvedSession): void
   }
 
   socket.on("message", (...args: unknown[]) => {
-    const raw = args[0];
-    let msg: ClientMessage;
-    try {
-      msg = JSON.parse(String(raw)) as ClientMessage;
-    } catch {
-      return; // malformed frame — ignore
+    // Every inbound frame is untrusted. Validate the SHAPE before dispatch —
+    // a well-formed-JSON frame with wrong types used to throw inside this
+    // listener, which is an uncaught exception and takes the process down.
+    const parsed = parseClientFrame(args[0]);
+    if (!parsed.ok) {
+      // Routine on a public endpoint (stale cached clients, probes). Tell the
+      // sender non-fatally and carry on; never throw, never close.
+      if (helloReceived) {
+        sendRaw(socket, {
+          t: "error",
+          code: "BAD_REQUEST",
+          message: `Malformed frame (${parsed.reason}).`,
+          fatal: false,
+        });
+      }
+      return;
     }
+    const msg = parsed.msg;
+
     if (!helloReceived) {
       if (msg.t !== "hello") return; // server sends nothing before hello; ignore anything else
       if (msg.csrf !== session.csrfToken) {
@@ -158,7 +172,25 @@ export function handleConnection(socket: WsLike, session: ResolvedSession): void
       completeHello();
       return;
     }
-    dispatch(msg);
+
+    // Belt and braces: schema validation makes the known throws unreachable,
+    // but a bug anywhere downstream of dispatch would otherwise still be an
+    // uncaught exception in a ws listener. One connection's bad frame must
+    // never be able to end the process for the other two managers.
+    try {
+      dispatch(msg);
+    } catch (err) {
+      logger.error(
+        { err: err instanceof Error ? err.message : String(err), connId, frame: msg.t },
+        "realtime: dispatch threw",
+      );
+      sendRaw(socket, {
+        t: "error",
+        code: "INTERNAL",
+        message: "Could not process that frame.",
+        fatal: false,
+      });
+    }
   });
 
   socket.on("close", () => {

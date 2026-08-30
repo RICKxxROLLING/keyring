@@ -94,7 +94,7 @@ comment. The ones that matter most for this deployment:
 | Variable | Why it matters here |
 |---|---|
 | `APP_ORIGIN` | Must be the real `https://` tunnel hostname. Drives `Secure` cookies, HSTS, and the WebSocket `Origin` check — get this wrong and either cookies won't stick or the app will refuse the origin. |
-| `TRUST_PROXY` | `true` by default, correct behind `cloudflared`. If this is wrong, every request appears to come from the tunnel's own address: rate limiting and auth lockout become global (one bad login attempt from anywhere locks out everyone), and every audit-log IP becomes useless. `GET /api/ops/info` and the request logs show the resolved client IP, so a misconfiguration is visible immediately — check that a request from your own machine doesn't show up as `cloudflared`'s or Cloudflare's own address. |
+| `TRUST_PROXY` | **`loopback,uniquelocal` by default** — believe `X-Forwarded-For` only when the immediate peer is on loopback or an RFC1918/ULA range, i.e. the `cloudflared` sidecar on the Docker network. Do **not** set this to `true`: that trusts the whole chain, making `req.ip` the leftmost `X-Forwarded-For` value — a header the *client* writes. Both rate limiters key on `req.ip`, so `true` lets anyone defeat them by rotating one header, and makes every `audit_log.ip` forgeable. Do **not** set a hop count either: this Fastify version deliberately fails closed on a numeric value ("hop-count-only trust cannot validate the immediate peer"), so a number trusts *nothing* and collapses every request onto the sidecar's own address — the app treats a bare number as a misconfiguration and falls back to the default. Accepts IPs, CIDR ranges, and the presets `loopback`, `linklocal`, `uniquelocal`, comma-separated. `GET /api/ops/info` and the request logs show the resolved client IP, so a misconfiguration is visible immediately — check that a request from your own machine doesn't show up as `cloudflared`'s or Cloudflare's own address. |
 | `SESSION_SECRET` | ≥32 random characters, required in production. Treat it as a secret. |
 | `BACKUP_PASSPHRASE` | The one thing this whole document keeps repeating. |
 | `PUID` / `PGID` | Set to match the Unraid user that should own `/data` on disk (defaults `99`/`100` — Unraid's `nobody`/`users`). |
@@ -210,10 +210,31 @@ comfortable with — there's no forced expiry beyond `SESSION_TTL_HOURS`.
 
 ## Running behind the Cloudflare Tunnel
 
-- `TRUST_PROXY=true` (the default) tells Fastify to trust the `X-Forwarded-*`
-  headers `cloudflared` sets, so `req.ip` (used for rate limiting, lockouts,
-  and audit-log IPs) resolves to the real client address instead of
-  `cloudflared`'s own.
+- `TRUST_PROXY=loopback,uniquelocal` (the default) tells Fastify to believe
+  `X-Forwarded-For` **only when the immediate peer is on a private or loopback
+  address** — which the `cloudflared` sidecar is, on the Docker bridge network.
+  So `req.ip` (used for rate limiting, lockouts, and audit-log IPs) resolves to
+  the real client address instead of `cloudflared`'s own, and a client out on
+  the internet cannot get a forged header believed, because it cannot connect
+  from a private address.
+
+  > **Do not set this to `true`.** `true` means "trust every address in the
+  > chain", and `proxy-addr` then resolves `req.ip` to the **leftmost**
+  > `X-Forwarded-For` entry — which is written by the client, not by
+  > cloudflared. On a public hostname that hands any caller control of
+  > `req.ip`: both rate limiters are defeated by rotating one header, and
+  > every IP recorded in the audit log becomes forgeable.
+  >
+  > **Do not set a hop count either.** This Fastify version deliberately fails
+  > closed on a numeric `trustProxy` — its own comment reads "hop-count-only
+  > trust cannot validate the immediate peer" — so a number trusts *nothing*,
+  > and every request is attributed to the sidecar's address. That is the
+  > opposite failure: rate limiting and lockout become global, and one bad
+  > actor can lock out all three users. The app treats a bare number as a
+  > misconfiguration and falls back to the default.
+  >
+  > If you put another proxy in front of cloudflared, add its address or range
+  > to the list (`loopback,uniquelocal,203.0.113.4`) rather than counting hops.
 - `APP_ORIGIN` must be the `https://` hostname you configured in the tunnel.
   This makes `SECURE_COOKIES` true automatically, which makes the session
   cookie `Secure` (browsers will not send it over plain HTTP) and turns on

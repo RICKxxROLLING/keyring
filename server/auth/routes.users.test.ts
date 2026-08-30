@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createTestApp, type TestApp } from "../testing/harness.js";
 import { getDb } from "../db/index.js";
-import { authHeaders, bootstrapOwner, issueAndAcceptInvite, parseEnvelope } from "./test-support.js";
+import { authHeaders, bootstrapOwner, issueAndAcceptInvite, parseEnvelope, totpCodeFor } from "./test-support.js";
 
 describe("users", () => {
   let ctx: TestApp;
@@ -116,7 +116,7 @@ describe("users", () => {
     expect(res.statusCode).toBe(409);
   });
 
-  it("totp/reset on a real target clears the secret, revokes sessions, and is audited", async () => {
+  it("totp/reset re-arms enrollment, voids recovery codes, revokes sessions, and is audited", async () => {
     ctx = await createTestApp();
     const owner = await bootstrapOwner(ctx.app, ctx.dir);
     const manager = await issueAndAcceptInvite(ctx.app, owner);
@@ -132,8 +132,22 @@ describe("users", () => {
     const row = db
       .prepare(`SELECT totp_secret, totp_enrolled_at FROM users WHERE id = ?`)
       .get(manager.userId) as { totp_secret: string | null; totp_enrolled_at: string | null };
-    expect(row.totp_secret).toBeNull();
+    // A FRESH secret is issued rather than nulled. Nulling it left the account
+    // with no re-enrollment path at all — completeEnrollment() needs an
+    // "enroll" challenge against an existing secret, and only bootstrap and
+    // invite-accept could mint one — so the account dropped to single factor
+    // and became permanently locked out once its recovery codes were spent.
+    expect(row.totp_secret).toBeTruthy();
+    // ...but they are NOT enrolled: this is what makes POST /api/auth/login
+    // hand back an EnrollmentChallenge instead of a login challenge.
     expect(row.totp_enrolled_at).toBeNull();
+
+    // Unused recovery codes are voided, so the gap between reset and
+    // re-enrollment is not a single-factor window.
+    const codes = db
+      .prepare(`SELECT COUNT(*) AS n FROM recovery_codes WHERE user_id = ? AND used_at IS NULL`)
+      .get(manager.userId) as { n: number };
+    expect(codes.n).toBe(0);
 
     const meRes = await ctx.app.inject({
       method: "GET",
@@ -146,5 +160,57 @@ describe("users", () => {
       .prepare(`SELECT COUNT(*) AS n FROM audit_log WHERE action = 'totp_reset'`)
       .get() as { n: number };
     expect(audited.n).toBe(1);
+  });
+
+  it("a user whose TOTP was reset can re-enroll themselves and sign back in", async () => {
+    ctx = await createTestApp();
+    const owner = await bootstrapOwner(ctx.app, ctx.dir);
+    const manager = await issueAndAcceptInvite(ctx.app, owner);
+
+    await ctx.app.inject({
+      method: "POST",
+      url: `/api/users/${manager.userId}/totp/reset`,
+      headers: authHeaders(owner),
+    });
+
+    // Password login now returns an ENROLL challenge with the new otpauth URI
+    // instead of a login challenge the user could never satisfy.
+    const login = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: { "content-type": "application/json" },
+      payload: { email: manager.email, password: manager.password },
+    });
+    expect(login.statusCode).toBe(200);
+    const body = login.json() as {
+      data: { mfaToken: string; enrollment?: { secret: string; otpauthUrl: string } };
+    };
+    expect(body.data.enrollment).toBeTruthy();
+    expect(body.data.enrollment!.otpauthUrl).toContain("otpauth://totp/");
+
+    // Confirming a code from the new secret enrolls them and signs them in.
+    const verify = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login/enroll",
+      headers: { "content-type": "application/json" },
+      payload: {
+        mfaToken: body.data.mfaToken,
+        code: totpCodeFor(body.data.enrollment!.secret, manager.email),
+      },
+    });
+    expect(verify.statusCode).toBe(200);
+    expect(verify.headers["set-cookie"]).toBeTruthy();
+
+    const db2 = getDb();
+    const after = db2
+      .prepare(`SELECT totp_enrolled_at FROM users WHERE id = ?`)
+      .get(manager.userId) as { totp_enrolled_at: string | null };
+    expect(after.totp_enrolled_at).toBeTruthy();
+
+    // And a fresh set of recovery codes replaces the ones the reset voided.
+    const codes = db2
+      .prepare(`SELECT COUNT(*) AS n FROM recovery_codes WHERE user_id = ? AND used_at IS NULL`)
+      .get(manager.userId) as { n: number };
+    expect(codes.n).toBe(10);
   });
 });

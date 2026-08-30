@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
@@ -30,16 +30,22 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   runMigrations(db);
 
   const app = Fastify({
-    // TRUST_PROXY is `boolean | number` (a numeric hop count is a documented,
-    // supported value — see §C12). Fastify's option type accepts only
-    // boolean | string | string[] | TrustProxyFunction, so a raw number fails
-    // EVERY fastify() overload; TypeScript then falls through to the last one
-    // (HTTP/2 secure) and infers the whole instance as Http2SecureServer, which
-    // cascaded into 7 further errors at the register* seam below.
-    // proxy-addr accepts the hop count as a string, so normalise here — one
-    // boundary, no cast, and the numeric form stays configurable.
-    trustProxy:
-      typeof env.TRUST_PROXY === "number" ? String(env.TRUST_PROXY) : env.TRUST_PROXY,
+    // TRUST_PROXY is `boolean | number`, where the number is a HOP COUNT
+    // (default 1 = the cloudflared sidecar). Fastify supports the numeric form
+    // at runtime — it hands it straight to proxy-addr — but its TypeScript
+    // option type lists only boolean | string | string[] | TrustProxyFunction.
+    // A raw number therefore fails every fastify() overload, TS falls through
+    // to the last one (HTTP/2 secure), and the instance is inferred as
+    // Http2SecureServer, which cascades into further errors at the register*
+    // seam below.
+    //
+    // Do NOT "fix" that by stringifying the number: Fastify reads a STRING
+    // trustProxy as a comma-separated list of trusted IPs/subnets, so "1"
+    // means "trust the host named 1", matches nothing, and req.ip silently
+    // falls back to the socket address — defeating the whole point.
+    // (server/auth/routes.auth.test.ts catches exactly that regression.)
+    // One cast at one boundary is the honest fix.
+    trustProxy: env.TRUST_PROXY as Exclude<FastifyServerOptions["trustProxy"], undefined>,
     genReqId: () => newId("req"),
     bodyLimit: 1_000_000,
     logger: {

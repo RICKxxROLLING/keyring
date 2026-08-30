@@ -58,16 +58,31 @@ async function cacheFirstStatic(request) {
   return response;
 }
 
-async function staleWhileRevalidateApi(request) {
+/**
+ * Network-first, cache only as an offline fallback.
+ *
+ * This was previously `cached ?? (await network)`, which always answered from
+ * the cache and merely refreshed it for next time. On a realtime app that is
+ * actively wrong: AuthenticatedShell invalidates the dossier query on every
+ * entity event, the refetch is served the PREVIOUS generation, and a
+ * colleague's edit needs a second unrelated event before it appears — which
+ * defeats the product's core "appears within ~1s without a refresh" promise.
+ *
+ * The cache still exists and is still written on every success; it is just no
+ * longer allowed to answer while the network can. That keeps the intended
+ * offline-read scope (dashboard + previously visited dossiers) intact.
+ */
+async function networkFirstApi(request) {
   const cache = await caches.open(API_CACHE);
-  const cached = await cache.match(request);
-  const network = fetch(request)
-    .then((response) => {
-      if (response.ok) cache.put(request, response.clone());
-      return response;
-    })
-    .catch(() => null);
-  return cached ?? (await network) ?? Promise.reject(new Error("offline and no cached response"));
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  } catch {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    throw new Error("offline and no cached response");
+  }
 }
 
 async function cacheFirstThumb(request) {
@@ -106,7 +121,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.pathname === "/api/dashboard" || DOSSIER_RE.test(url.pathname)) {
-    event.respondWith(staleWhileRevalidateApi(request));
+    event.respondWith(networkFirstApi(request));
     return;
   }
 

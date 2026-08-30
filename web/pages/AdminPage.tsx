@@ -89,7 +89,22 @@ function UsersPanel(): ReactElement {
               <option value="owner">owner</option>
               <option value="manager">manager</option>
             </Select>
-            <Button variant="secondary" onClick={() => resetTotp.mutate(u.id)} disabled={u.id === session?.user.id}>
+            <Button
+              variant="secondary"
+              disabled={u.id === session?.user.id}
+              onClick={() => {
+                // Destructive and immediate: it signs the user out everywhere,
+                // invalidates their authenticator entry, and voids their unused
+                // recovery codes. Worth a confirm.
+                const okToReset = window.confirm(
+                  `Reset two-factor authentication for ${u.displayName}?\n\n` +
+                    `They will be signed out of every device, their current authenticator ` +
+                    `entry will stop working, and their unused recovery codes will be voided.\n\n` +
+                    `They re-enroll themselves with their password at next sign-in.`,
+                );
+                if (okToReset) resetTotp.mutate(u.id);
+              }}
+            >
               Reset TOTP
             </Button>
             <Button

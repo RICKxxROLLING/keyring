@@ -1,12 +1,23 @@
 import { useState, type FormEvent, type ReactElement } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { SessionInfo } from "../../shared/types";
+import type { EnrollmentChallenge, RecoveryCodes, SessionInfo } from "../../shared/types";
 import { apiPost, ApiClientError } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Button } from "../components/Button";
+import { EnrollmentFlow } from "../components/EnrollmentFlow";
 import { ErrorNotice, Field, TextInput } from "../components/Form";
 
-type Step = "password" | "totp" | "recovery";
+type Step = "password" | "totp" | "recovery" | "reenroll";
+
+/** POST /api/auth/login returns an `enrollment` block instead of a plain MFA
+ *  challenge when an owner has reset this user's TOTP: the secret has been
+ *  regenerated but not yet confirmed, so they set up their authenticator again
+ *  before they can sign in. */
+interface LoginResponse {
+  mfaToken: string;
+  expiresAt: string;
+  enrollment?: EnrollmentChallenge;
+}
 
 export function LoginPage(): ReactElement {
   const [step, setStep] = useState<Step>("password");
@@ -15,6 +26,7 @@ export function LoginPage(): ReactElement {
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
+  const [enrollment, setEnrollment] = useState<EnrollmentChallenge | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { setSession } = useSession();
@@ -28,9 +40,14 @@ export function LoginPage(): ReactElement {
     setError(null);
     setBusy(true);
     try {
-      const res = await apiPost<{ mfaToken: string; expiresAt: string }>("/api/auth/login", { email, password });
+      const res = await apiPost<LoginResponse>("/api/auth/login", { email, password });
       setMfaToken(res.mfaToken);
-      setStep("totp");
+      if (res.enrollment) {
+        setEnrollment(res.enrollment);
+        setStep("reenroll");
+      } else {
+        setStep("totp");
+      }
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Something went wrong. Try again.");
     } finally {
@@ -79,6 +96,29 @@ export function LoginPage(): ReactElement {
         {error && (
           <div className="mb-3">
             <ErrorNotice message={error} />
+          </div>
+        )}
+
+        {step === "reenroll" && enrollment && mfaToken && (
+          <div>
+            <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
+              An owner reset your two-factor authentication. Scan this code with your
+              authenticator app to set it up again — your old entry for this account no longer
+              works, so delete it. You will get a fresh set of recovery codes.
+            </p>
+            <EnrollmentFlow
+              enrollment={enrollment}
+              onVerify={(verifyCode) =>
+                apiPost<{ session: SessionInfo; recovery: RecoveryCodes }>(
+                  "/api/auth/login/enroll",
+                  { mfaToken, code: verifyCode },
+                )
+              }
+              onComplete={(session) => {
+                setSession(session);
+                void navigate(from, { replace: true });
+              }}
+            />
           </div>
         )}
 

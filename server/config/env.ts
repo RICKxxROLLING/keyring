@@ -23,7 +23,14 @@ export interface Env {
   BACKUP_AT: string;
   BACKUP_RETENTION_DAYS: number;
   LOG_LEVEL: "fatal" | "error" | "warn" | "info" | "debug" | "trace";
-  TRUST_PROXY: boolean | number;
+  /**
+   * Who to believe `X-Forwarded-For` from. Either a boolean, or a
+   * comma-separated list of IPs / CIDR ranges / the named presets
+   * `loopback`, `linklocal`, `uniquelocal`. Defaults to
+   * `"loopback,uniquelocal"`. A hop count is NOT supported — Fastify fails
+   * closed on a numeric value; see loadEnv().
+   */
+  TRUST_PROXY: boolean | string;
   SECURE_COOKIES: boolean;
 }
 
@@ -60,8 +67,36 @@ export function loadEnv(): Env {
   if (isProd && secret.length < 32) {
     throw new Error("SESSION_SECRET must be set to at least 32 characters in production");
   }
-  const trustRaw = process.env.TRUST_PROXY ?? "true";
-  const trustNum = Number(trustRaw);
+  // SECURITY: default to trusting only PRIVATE peers, never `true`.
+  //
+  // With `trustProxy: true`, proxy-addr trusts every address in the chain and
+  // resolves req.ip to the LEFTMOST X-Forwarded-For entry — which the client
+  // writes. That makes req.ip attacker-controlled: both rate limiters key on it
+  // (so they are defeated by rotating one header) and every audit_log.ip value
+  // becomes forgeable. On a public hostname that is not acceptable.
+  //
+  // "loopback,uniquelocal" trusts an X-Forwarded-For header only when the
+  // immediate peer is on 127.0.0.0/8, ::1, or an RFC1918/ULA range — i.e. the
+  // cloudflared sidecar on the Docker bridge network. A client out on the
+  // internet cannot connect from a private address, so it cannot get its
+  // forged header believed.
+  //
+  // NOTE: a hop COUNT does not work here and must not be used. This Fastify
+  // version deliberately fails closed on a numeric trustProxy —
+  // "Hop-count-only trust cannot validate the immediate peer" — so a number
+  // silently trusts NOTHING and req.ip becomes the sidecar's own address,
+  // which collapses rate limiting onto one key for all users. Configure
+  // ranges, not counts.
+  const trustRaw = (process.env.TRUST_PROXY ?? "loopback,uniquelocal").trim();
+  const trustProxy: boolean | string =
+    trustRaw === "" ? "loopback,uniquelocal"
+    : trustRaw.toLowerCase() === "true" ? true
+    : trustRaw.toLowerCase() === "false" ? false
+    // A bare number would fail closed inside Fastify and silently break IP
+    // resolution, so treat it as a misconfiguration and fall back to the safe
+    // default rather than honouring it.
+    : /^\d+$/.test(trustRaw) ? "loopback,uniquelocal"
+    : trustRaw;
   const env: Env = {
     NODE_ENV: nodeEnv,
     PORT: num("PORT", 8080),
@@ -85,7 +120,7 @@ export function loadEnv(): Env {
     BACKUP_AT: str("BACKUP_AT", "03:15"),
     BACKUP_RETENTION_DAYS: num("BACKUP_RETENTION_DAYS", 14),
     LOG_LEVEL: str("LOG_LEVEL", "info") as Env["LOG_LEVEL"],
-    TRUST_PROXY: Number.isFinite(trustNum) && trustRaw !== "true" ? trustNum : bool("TRUST_PROXY", true),
+    TRUST_PROXY: trustProxy,
     SECURE_COOKIES: bool("SECURE_COOKIES", origin.startsWith("https://")),
   };
   cached = env;

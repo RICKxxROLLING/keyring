@@ -10,6 +10,8 @@ import { auditFromRequest, writeAudit } from "../audit/audit.js";
 import { requireAuth, requireRole } from "./middleware.js";
 import { toUser, type UserRow } from "./serialize.js";
 import { revokeAllSessionsForUser } from "./session.js";
+import { generateTotpSecret } from "./totp.js";
+import { clearUnusedRecoveryCodes } from "./recovery.js";
 
 const IdParamSchema = z.object({ id: z.string().min(1) }).strict();
 
@@ -215,9 +217,27 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
         throw new ApiError("CONFLICT", "Use the self-service recovery-codes flow to reset your own TOTP.");
       }
       const before = getUserOr404(id);
+      // Mint a FRESH secret rather than nulling it. Nulling left the account
+      // with no re-enrollment path at all: completeEnrollment() requires an
+      // "enroll" challenge against an existing secret, and the only producers
+      // of one are bootstrap and invite-accept — both unreachable for an
+      // existing user. The account silently dropped to single factor (password
+      // + recovery code) and became permanently unusable once the ten codes
+      // were spent.
+      //
+      // With a secret in place and totp_enrolled_at NULL, POST /api/auth/login
+      // recognises the pending-re-enrollment state and hands back an
+      // EnrollmentChallenge, so the user re-enrolls themselves with their
+      // password. The owner never sees or handles the new secret.
+      const secret = generateTotpSecret();
       getDb()
-        .prepare(`UPDATE users SET totp_secret = NULL, totp_enrolled_at = NULL, updated_at = ? WHERE id = ?`)
-        .run(nowIso(), id);
+        .prepare(
+          `UPDATE users SET totp_secret = ?, totp_enrolled_at = NULL, updated_at = ? WHERE id = ?`,
+        )
+        .run(secret, nowIso(), id);
+      // Clear unused recovery codes too. Leaving them live would mean the
+      // window between reset and re-enrollment is genuinely single-factor.
+      clearUnusedRecoveryCodes(id);
       revokeAllSessionsForUser(id);
       writeAudit({
         actorUserId: req.user!.id,
@@ -226,7 +246,7 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
         entityType: "user",
         entityId: id,
         propertyId: null,
-        summary: `Reset TOTP enrollment for ${before.display_name}.`,
+        summary: `Reset TOTP enrollment for ${before.display_name}; they must re-enroll at next sign-in.`,
         ip: req.ip ?? null,
         requestId: String(req.id),
       });
