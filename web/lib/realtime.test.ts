@@ -54,7 +54,10 @@ describe("web/lib/realtime.ts", () => {
   beforeEach(() => {
     vi.resetModules();
     MockWebSocket.instances = [];
-    (globalThis as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+    // jsdom defines WebSocket as a read-only accessor, so a plain assignment throws
+    // "Cannot assign to read only property". vi.stubGlobal goes through
+    // defineProperty and is undone by vi.unstubAllGlobals in afterEach.
+    vi.stubGlobal("WebSocket", MockWebSocket);
     (globalThis as unknown as { fetch: typeof fetch }).fetch = vi.fn(async () =>
       new Response(JSON.stringify({ ok: true, data: { items: [], unread: 0 } }), { status: 200 }),
     ) as unknown as typeof fetch;

@@ -5,6 +5,21 @@ import type { BackupRun, OpsInfo } from "../../shared/types.js";
 
 const FAKE_ID = `bkp_${"0".repeat(26)}`;
 
+/**
+ * The frozen harness bakes `content-type: application/json` into createTestUser()'s
+ * headers. Fastify then tries to JSON-parse the empty body of a bodyless request and
+ * fails it with 400 BAD_REQUEST before the route ever runs. Strip the header for
+ * requests that send no body.
+ *
+ * Production is unaffected: web/lib/api.ts sends no content-type on DELETE, and omits
+ * it on POST when there is no body.
+ */
+function bodyless(h: Record<string, string>): Record<string, string> {
+  const rest = { ...h };
+  delete rest["content-type"];
+  return rest;
+}
+
 describe("ops routes", () => {
   let testApp: TestApp | null = null;
 
@@ -53,7 +68,15 @@ describe("ops routes", () => {
       ["DELETE", `/api/ops/backups/${FAKE_ID}`],
     ];
     for (const [method, url, payload] of routes) {
-      const res = await testApp.app.inject({ method, url, headers: manager.headers, payload });
+      // `payload ?? {}` matches the 401 loop above: manager.headers carries
+      // content-type: application/json, so a request with no payload at all makes
+      // Fastify 400 on the empty body before the owner-only guard is reached.
+      const res = await testApp.app.inject({
+        method,
+        url,
+        headers: manager.headers,
+        payload: payload ?? {},
+      });
       expect(res.statusCode, `${method} ${url}`).toBe(403);
     }
   });
@@ -141,7 +164,7 @@ describe("ops routes", () => {
     const res = await testApp.app.inject({
       method: "DELETE",
       url: `/api/ops/backups/${run.id}`,
-      headers: owner.headers,
+      headers: bodyless(owner.headers),
     });
     expect(res.statusCode).toBe(200);
 
@@ -160,7 +183,7 @@ describe("ops routes", () => {
     const res = await testApp.app.inject({
       method: "DELETE",
       url: `/api/ops/backups/${FAKE_ID}`,
-      headers: owner.headers,
+      headers: bodyless(owner.headers),
     });
     expect(res.statusCode).toBe(404);
   });
