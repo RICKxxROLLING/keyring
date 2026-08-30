@@ -18,7 +18,8 @@ import { newId } from "../../lib/ids.js";
 import { nowIso, todayLocal, addDays, addMonths } from "../../lib/time.js";
 import { getEnv } from "../../config/env.js";
 import { onePage } from "../../lib/paging.js";
-import { camelRow, snakeKeys } from "../../lib/rowmap.js";
+import { snakeKeys } from "../../lib/rowmap.js";
+import { mapRow } from "../common/rowmap.js";
 import { requirePropertyExists } from "../common/access.js";
 import {
   patchWithVersionGuard,
@@ -81,7 +82,7 @@ function getPmRow(id: string): PmTemplate {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("PM template");
-  return camelRow<PmTemplate>(row);
+  return mapRow<PmTemplate>(row);
 }
 
 export function advanceDueDate(date: string, frequency: PmFrequency, intervalDays: number | null): string {
@@ -195,7 +196,7 @@ export function runPmGenerate(actorId: string | null): void {
 }
 
 function camelRowsPm(rows: unknown[]): PmTemplate[] {
-  return (rows as Record<string, unknown>[]).map((r) => camelRow<PmTemplate>(r));
+  return (rows as Record<string, unknown>[]).map((r) => mapRow<PmTemplate>(r));
 }
 
 export function registerPmRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -214,7 +215,7 @@ export function registerPmRoutes(app: FastifyInstance, ctx: AppContext): void {
     const rows = db
       .prepare(`SELECT * FROM pm_templates WHERE property_id = ? ORDER BY next_due_date`)
       .all(propertyId) as Record<string, unknown>[];
-    return ok(onePage(rows.map((r) => camelRow<PmTemplate>(r))));
+    return ok(onePage(rows.map((r) => mapRow<PmTemplate>(r))));
   });
 
   app.post(

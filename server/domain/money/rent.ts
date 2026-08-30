@@ -9,7 +9,8 @@ import { newId } from "../../lib/ids.js";
 import { nowIso, todayLocal, periodOf } from "../../lib/time.js";
 import { getEnv } from "../../config/env.js";
 import { onePage, buildPage } from "../../lib/paging.js";
-import { camelRow, camelRows, snakeKeys } from "../../lib/rowmap.js";
+import { snakeKeys } from "../../lib/rowmap.js";
+import { mapRow, mapRows } from "../common/rowmap.js";
 import { requirePropertyExists } from "../common/access.js";
 import { patchWithVersionGuard, assertVersionMatch, recordMutation, recordDelete, publishAfterCommit } from "../common/crud.js";
 import { writeAudit } from "../../audit/audit.js";
@@ -22,7 +23,7 @@ function getRentRow(id: string): RentEntry {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Rent entry");
-  return camelRow<RentEntry>(row);
+  return mapRow<RentEntry>(row);
 }
 
 export function deriveRentStatus(
@@ -93,7 +94,7 @@ export function generateRentRoll(propertyId: string, period: string, actorId: st
   const rows = db
     .prepare(`SELECT * FROM rent_entries WHERE property_id = ? AND period = ? ORDER BY unit_id`)
     .all(propertyId, period) as Record<string, unknown>[];
-  return camelRows<RentEntry>(rows);
+  return mapRows<RentEntry>(rows);
 }
 
 export function registerRentRoutes(app: FastifyInstance, _ctx: AppContext): void {
@@ -139,7 +140,7 @@ export function registerRentRoutes(app: FastifyInstance, _ctx: AppContext): void
     const rows = db
       .prepare(`SELECT * FROM rent_entries WHERE ${clauses.join(" AND ")} ORDER BY period DESC, unit_id LIMIT ?`)
       .all(...params, q.limit + 1) as Record<string, unknown>[];
-    const entries = camelRows<RentEntry>(rows);
+    const entries = mapRows<RentEntry>(rows);
     return ok(buildPage(entries, q.limit, (r) => r.period));
   });
 

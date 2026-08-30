@@ -8,7 +8,7 @@ import { ok, deleted, notFound } from "../../lib/errors.js";
 import { newId } from "../../lib/ids.js";
 import { nowIso } from "../../lib/time.js";
 import { onePage } from "../../lib/paging.js";
-import { camelRow } from "../../lib/rowmap.js";
+import { mapRow } from "../common/rowmap.js";
 import { userRef } from "../common/access.js";
 import { listAttachmentsFor } from "../../uploads/storage.js";
 import {
@@ -31,7 +31,7 @@ function getCommentRow(id: string): WorkOrderComment {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Comment");
-  return camelRow<WorkOrderComment>(row);
+  return mapRow<WorkOrderComment>(row);
 }
 
 function toView(c: WorkOrderComment): WorkOrderCommentView {
@@ -51,7 +51,7 @@ export function registerCommentRoutes(app: FastifyInstance, _ctx: AppContext): v
     const rows = db
       .prepare(`SELECT * FROM work_order_comments WHERE work_order_id = ? ORDER BY created_at`)
       .all(id) as Record<string, unknown>[];
-    return ok(onePage(rows.map((r) => toView(camelRow<WorkOrderComment>(r)))));
+    return ok(onePage(rows.map((r) => toView(mapRow<WorkOrderComment>(r)))));
   });
 
   app.post("/api/work-orders/:id/comments", { preHandler: [requireAuth] }, async (req, reply) => {

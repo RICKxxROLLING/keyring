@@ -8,7 +8,7 @@ import { parseParams, zId } from "../../lib/validate.js";
 import { ok } from "../../lib/errors.js";
 import { nowIso, todayLocal, addMonths, periodOf } from "../../lib/time.js";
 import { getEnv } from "../../config/env.js";
-import { camelRows } from "../../lib/rowmap.js";
+import { mapRows } from "../common/rowmap.js";
 import { getPropertyRow, toPropertyView } from "../properties/repo.js";
 import { listNotes } from "../notes/repo.js";
 import { listWorkOrders } from "../workorders/repo.js";
@@ -35,18 +35,18 @@ export function registerDossierRoutes(app: FastifyInstance, _ctx: AppContext): v
     const toPeriod = periodOf(today);
     const fromPeriod = periodOf(addMonths(`${toPeriod}-01`, -11));
 
-    const pmTemplates = camelRows<PmTemplate>(
+    const pmTemplates = mapRows<PmTemplate>(
       db.prepare(`SELECT * FROM pm_templates WHERE property_id = ? ORDER BY next_due_date`).all(propertyId) as Record<
         string,
         unknown
       >[],
     );
-    const rentEntries = camelRows<RentEntry>(
+    const rentEntries = mapRows<RentEntry>(
       db
         .prepare(`SELECT * FROM rent_entries WHERE property_id = ? ORDER BY period DESC, unit_id LIMIT 400`)
         .all(propertyId) as Record<string, unknown>[],
     );
-    const expenses = camelRows<PropertyExpense>(
+    const expenses = mapRows<PropertyExpense>(
       db
         .prepare(`SELECT * FROM property_expenses WHERE property_id = ? ORDER BY incurred_on DESC LIMIT 200`)
         .all(propertyId) as Record<string, unknown>[],

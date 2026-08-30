@@ -1,6 +1,6 @@
 // server/domain/projects/repo.ts
 import { getDb } from "../../db/index.js";
-import { camelRow, camelRows } from "../../lib/rowmap.js";
+import { mapRow, mapRows } from "../common/rowmap.js";
 import { notFound } from "../../lib/errors.js";
 import { userRef } from "../common/access.js";
 import { listAttachmentsFor } from "../../uploads/storage.js";
@@ -11,14 +11,14 @@ export function getProjectRow(id: string): Project {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Project");
-  return camelRow<Project>(row);
+  return mapRow<Project>(row);
 }
 
 export function listProjectLines(projectId: string): ProjectLine[] {
   const rows = getDb()
     .prepare(`SELECT * FROM project_lines WHERE project_id = ? ORDER BY kind, created_at`)
     .all(projectId) as Record<string, unknown>[];
-  return camelRows<ProjectLine>(rows);
+  return mapRows<ProjectLine>(rows);
 }
 
 export function toProjectView(project: Project): ProjectView {
@@ -46,5 +46,5 @@ export function listProjects(propertyId: string, status?: string[]): ProjectView
   const rows = getDb()
     .prepare(`SELECT * FROM projects WHERE ${clauses.join(" AND ")} ORDER BY created_at DESC`)
     .all(...params) as Record<string, unknown>[];
-  return rows.map((r) => toProjectView(camelRow<Project>(r)));
+  return rows.map((r) => toProjectView(mapRow<Project>(r)));
 }

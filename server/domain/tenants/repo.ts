@@ -1,6 +1,6 @@
 // server/domain/tenants/repo.ts
 import { getDb } from "../../db/index.js";
-import { camelRow, camelRows } from "../../lib/rowmap.js";
+import { mapRow, mapRows } from "../common/rowmap.js";
 import { notFound } from "../../lib/errors.js";
 import { todayLocal, daysBetween } from "../../lib/time.js";
 import { getEnv } from "../../config/env.js";
@@ -13,7 +13,7 @@ export function getTenantRow(id: string): Tenant {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Tenant");
-  return camelRow<Tenant>(row);
+  return mapRow<Tenant>(row);
 }
 
 export function listTenants(propertyId: string, unitId?: string, current?: boolean): Tenant[] {
@@ -27,7 +27,7 @@ export function listTenants(propertyId: string, unitId?: string, current?: boole
   const rows = getDb()
     .prepare(`SELECT * FROM tenants WHERE ${clauses.join(" AND ")} ORDER BY is_primary DESC, last_name`)
     .all(...params) as Record<string, unknown>[];
-  return camelRows<Tenant>(rows);
+  return mapRows<Tenant>(rows);
 }
 
 export function getLeaseRow(id: string): Lease {
@@ -35,7 +35,7 @@ export function getLeaseRow(id: string): Lease {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Lease");
-  return camelRow<Lease>(row);
+  return mapRow<Lease>(row);
 }
 
 export function tenantsForLease(leaseId: string): Tenant[] {
@@ -46,7 +46,7 @@ export function tenantsForLease(leaseId: string): Tenant[] {
         WHERE lt.lease_id = ? ORDER BY t.is_primary DESC, t.last_name`,
     )
     .all(leaseId) as Record<string, unknown>[];
-  return camelRows<Tenant>(rows);
+  return mapRows<Tenant>(rows);
 }
 
 export function toLeaseView(lease: Lease): LeaseView {
@@ -74,7 +74,7 @@ export function listLeases(propertyId: string, unitId?: string, status?: string[
   const rows = getDb()
     .prepare(`SELECT * FROM leases WHERE ${clauses.join(" AND ")} ORDER BY start_date DESC`)
     .all(...params) as Record<string, unknown>[];
-  return rows.map((r) => toLeaseView(camelRow<Lease>(r)));
+  return rows.map((r) => toLeaseView(mapRow<Lease>(r)));
 }
 
 function setUnitStatus(unitId: string, status: string, actorId: string): boolean {

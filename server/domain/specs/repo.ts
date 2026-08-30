@@ -1,6 +1,6 @@
 // server/domain/specs/repo.ts
 import { getDb } from "../../db/index.js";
-import { camelRow } from "../../lib/rowmap.js";
+import { mapRow } from "../common/rowmap.js";
 import { notFound } from "../../lib/errors.js";
 import { toBool } from "../../lib/rowmap.js";
 import { listAttachmentsFor } from "../../uploads/storage.js";
@@ -11,7 +11,7 @@ export function getSpecRow(id: string): SpecEntry {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Spec entry");
-  return camelRow<SpecEntry>(row);
+  return mapRow<SpecEntry>(row);
 }
 
 /** Masks the value for isSecret rows. Never call with the true value already revealed. */
@@ -40,5 +40,5 @@ export function listSpecs(propertyId: string, category?: string[], unitId?: stri
   const rows = getDb()
     .prepare(`SELECT * FROM spec_entries WHERE ${clauses.join(" AND ")} ORDER BY category, label`)
     .all(...params) as Record<string, unknown>[];
-  return rows.map((r) => toSpecView(camelRow<SpecEntry>(r)));
+  return rows.map((r) => toSpecView(mapRow<SpecEntry>(r)));
 }

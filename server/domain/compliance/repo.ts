@@ -1,6 +1,6 @@
 // server/domain/compliance/repo.ts
 import { getDb } from "../../db/index.js";
-import { camelRow } from "../../lib/rowmap.js";
+import { mapRow } from "../common/rowmap.js";
 import { notFound } from "../../lib/errors.js";
 import { todayLocal, daysBetween, addMonths } from "../../lib/time.js";
 import { getEnv } from "../../config/env.js";
@@ -12,7 +12,7 @@ export function getComplianceRow(id: string): ComplianceItem {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Compliance item");
-  return camelRow<ComplianceItem>(row);
+  return mapRow<ComplianceItem>(row);
 }
 
 export function deriveComplianceStatus(item: ComplianceItem, today: string): { status: ComplianceStatus; daysOut: number } {
@@ -49,7 +49,7 @@ export function listCompliance(propertyId: string, state?: string[], kind?: stri
   const rows = getDb()
     .prepare(`SELECT * FROM compliance_items WHERE ${clauses.join(" AND ")} ORDER BY due_date`)
     .all(...params) as Record<string, unknown>[];
-  return rows.map((r) => toComplianceView(camelRow<ComplianceItem>(r)));
+  return rows.map((r) => toComplianceView(mapRow<ComplianceItem>(r)));
 }
 
 export function advanceComplianceDate(date: string, recurrence: ComplianceItem["recurrence"]): string {

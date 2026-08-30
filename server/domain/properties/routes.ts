@@ -20,7 +20,8 @@ import { ok, deleted, notFound } from "../../lib/errors.js";
 import { newId } from "../../lib/ids.js";
 import { nowIso } from "../../lib/time.js";
 import { onePage } from "../../lib/paging.js";
-import { snakeKeys, camelRows } from "../../lib/rowmap.js";
+import { snakeKeys } from "../../lib/rowmap.js";
+import { mapRows } from "../common/rowmap.js";
 import {
   patchWithVersionGuard,
   assertVersionMatch,
@@ -319,7 +320,7 @@ export function registerPropertyRoutes(app: FastifyInstance, _ctx: AppContext): 
         created_by: user.id,
         updated_by: user.id,
       });
-      const row = camelRows<Unit>(
+      const row = mapRows<Unit>(
         db.prepare(`SELECT * FROM units WHERE id = ?`).all(id) as Record<string, unknown>[],
       )[0]!;
       recordMutation(req, {
@@ -354,7 +355,7 @@ export function registerPropertyRoutes(app: FastifyInstance, _ctx: AppContext): 
       | undefined;
     if (!existing) throw notFound("Unit");
     const getView = (): Unit =>
-      camelRows<Unit>(
+      mapRows<Unit>(
         db.prepare(`SELECT * FROM units WHERE id = ?`).all(id) as Record<string, unknown>[],
       )[0]!;
     const result = tx(() => {

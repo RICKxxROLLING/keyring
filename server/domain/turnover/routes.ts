@@ -8,7 +8,8 @@ import { ok, deleted, notFound } from "../../lib/errors.js";
 import { newId } from "../../lib/ids.js";
 import { nowIso } from "../../lib/time.js";
 import { onePage } from "../../lib/paging.js";
-import { camelRow, snakeKeys } from "../../lib/rowmap.js";
+import { snakeKeys } from "../../lib/rowmap.js";
+import { mapRow } from "../common/rowmap.js";
 import { requirePropertyExists, requireUnitExists, unitLabel } from "../common/access.js";
 import { patchWithVersionGuard, assertVersionMatch, recordMutation, recordDelete, publishAfterCommit } from "../common/crud.js";
 import { getTurnoverRow, toTurnoverView, listTurnovers, DEFAULT_TURNOVER_ITEMS } from "./repo.js";
@@ -68,7 +69,7 @@ function getItemRow(id: string): TurnoverItem {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Turnover item");
-  return camelRow<TurnoverItem>(row);
+  return mapRow<TurnoverItem>(row);
 }
 
 export function registerTurnoverRoutes(app: FastifyInstance, _ctx: AppContext): void {

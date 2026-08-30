@@ -7,7 +7,8 @@ import { parseBody, parseParams, zId, zOptText, zText, zIsoDate, zCents, zVersio
 import { ok, deleted, notFound } from "../../lib/errors.js";
 import { newId } from "../../lib/ids.js";
 import { nowIso } from "../../lib/time.js";
-import { camelRow, snakeKeys } from "../../lib/rowmap.js";
+import { snakeKeys } from "../../lib/rowmap.js";
+import { mapRow } from "../common/rowmap.js";
 import { patchWithVersionGuard, assertVersionMatch, recordMutation, recordDelete, publishAfterCommit } from "../common/crud.js";
 import { getProjectRow } from "./repo.js";
 import type { AppContext } from "../../context.js";
@@ -34,7 +35,7 @@ function getLineRow(id: string): ProjectLine {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Project line");
-  return camelRow<ProjectLine>(row);
+  return mapRow<ProjectLine>(row);
 }
 
 export function registerProjectLineRoutes(app: FastifyInstance, _ctx: AppContext): void {

@@ -1,6 +1,6 @@
 // server/domain/properties/repo.ts
 import { getDb } from "../../db/index.js";
-import { camelRow, camelRows } from "../../lib/rowmap.js";
+import { mapRow, mapRows } from "../common/rowmap.js";
 import { todayLocal, daysBetween } from "../../lib/time.js";
 import { getEnv } from "../../config/env.js";
 import { computeAttention } from "../common/attention.js";
@@ -18,21 +18,21 @@ export function getPropertyRow(id: string): Property {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Property");
-  return camelRow<Property>(row);
+  return mapRow<Property>(row);
 }
 
 export function getPropertyRowOrNull(id: string): Property | null {
   const row = getDb().prepare(`SELECT * FROM properties WHERE id = ?`).get(id) as
     | Record<string, unknown>
     | undefined;
-  return row ? camelRow<Property>(row) : null;
+  return row ? mapRow<Property>(row) : null;
 }
 
 export function listUnits(propertyId: string): Unit[] {
   const rows = getDb()
     .prepare(`SELECT * FROM units WHERE property_id = ? ORDER BY sort_order, label`)
     .all(propertyId) as Record<string, unknown>[];
-  return camelRows<Unit>(rows);
+  return mapRows<Unit>(rows);
 }
 
 export function computeQuickFacts(propertyId: string): PropertyQuickFacts {
@@ -170,5 +170,5 @@ export function listProperties(includeArchived: boolean): PropertyView[] {
         : `SELECT * FROM properties WHERE archived_at IS NULL ORDER BY sort_order, name`,
     )
     .all() as Record<string, unknown>[];
-  return camelRows<Property>(rows).map(toPropertyView);
+  return mapRows<Property>(rows).map(toPropertyView);
 }

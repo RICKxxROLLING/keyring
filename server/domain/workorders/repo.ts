@@ -1,6 +1,6 @@
 // server/domain/workorders/repo.ts
 import { getDb } from "../../db/index.js";
-import { camelRow } from "../../lib/rowmap.js";
+import { mapRow } from "../common/rowmap.js";
 import { todayLocal } from "../../lib/time.js";
 import { getEnv } from "../../config/env.js";
 import { notFound } from "../../lib/errors.js";
@@ -14,7 +14,7 @@ export function getWorkOrderRow(id: string): WorkOrder {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Work order");
-  return camelRow<WorkOrder>(row);
+  return mapRow<WorkOrder>(row);
 }
 
 export function toWorkOrderView(wo: WorkOrder): WorkOrderView {
@@ -85,7 +85,7 @@ export function listWorkOrders(filters: WorkOrderFilters): WorkOrderView[] {
   const rows = getDb()
     .prepare(`SELECT * FROM work_orders ${where} ORDER BY created_at DESC`)
     .all(...params) as Record<string, unknown>[];
-  let views = rows.map((r) => toWorkOrderView(camelRow<WorkOrder>(r)));
+  let views = rows.map((r) => toWorkOrderView(mapRow<WorkOrder>(r)));
   if (filters.overdue) views = views.filter((v) => v.isOverdue);
   return views;
 }

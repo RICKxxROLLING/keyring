@@ -1,6 +1,6 @@
 // server/domain/turnover/repo.ts
 import { getDb } from "../../db/index.js";
-import { camelRow, camelRows } from "../../lib/rowmap.js";
+import { mapRow, mapRows } from "../common/rowmap.js";
 import { notFound } from "../../lib/errors.js";
 import { unitLabel } from "../common/access.js";
 import { listAttachmentsFor } from "../../uploads/storage.js";
@@ -11,14 +11,14 @@ export function getTurnoverRow(id: string): Turnover {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Turnover");
-  return camelRow<Turnover>(row);
+  return mapRow<Turnover>(row);
 }
 
 export function listTurnoverItems(turnoverId: string): TurnoverItem[] {
   const rows = getDb()
     .prepare(`SELECT * FROM turnover_items WHERE turnover_id = ? ORDER BY phase, sort_order`)
     .all(turnoverId) as Record<string, unknown>[];
-  return camelRows<TurnoverItem>(rows);
+  return mapRows<TurnoverItem>(rows);
 }
 
 export function toTurnoverView(t: Turnover): TurnoverView {
@@ -44,7 +44,7 @@ export function listTurnovers(propertyId: string, unitId?: string, open?: boolea
   const rows = getDb()
     .prepare(`SELECT * FROM turnovers WHERE ${clauses.join(" AND ")} ORDER BY created_at DESC`)
     .all(...params) as Record<string, unknown>[];
-  return rows.map((r) => toTurnoverView(camelRow<Turnover>(r)));
+  return rows.map((r) => toTurnoverView(mapRow<Turnover>(r)));
 }
 
 /** T3-authored default checklist: at least 4 items per phase for move_out/make_ready/move_in. */

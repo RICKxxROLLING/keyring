@@ -8,7 +8,8 @@ import { ok, deleted, notFound } from "../../lib/errors.js";
 import { newId } from "../../lib/ids.js";
 import { nowIso } from "../../lib/time.js";
 import { buildPage } from "../../lib/paging.js";
-import { camelRow, camelRows, snakeKeys } from "../../lib/rowmap.js";
+import { snakeKeys } from "../../lib/rowmap.js";
+import { mapRow, mapRows } from "../common/rowmap.js";
 import { requirePropertyExists } from "../common/access.js";
 import { patchWithVersionGuard, assertVersionMatch, recordMutation, recordDelete, publishAfterCommit } from "../common/crud.js";
 import type { AppContext } from "../../context.js";
@@ -37,7 +38,7 @@ function getExpenseRow(id: string): PropertyExpense {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Expense");
-  return camelRow<PropertyExpense>(row);
+  return mapRow<PropertyExpense>(row);
 }
 
 export function registerExpenseRoutes(app: FastifyInstance, _ctx: AppContext): void {
@@ -80,7 +81,7 @@ export function registerExpenseRoutes(app: FastifyInstance, _ctx: AppContext): v
     const rows = db
       .prepare(`SELECT * FROM property_expenses WHERE ${clauses.join(" AND ")} ORDER BY incurred_on DESC LIMIT ?`)
       .all(...params, q.limit + 1) as Record<string, unknown>[];
-    const expenses = camelRows<PropertyExpense>(rows);
+    const expenses = mapRows<PropertyExpense>(rows);
     return ok(buildPage(expenses, q.limit, (e) => e.incurredOn));
   });
 

@@ -1,6 +1,6 @@
 // server/domain/notes/repo.ts
 import { getDb } from "../../db/index.js";
-import { camelRow } from "../../lib/rowmap.js";
+import { mapRow } from "../common/rowmap.js";
 import { listAttachmentsFor } from "../../uploads/storage.js";
 import { notFound } from "../../lib/errors.js";
 import { userRef } from "../common/access.js";
@@ -11,7 +11,7 @@ export function getNoteRow(id: string): Note {
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Note");
-  return camelRow<Note>(row);
+  return mapRow<Note>(row);
 }
 
 export function toNoteView(note: Note): NoteView {
@@ -39,5 +39,5 @@ export function listNotes(propertyId: string, unitId?: string, pinned?: boolean)
       `SELECT * FROM notes WHERE ${clauses.join(" AND ")} ORDER BY pinned DESC, created_at DESC`,
     )
     .all(...params) as Record<string, unknown>[];
-  return rows.map((r) => toNoteView(camelRow<Note>(r)));
+  return rows.map((r) => toNoteView(mapRow<Note>(r)));
 }
