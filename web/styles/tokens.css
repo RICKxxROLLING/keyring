@@ -1,0 +1,187 @@
+/* ============================================================================
+   Keyring design language — type and theme tokens.
+
+   Values come from the design handoff (design_handoff_keyring/README.md).
+   Intent: warm neutral papers and inks in light mode (hue ~82-84); cool slate
+   in dark (hue ~252). Ink is always slate-tinted, background always
+   earth-tinted. Dark mode is a designed counterpart, never an inversion.
+
+   FONTS ARE SELF-HOSTED, deliberately. The handoff names three Google fonts,
+   but this app ships a strict CSP (`default-src 'self'`, `font-src 'self'
+   data:`) because it is exposed on a public hostname, so a Google Fonts link
+   would simply be blocked. Self-hosting also means no third-party request from
+   a self-hosted app, and type that still works when the PWA is offline.
+   All three faces are SIL Open Font License, which permits this.
+
+   Karla and Newsreader are VARIABLE fonts: one file each covers the whole
+   weight range, so the weight ranges below are real interpolation, not five
+   copies of the same file under different names.
+   ========================================================================= */
+
+@font-face {
+  font-family: "Karla";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/karla-var.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/newsreader-var.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------------------------------------------------------------- theme --- */
+
+:root,
+:root[data-theme="light"] {
+  --bg: oklch(0.958 0.011 84);
+  --bg-2: oklch(0.938 0.014 82);
+  --panel: oklch(0.995 0.005 84);
+  --panel-2: oklch(0.974 0.01 84);
+  --line: oklch(0.884 0.013 82);
+  --line-soft: oklch(0.93 0.01 82);
+  --ink: oklch(0.31 0.02 250);
+  --ink-2: oklch(0.475 0.017 250);
+  --ink-3: oklch(0.615 0.014 250);
+  --metal: oklch(0.775 0.01 250);
+
+  --shadow: 0 1px 2px oklch(0.31 0.03 250 / 0.06), 0 12px 30px oklch(0.31 0.03 250 / 0.06);
+  --shadow-sm: 0 1px 2px oklch(0.31 0.03 250 / 0.05), 0 4px 12px oklch(0.31 0.03 250 / 0.04);
+
+  /* Semantic status. Kept separate from hero colours on purpose: hero is
+     IDENTITY (which property), status is STATE (is it okay). Never mix them. */
+  --ok: oklch(0.45 0.09 128);
+  --ok-fill: oklch(0.655 0.085 128 / 0.16);
+  --warn: oklch(0.5 0.11 82);
+  --warn-fill: oklch(0.755 0.11 82 / 0.18);
+  --crit: oklch(0.53 0.125 28);
+  --crit-fill: oklch(0.615 0.115 28 / 0.16);
+}
+
+/* Dark is a designed counterpart, not an inversion: papers become cool slate
+   while ink stays slate-tinted and hero colours are unchanged (see below). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: oklch(0.202 0.013 252);
+    --bg-2: oklch(0.172 0.013 252);
+    --panel: oklch(0.248 0.014 252);
+    --panel-2: oklch(0.288 0.015 252);
+    --line: oklch(0.338 0.016 252);
+    --line-soft: oklch(0.302 0.014 252);
+    --ink: oklch(0.94 0.01 84);
+    --ink-2: oklch(0.78 0.011 84);
+    --ink-3: oklch(0.63 0.013 250);
+    --metal: oklch(0.48 0.012 250);
+
+    --shadow: 0 1px 2px oklch(0.1 0.02 250 / 0.45), 0 14px 34px oklch(0.08 0.02 250 / 0.42);
+    --shadow-sm: 0 1px 2px oklch(0.1 0.02 250 / 0.4), 0 5px 14px oklch(0.08 0.02 250 / 0.32);
+
+    --ok: oklch(0.75 0.09 128);
+    --ok-fill: oklch(0.655 0.085 128 / 0.2);
+    --warn: oklch(0.82 0.11 82);
+    --warn-fill: oklch(0.755 0.11 82 / 0.22);
+    --crit: oklch(0.72 0.12 28);
+    --crit-fill: oklch(0.615 0.115 28 / 0.22);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: oklch(0.202 0.013 252);
+  --bg-2: oklch(0.172 0.013 252);
+  --panel: oklch(0.248 0.014 252);
+  --panel-2: oklch(0.288 0.015 252);
+  --line: oklch(0.338 0.016 252);
+  --line-soft: oklch(0.302 0.014 252);
+  --ink: oklch(0.94 0.01 84);
+  --ink-2: oklch(0.78 0.011 84);
+  --ink-3: oklch(0.63 0.013 250);
+  --metal: oklch(0.48 0.012 250);
+
+  --shadow: 0 1px 2px oklch(0.1 0.02 250 / 0.45), 0 14px 34px oklch(0.08 0.02 250 / 0.42);
+  --shadow-sm: 0 1px 2px oklch(0.1 0.02 250 / 0.4), 0 5px 14px oklch(0.08 0.02 250 / 0.32);
+
+  --ok: oklch(0.75 0.09 128);
+  --ok-fill: oklch(0.655 0.085 128 / 0.2);
+  --warn: oklch(0.82 0.11 82);
+  --warn-fill: oklch(0.755 0.11 82 / 0.22);
+  --crit: oklch(0.72 0.12 28);
+  --crit-fill: oklch(0.615 0.115 28 / 0.22);
+}
+
+/* ----------------------------------------------------------------- type --- */
+
+:root {
+  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-sans: "Karla", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Mono labels: uppercase, wide-tracked, small. Used for section labels, dates,
+   addresses and counters throughout the design. */
+.kr-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Ledger and stat figures line up in columns, so digits must not jitter. */
+.kr-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- layout --- */
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Newsreader carries an optical-size axis; let the browser use it. */
+h1, h2, h3, .kr-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

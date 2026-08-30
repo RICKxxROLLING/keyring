@@ -362,6 +362,7 @@ const aggregateHandlers = [
     const now = new Date().toISOString();
     const created: PropertyView = {
       id: fx.genId("prp"),
+      heroColor: "oklch(0.665 0.125 42)",
       name: String(body["name"] ?? "New property"),
       addressLine1: String(body["addressLine1"] ?? ""),
       addressLine2: (body["addressLine2"] as string | null) ?? null,

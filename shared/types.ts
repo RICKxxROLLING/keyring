@@ -274,6 +274,23 @@ export interface Property {
   insuranceCarrier: string | null;
   insurancePolicyNumber: string | null;
   coverUploadId: Id | null;
+  /**
+   * The property's hero colour — a CSS colour string, e.g.
+   * `oklch(0.665 0.125 42)`.
+   *
+   * This is the Keyring design language's organizing idea: every property is a
+   * key on a ring, and its colour follows it everywhere — sidebar key tag, card
+   * band, occupancy bar, status dots, detail header wash.
+   *
+   * STORED, never derived. Deriving it from list position or a hash of the id
+   * would reshuffle the ring whenever a property is reordered or renamed, which
+   * defeats the point: the colour is part of the property's identity, so it has
+   * to survive both.
+   *
+   * Null means "not yet assigned" and renders as a neutral key; the create path
+   * assigns one from the palette.
+   */
+  heroColor: string | null;
   notes: string | null;
   sortOrder: number;
   archivedAt: ISODateTime | null;

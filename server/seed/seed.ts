@@ -1,6 +1,7 @@
 // server/seed/seed.ts — `npm run seed`. Populates 5 properties (1-3 units each) with realistic
 // data across every domain module so the app is explorable on first run. Idempotent: refuses
 // (no-op) when the database already has properties.
+import { HERO_COLORS } from "../../shared/hero-colors.js";
 import { loadEnv } from "../config/env.js";
 import { initDb, tx } from "../db/index.js";
 import { runMigrations } from "../db/migrate.js";
@@ -169,10 +170,10 @@ tx(() => {
       `INSERT INTO properties (id, name, address_line1, address_line2, city, state, postal_code,
          country, property_type, year_built, sqft, lot_sqft, parcel_number, purchase_date,
          purchase_price_cents, mortgage_lender, mortgage_payment_cents, insurance_carrier,
-         insurance_policy_number, cover_upload_id, notes, sort_order, archived_at, created_at,
+         insurance_policy_number, cover_upload_id, notes, sort_order, archived_at, hero_color, created_at,
          updated_at, created_by, updated_by, version)
        VALUES (?, ?, ?, NULL, ?, ?, ?, 'US', ?, ?, ?, ?, NULL, ?, ?, 'First Regional Bank', ?,
-         'Statewide Insurance', ?, NULL, NULL, ?, NULL, ?, ?, ?, ?, 1)`,
+         'Statewide Insurance', ?, NULL, NULL, ?, NULL, ?, ?, ?, ?, ?, 1)`,
     ).run(
       propertyId,
       p.name,
@@ -189,6 +190,9 @@ tx(() => {
       180_000 + propIdx * 15_000,
       `POL-${1000 + propIdx}`,
       propIdx,
+      // Hero colour: walk the palette in order so the seeded ring shows all six
+      // and looks like the design's keyring rather than one repeated colour.
+      HERO_COLORS[propIdx % HERO_COLORS.length]!.value,
       at0,
       at0,
       uid,

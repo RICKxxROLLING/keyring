@@ -1,5 +1,6 @@
 // web/mocks/fixtures.ts — in-memory seed data + mutable store for MSW handlers (owner T4).
 // Shapes are typed against shared/types.ts so drift is a compile error, not a runtime surprise.
+import { HERO_COLORS } from "../../shared/hero-colors";
 import type {
   AttentionItem,
   AuditEntry,
@@ -104,6 +105,7 @@ function propertyBase(
 ): Omit<PropertyView, "units" | "quickFacts" | "status" | "coverUrl"> {
   return {
     id,
+    heroColor: HERO_COLORS[Math.abs(id.charCodeAt(id.length - 1)) % HERO_COLORS.length]!.value,
     name,
     addressLine1,
     addressLine2: null,
