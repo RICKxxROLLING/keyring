@@ -337,14 +337,26 @@ export function registerPropertyRoutes(app: FastifyInstance, _ctx: AppContext): 
       const row = mapRows<Unit>(
         db.prepare(`SELECT * FROM units WHERE id = ?`).all(id) as Record<string, unknown>[],
       )[0]!;
-      recordMutation(req, {
-        action: "create",
-        entityType: "unit",
-        entityId: id,
-        propertyId,
-        summary: `added unit "${row.label}"`,
-        after: body as Record<string, unknown>,
-      });
+      recordMutation(
+        req,
+        {
+          action: "create",
+          entityType: "unit",
+          entityId: id,
+          propertyId,
+          summary: `added unit "${row.label}"`,
+          after: body as Record<string, unknown>,
+        },
+        {
+          entityType: "unit",
+          entityId: id,
+          propertyId,
+          title: row.label,
+          body: `${row.status} ${row.bedrooms ?? ""}bd ${row.bathrooms ?? ""}ba`,
+          url: `/p/${propertyId}`,
+          updatedAt: at,
+        },
+      );
       return row;
     });
     publishAfterCommit({
@@ -382,14 +394,26 @@ export function registerPropertyRoutes(app: FastifyInstance, _ctx: AppContext): 
       });
       assertVersionMatch({ table: "units", id, changes, what: "Unit", currentView: getView });
       const row = getView();
-      recordMutation(req, {
-        action: "update",
-        entityType: "unit",
-        entityId: id,
-        propertyId: existing.property_id,
-        summary: `updated unit "${row.label}"`,
-        after: patch as Record<string, unknown>,
-      });
+      recordMutation(
+        req,
+        {
+          action: "update",
+          entityType: "unit",
+          entityId: id,
+          propertyId: existing.property_id,
+          summary: `updated unit "${row.label}"`,
+          after: patch as Record<string, unknown>,
+        },
+        {
+          entityType: "unit",
+          entityId: id,
+          propertyId: existing.property_id,
+          title: row.label,
+          body: `${row.status} ${row.bedrooms ?? ""}bd ${row.bathrooms ?? ""}ba`,
+          url: `/p/${existing.property_id}`,
+          updatedAt: nowIso(),
+        },
+      );
       return row;
     });
     publishAfterCommit({
