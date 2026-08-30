@@ -93,12 +93,12 @@ $ npm run restore -- --archive /tmp/stoop-drill/data/backups/stoop-20260829-2340
 > stoop@1.0.0 restore
 > tsx server/ops/cli-restore.ts --archive .../stoop-20260829-234027.tar.gz.enc --out .../stoop-restore-scratch
 
-Restoring archive: C:/Users/riley/AppData/Local/Temp/stoop-drill/data/backups/stoop-20260829-234027.tar.gz.enc
-Output directory:  C:/Users/riley/AppData/Local/Temp/stoop-restore-scratch
+Restoring archive: /tmp/stoop-drill/data/backups/stoop-20260829-234027.tar.gz.enc
+Output directory:  /tmp/stoop-restore-scratch
 
 archive sha256:         8ed6b74ff01ff6efce6f7a2bcb14461b8a3216ca8166d9061304b2137ee5b263
-extracted db:           C:\Users\riley\AppData\Local\Temp\stoop-restore-scratch\stoop.db
-extracted uploads dir:  C:\Users\riley\AppData\Local\Temp\stoop-restore-scratch\uploads
+extracted db:           /tmp/stoop-restore-scratch/stoop.db
+extracted uploads dir:  /tmp/stoop-restore-scratch/uploads
 PRAGMA integrity_check: ok
 
 table row counts:
@@ -165,8 +165,8 @@ $ npm run restore -- --archive /tmp/stoop-drill/data/backups/stoop-20260829-2340
 > stoop@1.0.0 restore
 > tsx server/ops/cli-restore.ts --archive .../stoop-20260829-234027.tar.gz.enc --out .../stoop-restore-scratch-wrong
 
-Restoring archive: C:/Users/riley/AppData/Local/Temp/stoop-drill/data/backups/stoop-20260829-234027.tar.gz.enc
-Output directory:  C:/Users/riley/AppData/Local/Temp/stoop-restore-scratch-wrong
+Restoring archive: /tmp/stoop-drill/data/backups/stoop-20260829-234027.tar.gz.enc
+Output directory:  /tmp/stoop-restore-scratch-wrong
 
 RESTORE FAILED (authentication): Decryption failed: wrong passphrase or corrupted archive (AES-256-GCM authentication tag mismatch). A wrong passphrase is indistinguishable from a corrupt archive by design.
 $ echo $?

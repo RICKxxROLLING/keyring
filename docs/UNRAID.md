@@ -17,13 +17,49 @@ build context is `${STOOP_SRC:-.}` for exactly this reason.
 
 ## 1. Put the source on the array
 
-Copy the deploy archive to your server and extract it. Over SMB from Windows,
-`\\TOWER\appdata\` is usually mapped already; adjust the share name to match
-yours. From a terminal on the server:
+### Option A — clone from GitHub (recommended; makes updates one command)
+
+Two Unraid facts shape this:
+
+- **Unraid does not ship `git`.** You can add it with the Nerd Tools plugin, but
+  you do not need to — run git from a throwaway container instead, which works
+  on any Unraid version and leaves nothing installed.
+- **A private repo needs a credential.** Create a **fine-grained personal access
+  token** at GitHub → Settings → Developer settings → Personal access tokens →
+  Fine-grained tokens. Scope it to *only this repository*, with
+  **Contents: Read-only**. Nothing else. Give it a short expiry.
+
+Open an Unraid terminal (web UI → the `>_` icon, or SSH) and clone:
 
 ```bash
-mkdir -p /mnt/user/appdata/stoop/src
-cd /mnt/user/appdata/stoop/src
+mkdir -p /mnt/user/appdata/keyring
+cd /mnt/user/appdata/keyring
+
+docker run --rm -it -v /mnt/user/appdata/keyring:/out alpine/git \
+  clone https://github.com/YOUR-USERNAME/keyring.git /out/src
+```
+
+It will prompt for a username and password. Username is your GitHub username;
+**paste the token as the password** — not your account password.
+
+> **Token hygiene.** Do not embed the token in the URL
+> (`https://token@github.com/...`): git stores the remote URL in
+> `src/.git/config` in plain text, so the token ends up sitting on your array
+> indefinitely. Letting it prompt keeps the token out of the repo, out of
+> `.git/config`, and out of your shell history.
+
+If the repo is public, drop the prompt entirely — the same command just works.
+
+### Option B — copy an archive over SMB
+
+No token, no GitHub access needed on the server. Extract the deploy archive to
+`/mnt/user/appdata/keyring/src`. Over SMB from Windows, `\\TOWER\appdata\` is
+usually mapped already; adjust the share name to match yours. From a terminal
+on the server:
+
+```bash
+mkdir -p /mnt/user/appdata/keyring/src
+cd /mnt/user/appdata/keyring/src
 tar -xzf /path/to/keyring-deploy.tar.gz
 ls Dockerfile docker-compose.yml package.json    # sanity check
 ```
@@ -32,14 +68,14 @@ Two directories, deliberately separate:
 
 | Path | Holds | Backed up? |
 |---|---|---|
-| `/mnt/user/appdata/stoop/src` | Source code. Disposable — replace it to upgrade. | No need |
-| `/mnt/user/appdata/stoop/data` | The database, uploads, backups, setup token. | **Yes. This is everything.** |
+| `/mnt/user/appdata/keyring/src` | Source code. Disposable — replace it to upgrade. | No need |
+| `/mnt/user/appdata/keyring/data` | The database, uploads, backups, setup token. | **Yes. This is everything.** |
 
 Make sure the data directory exists and is owned correctly:
 
 ```bash
-mkdir -p /mnt/user/appdata/stoop/data
-chown -R 99:100 /mnt/user/appdata/stoop/data
+mkdir -p /mnt/user/appdata/keyring/data
+chown -R 99:100 /mnt/user/appdata/keyring/data
 ```
 
 99:100 is `nobody:users`, Unraid's default. The container entrypoint will fix
@@ -71,8 +107,8 @@ four are required; the last two are what make Compose Manager work.
 | `SESSION_SECRET` | 32+ random characters. `openssl rand -base64 48` |
 | `BACKUP_PASSPHRASE` | A strong passphrase. **Put it in a password manager off this box before you continue.** There is no escrow — lose it and every backup you ever take is permanently unreadable. |
 | `TUNNEL_TOKEN` | Cloudflare Zero Trust → Networks → Tunnels → your tunnel → install connector → copy token. |
-| `STOOP_SRC` | `/mnt/user/appdata/stoop/src` — the build context. |
-| `STOOP_DATA_DIR` | `/mnt/user/appdata/stoop/data` — the bind mount for `/data`. |
+| `STOOP_SRC` | `/mnt/user/appdata/keyring/src` — the build context. |
+| `STOOP_DATA_DIR` | `/mnt/user/appdata/keyring/data` — the bind mount for `/data`. |
 
 Leave `PUID=99` / `PGID=100` unless your Unraid setup differs.
 
@@ -111,7 +147,7 @@ tunnel container is not running yet, look at the app's health first.
 First boot writes a one-time setup token:
 
 ```bash
-cat /mnt/user/appdata/stoop/data/setup-token.txt
+cat /mnt/user/appdata/keyring/data/setup-token.txt
 ```
 
 Visit `https://<your-tunnel-hostname>/setup`, paste the token, and create the
@@ -137,7 +173,7 @@ and `restore:prod`.
 ## Upgrading later
 
 ```bash
-cd /mnt/user/appdata/stoop/src
+cd /mnt/user/appdata/keyring/src
 rm -rf ./*                       # source only — never touch ../data
 tar -xzf /path/to/new-archive.tar.gz
 cd /boot/config/plugins/compose.manager/projects/stoop
