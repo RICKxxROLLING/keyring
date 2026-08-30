@@ -1,6 +1,12 @@
 services:
   stoop:
-    build: .
+    build:
+      # Defaults to "." so `docker compose up -d --build` works from a checkout.
+      # Unraid's Docker Compose Manager keeps stacks on the FLASH drive
+      # (/boot/config/plugins/compose.manager/projects/<name>/), which is small,
+      # slow and should not be a build context — so point STOOP_SRC at the
+      # source on your array instead. See docs/UNRAID.md.
+      context: ${STOOP_SRC:-.}
     image: stoop:latest
     container_name: stoop
     restart: unless-stopped

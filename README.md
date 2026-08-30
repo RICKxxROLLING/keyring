@@ -63,6 +63,8 @@ set one), logs it once, and writes it to `$DATA_DIR/setup-token.txt`
 account. From there, the owner invites everyone else from `/admin` — there
 is no other way to create an account.
 
+Running it through Unraid's **Docker Compose Manager** plugin: **`docs/UNRAID.md`**.
+
 Full first-run walkthrough, the invite flow, every env var, the backup and
 restore runbook, and how to rotate `SESSION_SECRET`: **`docs/OPERATIONS.md`**.
 
