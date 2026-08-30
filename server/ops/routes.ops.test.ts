@@ -64,7 +64,7 @@ describe("ops routes", () => {
       ["GET", "/api/ops/info"],
       ["GET", "/api/ops/backups"],
       ["POST", "/api/ops/backups"],
-      ["POST", "/api/ops/backups/verify", { archiveName: "stoop-20260101-000000.tar.gz.enc" }],
+      ["POST", "/api/ops/backups/verify", { archiveName: "keyring-20260101-000000.tar.gz.enc" }],
       ["DELETE", `/api/ops/backups/${FAKE_ID}`],
     ];
     for (const [method, url, payload] of routes) {

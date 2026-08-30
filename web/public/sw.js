@@ -3,9 +3,9 @@
 // visited dossiers (stale-while-revalidate). Every other API call, and every non-GET, is
 // network-only and never cached — there is no write queue and no offline mutation.
 
-const SHELL_CACHE = "stoop-shell-v1";
-const API_CACHE = "stoop-api-v1";
-const THUMB_CACHE = "stoop-thumbs-v1";
+const SHELL_CACHE = "keyring-shell-v1";
+const API_CACHE = "keyring-api-v1";
+const THUMB_CACHE = "keyring-thumbs-v1";
 const THUMB_CACHE_MAX = 200;
 const CURRENT_CACHES = [SHELL_CACHE, API_CACHE, THUMB_CACHE];
 

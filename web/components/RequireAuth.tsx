@@ -8,7 +8,7 @@ export function RequireAuth(props: { children: ReactNode }): ReactElement {
   const location = useLocation();
 
   if (status === "loading") {
-    return <Spinner label="Loading Stoop…" />;
+    return <Spinner label="Loading Keyring…" />;
   }
   if (status === "unauthenticated") {
     if (needsSetup) return <Navigate to="/setup" replace />;

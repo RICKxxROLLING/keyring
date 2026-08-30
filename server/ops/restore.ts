@@ -82,7 +82,7 @@ export async function restoreArchive(input: RestoreArchiveInput): Promise<Restor
     passphrase: input.passphrase,
   });
 
-  const dbPath = join(input.outDir, "stoop.db");
+  const dbPath = join(input.outDir, "keyring.db");
   const uploadsDir = join(input.outDir, "uploads");
 
   if (!existsSync(dbPath)) {
@@ -95,7 +95,7 @@ export async function restoreArchive(input: RestoreArchiveInput): Promise<Restor
       rowCounts: {},
       uploads: { count: 0, bytes: 0 },
       archiveSha256,
-      error: "Archive did not contain stoop.db.",
+      error: "Archive did not contain keyring.db.",
     };
   }
 
@@ -134,7 +134,7 @@ export interface VerifyResult {
  * success or failure.
  */
 export async function verifyArchive(archivePath: string, passphrase: string): Promise<VerifyResult> {
-  const workDir = mkdtempSync(join(tmpdir(), "stoop-verify-"));
+  const workDir = mkdtempSync(join(tmpdir(), "keyring-verify-"));
   try {
     const report = await restoreArchive({ archivePath, outDir: workDir, passphrase });
     const dbBytes = existsSync(report.dbPath) ? statSync(report.dbPath).size : 0;

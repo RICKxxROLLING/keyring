@@ -10,7 +10,7 @@ describe("getRowCounts / countUploads", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "stoop-restore-unit-"));
+    dir = mkdtempSync(join(tmpdir(), "keyring-restore-unit-"));
   });
 
   afterEach(() => {
@@ -49,7 +49,7 @@ describe("restoreArchive / verifyArchive end to end", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "stoop-restore-e2e-"));
+    dir = mkdtempSync(join(tmpdir(), "keyring-restore-e2e-"));
   });
 
   afterEach(() => {
@@ -61,7 +61,7 @@ describe("restoreArchive / verifyArchive end to end", () => {
     mkdirSync(join(staging, "uploads"), { recursive: true });
     writeFileSync(join(staging, "uploads", "lease.pdf"), "%PDF-1.4 fake");
 
-    const dbPath = join(staging, "stoop.db");
+    const dbPath = join(staging, "keyring.db");
     const db = new Database(dbPath);
     db.exec(`CREATE TABLE things (id TEXT PRIMARY KEY, val TEXT)`);
     db.prepare(`INSERT INTO things (id, val) VALUES (?, ?)`).run("t1", "hello");
@@ -72,7 +72,7 @@ describe("restoreArchive / verifyArchive end to end", () => {
     const outPath = join(dir, "fixture.tar.gz.enc");
     await encryptToFile({
       cwd: staging,
-      entries: ["stoop.db", "uploads"],
+      entries: ["keyring.db", "uploads"],
       outPath,
       passphrase,
     });
@@ -97,7 +97,7 @@ describe("restoreArchive / verifyArchive end to end", () => {
 
     const ok = await verifyArchive(archivePath, "verify-passphrase");
     expect(ok.ok).toBe(true);
-    expect(ok.fileCount).toBe(2); // stoop.db + lease.pdf
+    expect(ok.fileCount).toBe(2); // keyring.db + lease.pdf
 
     const bad = await verifyArchive(archivePath, "totally-wrong-passphrase");
     expect(bad.ok).toBe(false);

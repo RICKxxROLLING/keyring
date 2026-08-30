@@ -55,7 +55,7 @@ describe("backup job", () => {
     const result = await performBackup(startBackupRun("manual").id);
 
     expect(result.status).toBe("ok");
-    expect(result.archiveName).toMatch(/^stoop-\d{8}-\d{6}(-\d+)?\.tar\.gz\.enc$/);
+    expect(result.archiveName).toMatch(/^keyring-\d{8}-\d{6}(-\d+)?\.tar\.gz\.enc$/);
     expect(result.sizeBytes).toBeGreaterThan(0);
     expect(result.sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(result.dbBytes).toBeGreaterThan(0);
@@ -65,7 +65,7 @@ describe("backup job", () => {
     expect(existsSync(archivePath)).toBe(true);
 
     const header = readHeaderBytes(archivePath);
-    expect(header.toString("ascii", 0, 6)).toBe("STOOPB");
+    expect(header.toString("ascii", 0, 6)).toBe("KEYRNG");
   });
 
   it("records a backup_runs row queryable back out of SQLite", async () => {

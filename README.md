@@ -1,4 +1,4 @@
-# Stoop
+# Keyring
 
 Self-hosted, collaborative property management for a small portfolio — built
 for 2-3 people jointly managing a handful of properties from their phones.
@@ -46,14 +46,14 @@ docker compose ps
 
 This brings up two containers:
 
-- `stoop` — the app itself. All state lives under one bind-mounted `/data`
-  (`stoop.db`, `uploads/`, `backups/`, `setup-token.txt`). Config is 100% env
+- `keyring` — the app itself. All state lives under one bind-mounted `/data`
+  (`keyring.db`, `uploads/`, `backups/`, `setup-token.txt`). Config is 100% env
   vars — see `.env.example` for every variable, with defaults and comments.
   Runs as a non-root user (Unraid `PUID`/`PGID` convention). Ships a
   `HEALTHCHECK` against `GET /healthz`.
 - `cloudflared` — the Cloudflare Tunnel sidecar. Makes an **outbound-only**
   connection to Cloudflare; no inbound port needs to be opened on your
-  router, and your home/box IP is never exposed. The `stoop` service's own
+  router, and your home/box IP is never exposed. The `keyring` service's own
   published port is optional (LAN access only) — see
   `docker-compose.override.example.yml` to drop it once the tunnel works.
 
@@ -103,8 +103,15 @@ TypeScript through `tsx`, which is a devDependency, and the runtime image runs
 instead. For example, to load demo data into a fresh deployment:
 
 ```
-docker compose exec stoop npm run seed:prod
+docker compose exec -u 99:100 keyring npm run seed:prod
 ```
+
+**Note the `-u 99:100`.** `docker exec` runs as **root** — it does not pass
+through the entrypoint's privilege drop — so any maintenance command that
+writes into `/data` will create root-owned files that the app (running as
+`PUID:PGID`) then cannot touch. The symptom appears much later and looks
+unrelated: uploads fail with `EACCES`. Match the flag to your `PUID:PGID` if
+you changed them from the Unraid defaults.
 
 ## Repository layout
 

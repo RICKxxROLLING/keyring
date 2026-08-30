@@ -35,7 +35,7 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
           <Link to="/" className="flex items-center gap-2 font-extrabold tracking-tight text-slate-900">
-            <span className="text-brand-600">Stoop</span>
+            <span className="text-brand-600">Keyring</span>
           </Link>
 
           <button

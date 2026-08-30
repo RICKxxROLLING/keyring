@@ -1,4 +1,4 @@
-# Stoop — Restore Drill
+# Keyring — Restore Drill
 
 **"We have backups" and "we have restored a backup" are different claims.**
 This document is the second one. Every command below was actually run against
@@ -7,7 +7,7 @@ the output pasted below is unedited except for wrapping.
 
 > Environment note: this drill was executed with `npm run backup` /
 > `npm run restore` directly (Node 24.19.0, Windows), against a scratch data
-> directory outside the repo (`/tmp/stoop-drill`, `/tmp/stoop-restore-scratch*`)
+> directory outside the repo (`/tmp/keyring-drill`, `/tmp/keyring-restore-scratch*`)
 > — not inside a Docker container, because Docker was not installed in this
 > build sandbox. The archive format, the encryption, the `VACUUM INTO`
 > snapshot, and the restore/verification logic are exactly what ships in the
@@ -20,7 +20,7 @@ the output pasted below is unedited except for wrapping.
 ## The archive format (§C11.2), confirmed on a real file
 
 ```
-$ xxd -l 36 /tmp/stoop-drill/data/backups/stoop-20260829-234027.tar.gz.enc
+$ xxd -l 36 /tmp/keyring-drill/data/backups/keyring-20260829-234027.tar.gz.enc
 00000000: 5354 4f4f 5042 0101 99b2 374b 5ff9 4107  STOOPB....7K_.A.
 00000010: 9beb 57c3 500e ba49 5684 54a9 128f 702a  ..W.P..IV.T...p*
 00000020: fa82 efa4                                ....
@@ -39,11 +39,11 @@ bytes), then a real backup was produced:
 ```
 $ npm run backup
 
-> stoop@1.0.0 backup
+> keyring@1.0.0 backup
 > tsx server/ops/backup.ts --run
 
 applied 0, total 3
-backup ok: stoop-20260829-234027.tar.gz.enc (13388 bytes, sha256 8ed6b74ff01ff6efce6f7a2bcb14461b8a3216ca8166d9061304b2137ee5b263)
+backup ok: keyring-20260829-234027.tar.gz.enc (13388 bytes, sha256 8ed6b74ff01ff6efce6f7a2bcb14461b8a3216ca8166d9061304b2137ee5b263)
 ```
 
 Source database row counts at the moment of that backup (`SELECT COUNT(*)`
@@ -69,7 +69,7 @@ been inserted by the time `VACUUM INTO` executed inside that same backup.)
 $ unset BACKUP_PASSPHRASE
 $ npm run backup
 
-> stoop@1.0.0 backup
+> keyring@1.0.0 backup
 > tsx server/ops/backup.ts --run
 
 applied 0, total 3
@@ -77,8 +77,8 @@ backup failed: BACKUP_PASSPHRASE is not set; refusing to write an unencrypted ba
 $ echo $?
 1
 
-$ ls /tmp/stoop-drill/data/backups
-stoop-20260829-234027.tar.gz.enc
+$ ls /tmp/keyring-drill/data/backups
+keyring-20260829-234027.tar.gz.enc
 ```
 
 Only the archive from the earlier, passphrase-set run is present. The failed
@@ -87,18 +87,18 @@ run wrote nothing — never a plaintext fallback.
 ## 2. The real restore — correct passphrase
 
 ```
-$ npm run restore -- --archive /tmp/stoop-drill/data/backups/stoop-20260829-234027.tar.gz.enc \
-                     --out /tmp/stoop-restore-scratch
+$ npm run restore -- --archive /tmp/keyring-drill/data/backups/keyring-20260829-234027.tar.gz.enc \
+                     --out /tmp/keyring-restore-scratch
 
-> stoop@1.0.0 restore
-> tsx server/ops/cli-restore.ts --archive .../stoop-20260829-234027.tar.gz.enc --out .../stoop-restore-scratch
+> keyring@1.0.0 restore
+> tsx server/ops/cli-restore.ts --archive .../keyring-20260829-234027.tar.gz.enc --out .../keyring-restore-scratch
 
-Restoring archive: /tmp/stoop-drill/data/backups/stoop-20260829-234027.tar.gz.enc
-Output directory:  /tmp/stoop-restore-scratch
+Restoring archive: /tmp/keyring-drill/data/backups/keyring-20260829-234027.tar.gz.enc
+Output directory:  /tmp/keyring-restore-scratch
 
 archive sha256:         8ed6b74ff01ff6efce6f7a2bcb14461b8a3216ca8166d9061304b2137ee5b263
-extracted db:           /tmp/stoop-restore-scratch/stoop.db
-extracted uploads dir:  /tmp/stoop-restore-scratch/uploads
+extracted db:           /tmp/keyring-restore-scratch/keyring.db
+extracted uploads dir:  /tmp/keyring-restore-scratch/uploads
 PRAGMA integrity_check: ok
 
 table row counts:
@@ -159,14 +159,14 @@ separately above is what actually round-tripped through the archive.)
 ## 3. Wrong passphrase — fails on the GCM tag, indistinguishable from corruption
 
 ```
-$ npm run restore -- --archive /tmp/stoop-drill/data/backups/stoop-20260829-234027.tar.gz.enc \
-                     --out /tmp/stoop-restore-scratch-wrong
+$ npm run restore -- --archive /tmp/keyring-drill/data/backups/keyring-20260829-234027.tar.gz.enc \
+                     --out /tmp/keyring-restore-scratch-wrong
 
-> stoop@1.0.0 restore
-> tsx server/ops/cli-restore.ts --archive .../stoop-20260829-234027.tar.gz.enc --out .../stoop-restore-scratch-wrong
+> keyring@1.0.0 restore
+> tsx server/ops/cli-restore.ts --archive .../keyring-20260829-234027.tar.gz.enc --out .../keyring-restore-scratch-wrong
 
-Restoring archive: /tmp/stoop-drill/data/backups/stoop-20260829-234027.tar.gz.enc
-Output directory:  /tmp/stoop-restore-scratch-wrong
+Restoring archive: /tmp/keyring-drill/data/backups/keyring-20260829-234027.tar.gz.enc
+Output directory:  /tmp/keyring-restore-scratch-wrong
 
 RESTORE FAILED (authentication): Decryption failed: wrong passphrase or corrupted archive (AES-256-GCM authentication tag mismatch). A wrong passphrase is indistinguishable from a corrupt archive by design.
 $ echo $?
@@ -196,28 +196,28 @@ them — do the restore, the review, and the copy in a **single** shell so the
 scratch directory survives:
 
 ```
-docker compose stop stoop
+docker compose stop keyring
 
-docker compose run --rm stoop sh -c '
+docker compose run --rm keyring sh -c '
   npm run restore:prod -- \
-    --archive /data/backups/stoop-<ts>.tar.gz.enc \
+    --archive /data/backups/keyring-<ts>.tar.gz.enc \
     --out /tmp/restore-scratch
 '
 # Review the printed integrity check and row counts above. Do NOT continue if
 # integrity_check is not "ok" or the row counts look wrong.
 
-docker compose run --rm stoop sh -c '
+docker compose run --rm keyring sh -c '
   set -e
   npm run restore:prod -- \
-    --archive /data/backups/stoop-<ts>.tar.gz.enc \
+    --archive /data/backups/keyring-<ts>.tar.gz.enc \
     --out /tmp/restore-scratch
-  cp /tmp/restore-scratch/stoop.db /data/stoop.db
-  rm -f /data/stoop.db-wal /data/stoop.db-shm
+  cp /tmp/restore-scratch/keyring.db /data/keyring.db
+  rm -f /data/keyring.db-wal /data/keyring.db-shm
   rm -rf /data/uploads
   cp -a /tmp/restore-scratch/uploads /data/uploads
 '
 
-docker compose start stoop
+docker compose start keyring
 ```
 
 The restore is run twice on purpose: once to read the integrity report before

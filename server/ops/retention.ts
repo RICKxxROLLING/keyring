@@ -2,7 +2,7 @@
 import { readdirSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
-const ARCHIVE_RE = /^stoop-\d{8}-\d{6}(?:-\d+)?\.tar\.gz\.enc$/;
+const ARCHIVE_RE = /^keyring-\d{8}-\d{6}(?:-\d+)?\.tar\.gz\.enc$/;
 
 export interface RetentionResult {
   deleted: string[];

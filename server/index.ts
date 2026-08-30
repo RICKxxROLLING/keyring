@@ -14,7 +14,7 @@ process.on("SIGINT", () => void shutdown("SIGINT"));
 
 try {
   await app.listen({ port: env.PORT, host: env.HOST });
-  app.log.info({ port: env.PORT, origin: env.APP_ORIGIN }, "stoop listening");
+  app.log.info({ port: env.PORT, origin: env.APP_ORIGIN }, "keyring listening");
 } catch (err) {
   app.log.error({ err }, "failed to start");
   process.exit(1);

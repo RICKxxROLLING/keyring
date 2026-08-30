@@ -34,7 +34,7 @@ if (!ownerId) {
   db.prepare(
     `INSERT INTO users (id, email, handle, display_name, role, password_hash, avatar_color,
        is_active, created_at, updated_at, version)
-     VALUES (?, 'owner@stoop.local', 'owner', 'Portfolio Owner', 'owner', 'x', '#2563eb', 1, ?, ?, 1)`,
+     VALUES (?, 'owner@keyring.local', 'owner', 'Portfolio Owner', 'owner', 'x', '#2563eb', 1, ?, ?, 1)`,
   ).run(ownerId, at, at);
 }
 const uid = ownerId;

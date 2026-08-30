@@ -47,7 +47,7 @@ export const CURRENT_USER_ID = "usr_00000001";
 export const users: User[] = [
   {
     id: "usr_00000001",
-    email: "riley@stoop.example",
+    email: "riley@keyring.example",
     handle: "riley",
     displayName: "Riley Hart",
     role: "owner",
@@ -61,7 +61,7 @@ export const users: User[] = [
   },
   {
     id: "usr_00000002",
-    email: "dana@stoop.example",
+    email: "dana@keyring.example",
     handle: "dana",
     displayName: "Dana Marsh",
     role: "manager",
@@ -75,7 +75,7 @@ export const users: User[] = [
   },
   {
     id: "usr_00000003",
-    email: "sam@stoop.example",
+    email: "sam@keyring.example",
     handle: "sam",
     displayName: "Sam Ortega",
     role: "manager",

@@ -22,7 +22,7 @@ import { verifyArchive } from "./restore.js";
 import type { BackupRun } from "../../shared/types.js";
 
 const VerifyBodySchema = z.object({ archiveName: z.string().min(1).max(200) }).strict();
-const ARCHIVE_NAME_RE = /^stoop-\d{8}-\d{6}(?:-\d+)?\.tar\.gz\.enc$/;
+const ARCHIVE_NAME_RE = /^keyring-\d{8}-\d{6}(?:-\d+)?\.tar\.gz\.enc$/;
 
 export async function registerOpsRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   const { env, db } = ctx;

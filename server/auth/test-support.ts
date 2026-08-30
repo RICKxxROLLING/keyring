@@ -8,7 +8,7 @@ import type { EnrollmentChallenge, SessionInfo } from "../../shared/types.js";
 
 export function totpCodeFor(secretBase32: string, email = "user"): string {
   return new TOTP({
-    issuer: "Stoop",
+    issuer: "Keyring",
     label: email,
     algorithm: "SHA1",
     digits: 6,

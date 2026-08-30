@@ -1,5 +1,5 @@
 {
-  "name": "stoop",
+  "name": "keyring",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     "seed": "tsx server/seed/seed.ts",
     "backup": "tsx server/ops/backup.ts --run",
     "restore": "tsx server/ops/cli-restore.ts",
-    "_comment:prod": "The four scripts above run TypeScript via tsx, a devDependency. The Docker runtime image runs `npm prune --omit=dev`, so tsx does NOT exist in the container. Use these compiled equivalents inside it: docker compose exec stoop npm run seed:prod",
+    "_comment:prod": "The four scripts above run TypeScript via tsx, a devDependency. The Docker runtime image runs `npm prune --omit=dev`, so tsx does NOT exist in the container. Use these compiled equivalents inside it: docker compose exec keyring npm run seed:prod",
     "migrate:prod": "node dist/server/server/db/migrate.js --run",
     "seed:prod": "node dist/server/server/seed/seed.js",
     "backup:prod": "node dist/server/server/ops/backup.js --run",

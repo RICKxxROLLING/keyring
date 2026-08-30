@@ -194,14 +194,14 @@ const authHandlers = [
   }),
 
   http.get("/api/invites/:token/preview", () =>
-    ok({ email: "newmanager@stoop.example", role: "manager" as const, valid: true, expiresAt: new Date(Date.now() + 3600000).toISOString() }),
+    ok({ email: "newmanager@keyring.example", role: "manager" as const, valid: true, expiresAt: new Date(Date.now() + 3600000).toISOString() }),
   ),
 
   http.post("/api/invites/:token/accept", () =>
     ok({
       userId: fx.genId("usr"),
       mfaToken: "mock-mfa-token",
-      enrollment: { secret: "MOCKSECRET234", otpauthUrl: "otpauth://totp/Stoop:new@stoop.example?secret=MOCKSECRET234&issuer=Stoop" },
+      enrollment: { secret: "MOCKSECRET234", otpauthUrl: "otpauth://totp/Keyring:new@keyring.example?secret=MOCKSECRET234&issuer=Keyring" },
     }),
   ),
 
@@ -1374,7 +1374,7 @@ const opsHandlers = [
     ok({
       version: "1.0.0-mock",
       nodeVersion: "24.x",
-      dbPath: "./data/stoop.db",
+      dbPath: "./data/keyring.db",
       dbSizeBytes: 4_200_000,
       walSizeBytes: 120_000,
       journalMode: "wal",

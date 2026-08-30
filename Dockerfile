@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Single multi-stage image for Stoop. Stage 1 builds the web bundle and the
+# Single multi-stage image for Keyring. Stage 1 builds the web bundle and the
 # compiled server; stage 2 is the runtime image that ships to Unraid.
 #
 # IMPORTANT: tsc does not copy `.sql` files. The migration runner

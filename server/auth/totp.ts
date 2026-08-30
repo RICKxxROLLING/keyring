@@ -1,6 +1,6 @@
 import { Secret, TOTP } from "otpauth";
 
-const ISSUER = "Stoop";
+const ISSUER = "Keyring";
 
 export function generateTotpSecret(): string {
   return new Secret({ size: 20 }).base32;

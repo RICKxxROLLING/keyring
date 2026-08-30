@@ -31,7 +31,7 @@ export interface TestUser {
 }
 
 export async function createTestApp(): Promise<TestApp> {
-  const dir = mkdtempSync(join(tmpdir(), "stoop-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "keyring-test-"));
   process.env.NODE_ENV = "test";
   process.env.DATA_DIR = dir;
   process.env.DB_PATH = join(dir, "test.db");

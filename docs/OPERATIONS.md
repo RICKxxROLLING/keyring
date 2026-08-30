@@ -1,6 +1,6 @@
-# Stoop — Operations Guide
+# Keyring — Operations Guide
 
-**`BACKUP_PASSPHRASE` is the only key to every backup archive Stoop ever writes.
+**`BACKUP_PASSPHRASE` is the only key to every backup archive Keyring ever writes.
 There is no escrow, no recovery, and no support ticket that gets it back.**
 The moment you set it in `.env`, copy it into a password manager that lives
 **off this box** (not a note in `/data`, not a file next to `docker-compose.yml`).
@@ -32,11 +32,11 @@ never falls back to writing an unencrypted one.
 1. Copy `.env.example` to `.env` and fill in at least `APP_ORIGIN`,
    `SESSION_SECRET`, and `BACKUP_PASSPHRASE`.
 2. `docker compose up -d`.
-3. On first boot, if you did **not** set `SETUP_TOKEN` yourself, Stoop
+3. On first boot, if you did **not** set `SETUP_TOKEN` yourself, Keyring
    generates one, logs it once, and writes it to `$DATA_DIR/setup-token.txt`
    (mode `0600`). Read it with:
    ```
-   docker compose exec stoop cat /data/setup-token.txt
+   docker compose exec keyring cat /data/setup-token.txt
    ```
 4. Visit `https://<your-tunnel-hostname>/setup` and enter the token. This
    creates the first account, which is always role `owner`.
@@ -50,13 +50,13 @@ never falls back to writing an unencrypted one.
 
 ## Invite flow
 
-Stoop has no self-registration and no admin-created-password flow — the
+Keyring has no self-registration and no admin-created-password flow — the
 **only** two ways a user account is ever created are the one-time bootstrap
 above and accepting an invite:
 
 1. Owner signs in, goes to `/admin`, issues an invite for an email + role
    (`owner` or `manager`). The invite link is shown once (`inviteUrl`) — copy
-   it and send it to the person yourself; Stoop does not send email.
+   it and send it to the person yourself; Keyring does not send email.
 2. The invite is valid for `INVITE_TTL_HOURS` (default 72h) and single-use.
 3. The invitee opens the link, sets a password, enrolls TOTP, and is shown
    their own ten recovery codes.
@@ -65,7 +65,7 @@ above and accepting an invite:
 ## Deployment topology
 
 ```
-Internet ──HTTPS──> Cloudflare edge ──(outbound-only tunnel)── cloudflared ──HTTP── stoop
+Internet ──HTTPS──> Cloudflare edge ──(outbound-only tunnel)── cloudflared ──HTTP── keyring
                                                                  (same compose
                                                                   network, no
                                                                   published port
@@ -74,21 +74,21 @@ Internet ──HTTPS──> Cloudflare edge ──(outbound-only tunnel)── c
 
 `cloudflared` makes an **outbound** connection to Cloudflare; nothing needs to
 be forwarded on your router, and your home/box IP is never exposed. The
-`stoop` service's `ports:` mapping in `docker-compose.yml` is optional — it
+`keyring` service's `ports:` mapping in `docker-compose.yml` is optional — it
 only matters if you also want LAN access without going through the tunnel.
 Once the tunnel is confirmed working, you can remove the `ports:` block
 entirely (see `docker-compose.override.example.yml`) so nothing is reachable
 except through Cloudflare.
 
-Setting up the tunnel itself (outside Stoop's scope): create a tunnel in the
+Setting up the tunnel itself (outside Keyring's scope): create a tunnel in the
 Cloudflare Zero Trust dashboard, point a public hostname at
-`http://stoop:8080` (the compose service name and container port — this is
+`http://keyring:8080` (the compose service name and container port — this is
 resolved on the compose-internal network, not the host), and put the
 connector token in `.env` as `TUNNEL_TOKEN`.
 
 ## Environment variables
 
-Every variable Stoop reads is listed in `.env.example` with a default and a
+Every variable Keyring reads is listed in `.env.example` with a default and a
 comment. The ones that matter most for this deployment:
 
 | Variable | Why it matters here |
@@ -105,9 +105,9 @@ comment. The ones that matter most for this deployment:
 Everything persistent lives under the single bind-mounted `/data`:
 
 ```
-/data/stoop.db          SQLite database, WAL mode
-/data/stoop.db-wal      write-ahead log (grows and checkpoints automatically)
-/data/stoop.db-shm      shared memory index for the WAL
+/data/keyring.db          SQLite database, WAL mode
+/data/keyring.db-wal      write-ahead log (grows and checkpoints automatically)
+/data/keyring.db-shm      shared memory index for the WAL
 /data/uploads/          lease PDFs, photos — never served as static files
 /data/backups/          encrypted nightly archives (see below)
 /data/setup-token.txt   one-time bootstrap token (0600), deleted logically once consumed
@@ -127,7 +127,7 @@ that's the one this document proves actually works.
   writes and without any risk of copying a torn WAL.
 - The snapshot plus `/data/uploads` are streamed through `tar` → `gzip` →
   `AES-256-GCM` (key derived from `BACKUP_PASSPHRASE` via scrypt) straight to
-  `stoop-<YYYYMMDD>-<HHmmss>.tar.gz.enc` in `/data/backups`. The exact byte
+  `keyring-<YYYYMMDD>-<HHmmss>.tar.gz.enc` in `/data/backups`. The exact byte
   layout is pinned in `docs/RESTORE.md` and in the design contract, so restore
   never has to guess the format.
 - Every run — success or failure — is recorded as a row visible at
@@ -145,7 +145,7 @@ that's the one this document proves actually works.
   good without doing a full restore.
 
 Point `BACKUP_DIR` (via the bind mount) at storage that is physically
-separate from the volume holding `/data/stoop.db` if you want backups to
+separate from the volume holding `/data/keyring.db` if you want backups to
 survive the loss of that volume — e.g. a different Unraid array share, or a
 mounted network location.
 
@@ -155,17 +155,17 @@ See **`docs/RESTORE.md`** for the exact, executable procedure and its output.
 The short version:
 
 ```
-docker compose stop stoop
-docker compose run --rm stoop sh -c '
+docker compose stop keyring
+docker compose run --rm keyring sh -c '
   set -e
-  npm run restore:prod -- --archive /data/backups/stoop-<ts>.tar.gz.enc \
+  npm run restore:prod -- --archive /data/backups/keyring-<ts>.tar.gz.enc \
                           --out /tmp/restore-scratch
   # review the printed integrity check and row counts before the copy below
-  cp /tmp/restore-scratch/stoop.db /data/stoop.db
-  rm -f /data/stoop.db-wal /data/stoop.db-shm
+  cp /tmp/restore-scratch/keyring.db /data/keyring.db
+  rm -f /data/keyring.db-wal /data/keyring.db-shm
   rm -rf /data/uploads && cp -a /tmp/restore-scratch/uploads /data/uploads
 '
-docker compose start stoop
+docker compose start keyring
 ```
 
 Note `restore:prod`, not `restore`: the runtime image prunes devDependencies,
@@ -187,7 +187,7 @@ derived from `SESSION_SECRET`).
 
 1. Generate a new value: `openssl rand -base64 48`.
 2. Update `SESSION_SECRET` in `.env`.
-3. `docker compose up -d` (recreates the `stoop` container with the new env).
+3. `docker compose up -d` (recreates the `keyring` container with the new env).
 4. Everyone logs back in.
 
 Rotate it if you suspect a session cookie leaked, after removing a manager
@@ -249,6 +249,6 @@ comfortable with — there's no forced expiry beyond `SESSION_TTL_HOURS`.
 |---|---|
 | Every request looks like it comes from the same IP in the audit log | `TRUST_PROXY` misconfigured, or the tunnel isn't actually the only path in. Check `GET /api/ops/info` and compare against a request from a known IP. |
 | Cookies don't persist / user is logged out every request | `APP_ORIGIN` isn't `https://`, so `SECURE_COOKIES` is false and the browser (correctly) won't send a `Secure` cookie over your `https://` tunnel origin mismatch. Fix `APP_ORIGIN`. |
-| `docker compose ps` shows `stoop` unhealthy | Check `docker compose logs stoop` — most often a migration failure (immutable-migration checksum mismatch — never hand-edit an applied `.sql` file) or the volume not being writable by `PUID:PGID`. |
+| `docker compose ps` shows `keyring` unhealthy | Check `docker compose logs keyring` — most often a migration failure (immutable-migration checksum mismatch — never hand-edit an applied `.sql` file) or the volume not being writable by `PUID:PGID`. |
 | Backups show `status: failed` with a `BACKUP_PASSPHRASE` error | Exactly as designed — set `BACKUP_PASSPHRASE` in `.env` and recreate the container. |
-| TOTP codes are rejected even though they look right | Host clock drift. Stoop allows ±1 step (±30s) of skew; make sure the Unraid host has NTP working. |
+| TOTP codes are rejected even though they look right | Host clock drift. Keyring allows ±1 step (±30s) of skew; make sure the Unraid host has NTP working. |

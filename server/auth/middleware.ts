@@ -5,8 +5,8 @@ import { ApiError } from "../lib/errors.js";
 import { nowIso } from "../lib/time.js";
 import type { Role } from "../../shared/types.js";
 
-export const SESSION_COOKIE = "stoop_session";
-export const CSRF_COOKIE = "stoop_csrf";
+export const SESSION_COOKIE = "keyring_session";
+export const CSRF_COOKIE = "keyring_csrf";
 export const CSRF_HEADER = "x-csrf-token";
 
 export interface AuthUser {

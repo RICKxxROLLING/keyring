@@ -1,14 +1,14 @@
 services:
-  stoop:
+  keyring:
     build:
       # Defaults to "." so `docker compose up -d --build` works from a checkout.
       # Unraid's Docker Compose Manager keeps stacks on the FLASH drive
       # (/boot/config/plugins/compose.manager/projects/<name>/), which is small,
-      # slow and should not be a build context — so point STOOP_SRC at the
+      # slow and should not be a build context — so point KEYRING_SRC at the
       # source on your array instead. See docs/UNRAID.md.
-      context: ${STOOP_SRC:-.}
-    image: stoop:latest
-    container_name: stoop
+      context: ${KEYRING_SRC:-.}
+    image: keyring:latest
+    container_name: keyring
     restart: unless-stopped
     env_file:
       - .env
@@ -19,13 +19,13 @@ services:
       # Optional — the Cloudflare Tunnel does NOT require a published port at
       # all (cloudflared dials out; nothing needs to be forwarded in). Keep
       # this only if you also want LAN access without going through the
-      # tunnel. Comment it out (or set STOOP_PORT to nothing meaningful) for a
+      # tunnel. Comment it out (or set KEYRING_PORT to nothing meaningful) for a
       # tunnel-only deployment with zero exposed host ports.
-      - "${STOOP_PORT:-8080}:8080"
+      - "${KEYRING_PORT:-8080}:8080"
     volumes:
       # ALL persistent state lives under this one bind mount:
-      # stoop.db*, uploads/, backups/, setup-token.txt.
-      - ${STOOP_DATA_DIR:-./data}:/data
+      # keyring.db*, uploads/, backups/, setup-token.txt.
+      - ${KEYRING_DATA_DIR:-./data}:/data
     healthcheck:
       test: ["CMD", "node", "/healthcheck.mjs"]
       interval: 30s
@@ -35,11 +35,11 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: stoop-cloudflared
+    container_name: keyring-cloudflared
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
     depends_on:
-      stoop:
+      keyring:
         condition: service_healthy

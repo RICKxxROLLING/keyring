@@ -26,6 +26,6 @@ describe("totp", () => {
     const secret = generateTotpSecret();
     const uri = totpEnrollmentUri(secret, "a@b.com");
     expect(uri.startsWith("otpauth://totp/")).toBe(true);
-    expect(uri).toContain("issuer=Stoop");
+    expect(uri).toContain("issuer=Keyring");
   });
 });

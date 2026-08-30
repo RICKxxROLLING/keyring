@@ -9,8 +9,8 @@
 #   - pin the image to a specific tag instead of rebuilding locally
 
 services:
-  stoop:
+  keyring:
     volumes:
-      - /mnt/user/appdata/stoop:/data
+      - /mnt/user/appdata/keyring:/data
     # Uncomment to stop publishing a host port entirely (tunnel-only access):
     # ports: []

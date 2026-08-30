@@ -196,7 +196,7 @@ export interface UserRef {
 
 export interface SessionInfo {
   user: User;
-  /** Mirror of the readable stoop_csrf cookie. Send as X-CSRF-Token on every non-GET. */
+  /** Mirror of the readable keyring_csrf cookie. Send as X-CSRF-Token on every non-GET. */
   csrfToken: string;
   expiresAt: ISODateTime;
   serverTime: ISODateTime;
@@ -221,7 +221,7 @@ export interface Invite {
 export interface EnrollmentChallenge {
   /** base32 TOTP secret, shown once. */
   secret: string;
-  /** otpauth://totp/Stoop:<email>?secret=...&issuer=Stoop */
+  /** otpauth://totp/Keyring:<email>?secret=...&issuer=Keyring */
   otpauthUrl: string;
 }
 

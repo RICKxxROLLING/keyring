@@ -90,7 +90,7 @@ export function LoginPage(): ReactElement {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-1 text-2xl font-black text-slate-900">Stoop</h1>
+        <h1 className="mb-1 text-2xl font-black text-slate-900">Keyring</h1>
         <p className="mb-5 text-sm text-slate-500">Sign in to manage your properties.</p>
 
         {error && (

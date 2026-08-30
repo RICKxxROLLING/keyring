@@ -11,7 +11,7 @@ USB device, and it is not where you want a Node build with `node_modules` and a
 native compile of `better-sqlite3` and `sharp` to happen.
 
 So the source lives on the array and the stack points at it. The compose file's
-build context is `${STOOP_SRC:-.}` for exactly this reason.
+build context is `${KEYRING_SRC:-.}` for exactly this reason.
 
 ---
 
@@ -85,7 +85,7 @@ ownership itself on first boot, but doing it now avoids a slow first start.
 
 ## 2. Create the stack
 
-In the Unraid UI: **Docker → Compose → Add New Stack**, name it `stoop`.
+In the Unraid UI: **Docker → Compose → Add New Stack**, name it `keyring`.
 
 Click **Edit Stack** and paste the contents of `docker-compose.yml` from the
 source you just extracted. Do not retype it — copy the file verbatim so the
@@ -103,12 +103,12 @@ four are required; the last two are what make Compose Manager work.
 
 | Variable | Value |
 |---|---|
-| `APP_ORIGIN` | Your public tunnel hostname, e.g. `https://stoop.example.com`. Drives Secure cookies, HSTS, and the WebSocket origin check — wrong value means the app won't work over the tunnel. |
+| `APP_ORIGIN` | Your public tunnel hostname, e.g. `https://keyring.example.com`. Drives Secure cookies, HSTS, and the WebSocket origin check — wrong value means the app won't work over the tunnel. |
 | `SESSION_SECRET` | 32+ random characters. `openssl rand -base64 48` |
 | `BACKUP_PASSPHRASE` | A strong passphrase. **Put it in a password manager off this box before you continue.** There is no escrow — lose it and every backup you ever take is permanently unreadable. |
 | `TUNNEL_TOKEN` | Cloudflare Zero Trust → Networks → Tunnels → your tunnel → install connector → copy token. |
-| `STOOP_SRC` | `/mnt/user/appdata/keyring/src` — the build context. |
-| `STOOP_DATA_DIR` | `/mnt/user/appdata/keyring/data` — the bind mount for `/data`. |
+| `KEYRING_SRC` | `/mnt/user/appdata/keyring/src` — the build context. |
+| `KEYRING_DATA_DIR` | `/mnt/user/appdata/keyring/data` — the bind mount for `/data`. |
 
 Leave `PUID=99` / `PGID=100` unless your Unraid setup differs.
 
@@ -121,7 +121,7 @@ Leave `PUID=99` / `PGID=100` unless your Unraid setup differs.
 **Compose Up** in the plugin UI, or from a terminal:
 
 ```bash
-cd /boot/config/plugins/compose.manager/projects/stoop
+cd /boot/config/plugins/compose.manager/projects/keyring
 docker compose up -d --build
 ```
 
@@ -133,11 +133,11 @@ Check it came up:
 
 ```bash
 docker compose ps
-docker compose logs stoop | tail -40
+docker compose logs keyring | tail -40
 ```
 
-You want `stoop` healthy and the log showing migrations applied on first boot.
-`cloudflared` waits for `stoop` to report healthy before it starts, so if the
+You want `keyring` healthy and the log showing migrations applied on first boot.
+`cloudflared` waits for `keyring` to report healthy before it starts, so if the
 tunnel container is not running yet, look at the app's health first.
 
 ---
@@ -160,7 +160,7 @@ registration page; invite is the only way an account gets created.
 Load demo data if you want something to look at:
 
 ```bash
-docker compose exec stoop npm run seed:prod
+docker compose exec -u 99:100 keyring npm run seed:prod
 ```
 
 Note `seed:prod`, not `seed`. The runtime image drops devDependencies, so the
@@ -176,14 +176,14 @@ and `restore:prod`.
 cd /mnt/user/appdata/keyring/src
 rm -rf ./*                       # source only — never touch ../data
 tar -xzf /path/to/new-archive.tar.gz
-cd /boot/config/plugins/compose.manager/projects/stoop
+cd /boot/config/plugins/compose.manager/projects/keyring
 docker compose up -d --build
 ```
 
 Migrations run automatically at boot. Take a backup first:
 
 ```bash
-docker compose exec stoop npm run backup:prod
+docker compose exec -u 99:100 keyring npm run backup:prod
 ```
 
 ---
@@ -195,10 +195,10 @@ native modules. The image is `node:24-bookworm-slim` and both ship prebuilds
 for linux/amd64 and linux/arm64, so a failure here usually means a network
 problem reaching the prebuild host, not a real compile issue. Re-run the build.
 
-**Container is unhealthy.** `docker compose logs stoop`. The health check hits
+**Container is unhealthy.** `docker compose logs keyring`. The health check hits
 `GET /healthz` internally and allows a 20s start period for migrations. A
 persistent 503 means the database could not be opened — check that
-`STOOP_DATA_DIR` exists and is owned by `PUID:PGID`.
+`KEYRING_DATA_DIR` exists and is owned by `PUID:PGID`.
 
 **Tunnel connects but the app misbehaves — login loops, WebSocket won't
 connect.** Almost always `APP_ORIGIN` not exactly matching the public URL,
@@ -242,7 +242,7 @@ Fill in the four values marked `CHANGE ME` in `stack.env`: `APP_ORIGIN`,
 
 ## Troubleshooting: "the container is healthy but nothing loads"
 
-Almost always the **published port and `APP_ORIGIN` disagree**. `STOOP_PORT` is
+Almost always the **published port and `APP_ORIGIN` disagree**. `KEYRING_PORT` is
 what Docker publishes; the port inside `APP_ORIGIN` is only what the app
 believes its own URL is. Change one and not the other and you browse a port
 nothing is listening on, while the container reports healthy — because it is
@@ -251,7 +251,7 @@ healthy, on a different port.
 Ask Docker what is actually published, rather than reading the compose file:
 
 ```bash
-docker inspect stoop --format '{{json .HostConfig.PortBindings}}'
+docker inspect keyring --format '{{json .HostConfig.PortBindings}}'
 ```
 
 `{"8080/tcp":[{"HostPort":"8088"}]}` means the app is on `:8088`, whatever
@@ -259,7 +259,7 @@ docker inspect stoop --format '{{json .HostConfig.PortBindings}}'
 are fixed at container creation, so a restart will not pick up the change:
 
 ```bash
-docker compose up -d --force-recreate stoop
+docker compose up -d --force-recreate keyring
 ```
 
 ### Where Compose Manager keeps things
@@ -270,5 +270,37 @@ it writes. If you are ever unsure which file is live, ask the container — it
 records the file it was created from:
 
 ```bash
-docker inspect stoop --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}'
+docker inspect keyring --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}'
 ```
+
+---
+
+## Troubleshooting: uploads fail with EACCES
+
+```
+EACCES: permission denied, open '/data/uploads/2026/08/upl_....thumb.webp'
+```
+
+Something wrote into `/data` **as root**, and the app runs as `PUID:PGID`
+(99:100 by default), so it cannot write into what root created.
+
+The usual cause is a maintenance command run without `-u`:
+
+```bash
+docker compose exec keyring npm run seed:prod        # WRONG — runs as root
+docker compose exec -u 99:100 keyring npm run seed:prod   # right
+```
+
+`docker exec` does not pass through the entrypoint, so the `gosu` drop to
+`PUID:PGID` never happens for it.
+
+Fix ownership and restart:
+
+```bash
+chown -R 99:100 /mnt/user/appdata/keyring/data && docker restart keyring
+```
+
+The entrypoint now also detects this on boot: it scans for any path under
+`/data` not owned by `PUID:PGID` (stopping at the first one, so it stays cheap)
+and re-chowns when it finds one. A restart alone will therefore repair it —
+but the `-u` flag stops it happening in the first place.

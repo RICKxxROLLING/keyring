@@ -74,7 +74,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       "content-type": "application/json",
-      "x-csrf-token": readCookie("stoop_csrf"),
+      "x-csrf-token": readCookie("keyring_csrf"),
       ...(init?.headers ?? {}),
     },
   });
@@ -234,7 +234,7 @@ class RealtimeStore {
     }
     this.ws = ws;
     ws.onopen = () => {
-      this.send({ t: "hello", v: RT_PROTOCOL_VERSION, csrf: readCookie("stoop_csrf") });
+      this.send({ t: "hello", v: RT_PROTOCOL_VERSION, csrf: readCookie("keyring_csrf") });
     };
     ws.onmessage = (ev: MessageEvent) => {
       let msg: ServerMessage;

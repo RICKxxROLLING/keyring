@@ -30,7 +30,7 @@ export function useOnlineStatus(): boolean {
   return online;
 }
 
-const LAST_SEEN_KEY = "stoop:last-online-at";
+const LAST_SEEN_KEY = "keyring:last-online-at";
 
 /** Records "now" as the last moment we were confirmed online; read it back while offline. */
 export function markLastOnline(): void {

@@ -8,7 +8,7 @@ describe("applyRetention", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "stoop-retention-test-"));
+    dir = mkdtempSync(join(tmpdir(), "keyring-retention-test-"));
   });
 
   afterEach(() => {
@@ -23,9 +23,9 @@ describe("applyRetention", () => {
   }
 
   it("always keeps the newest 3 regardless of age", () => {
-    makeArchive("stoop-20260101-030000.tar.gz.enc", 400);
-    makeArchive("stoop-20260201-030000.tar.gz.enc", 300);
-    makeArchive("stoop-20260301-030000.tar.gz.enc", 200);
+    makeArchive("keyring-20260101-030000.tar.gz.enc", 400);
+    makeArchive("keyring-20260201-030000.tar.gz.enc", 300);
+    makeArchive("keyring-20260301-030000.tar.gz.enc", 200);
 
     const result = applyRetention(dir, 14, 3);
     expect(result.deleted).toEqual([]);
@@ -33,25 +33,25 @@ describe("applyRetention", () => {
   });
 
   it("deletes archives older than retentionDays beyond the newest 3", () => {
-    makeArchive("stoop-20260101-030000.tar.gz.enc", 40); // old -> deleted
-    makeArchive("stoop-20260102-030000.tar.gz.enc", 35); // old -> deleted
-    makeArchive("stoop-20260103-030000.tar.gz.enc", 10); // kept: newest-3
-    makeArchive("stoop-20260104-030000.tar.gz.enc", 5); // kept: newest-3
-    makeArchive("stoop-20260105-030000.tar.gz.enc", 1); // kept: newest-3
+    makeArchive("keyring-20260101-030000.tar.gz.enc", 40); // old -> deleted
+    makeArchive("keyring-20260102-030000.tar.gz.enc", 35); // old -> deleted
+    makeArchive("keyring-20260103-030000.tar.gz.enc", 10); // kept: newest-3
+    makeArchive("keyring-20260104-030000.tar.gz.enc", 5); // kept: newest-3
+    makeArchive("keyring-20260105-030000.tar.gz.enc", 1); // kept: newest-3
 
     const result = applyRetention(dir, 14, 3);
     expect(result.deleted.slice().sort()).toEqual([
-      "stoop-20260101-030000.tar.gz.enc",
-      "stoop-20260102-030000.tar.gz.enc",
+      "keyring-20260101-030000.tar.gz.enc",
+      "keyring-20260102-030000.tar.gz.enc",
     ]);
     expect(readdirSync(dir).length).toBe(3);
   });
 
   it("keeps archives that are within the retention window even beyond newest-3", () => {
-    makeArchive("stoop-20260101-030000.tar.gz.enc", 5);
-    makeArchive("stoop-20260102-030000.tar.gz.enc", 4);
-    makeArchive("stoop-20260103-030000.tar.gz.enc", 3);
-    makeArchive("stoop-20260104-030000.tar.gz.enc", 2);
+    makeArchive("keyring-20260101-030000.tar.gz.enc", 5);
+    makeArchive("keyring-20260102-030000.tar.gz.enc", 4);
+    makeArchive("keyring-20260103-030000.tar.gz.enc", 3);
+    makeArchive("keyring-20260104-030000.tar.gz.enc", 2);
 
     const result = applyRetention(dir, 14, 3);
     expect(result.deleted).toEqual([]);

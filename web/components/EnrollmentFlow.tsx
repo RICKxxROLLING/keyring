@@ -68,7 +68,7 @@ export function EnrollmentFlow(props: {
             <ErrorNotice message={error} />
           </div>
         )}
-        <Field label="6-digit code" hint="From the app you just added Stoop to.">
+        <Field label="6-digit code" hint="From the app you just added Keyring to.">
           <TextInput
             required
             autoFocus
@@ -92,7 +92,7 @@ export function EnrollmentFlow(props: {
     <div>
       <p className="mb-2 text-sm font-semibold text-slate-800">Save these recovery codes now</p>
       <p className="mb-3 text-sm text-slate-600">
-        Each code works once, and gets you in if you lose your authenticator. This is the only time Stoop will show
+        Each code works once, and gets you in if you lose your authenticator. This is the only time Keyring will show
         them.
       </p>
       <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-lg bg-slate-50 p-3 font-mono text-sm">

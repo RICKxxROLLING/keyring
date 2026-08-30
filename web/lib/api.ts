@@ -49,7 +49,7 @@ function request(path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers);
   const method = (init.method ?? "GET").toUpperCase();
   if (method !== "GET" && method !== "HEAD") {
-    const csrf = readCookie("stoop_csrf");
+    const csrf = readCookie("keyring_csrf");
     if (csrf) headers.set("X-CSRF-Token", csrf);
   }
   return fetch(path, { ...init, headers, credentials: "same-origin" });

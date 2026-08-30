@@ -1,6 +1,6 @@
-# Stoop — Security Notes
+# Keyring — Security Notes
 
-Stoop holds tenant PII (names, phone numbers, emails, emergency contacts),
+Keyring holds tenant PII (names, phone numbers, emails, emergency contacts),
 lease PDFs, gate/lockbox codes, and financial records for a small property
 portfolio, and is deliberately made reachable from the public internet
 through a Cloudflare Tunnel. This document describes the defenses in place
@@ -11,7 +11,7 @@ and where the sharp edges are.
 - **No inbound ports.** The Cloudflare Tunnel (`cloudflared`) makes an
   outbound-only connection out to Cloudflare's edge; nothing is forwarded on
   your router and your home/box IP is never exposed to the internet. The
-  `stoop` container's own published port (if you keep it) is for LAN access
+  `keyring` container's own published port (if you keep it) is for LAN access
   only.
 - **Origin protection.** `APP_ORIGIN` pins the expected public hostname;
   `helmet`'s CSP (`frame-ancestors 'none'`, `base-uri 'none'`, no
@@ -49,11 +49,11 @@ and where the sharp edges are.
 
 ## Session and CSRF
 
-- Cookies: `stoop_session` is `HttpOnly`, `Secure` when `APP_ORIGIN` is
-  `https://`, `SameSite=Lax`. `stoop_csrf` is readable by JS with the same
+- Cookies: `keyring_session` is `HttpOnly`, `Secure` when `APP_ORIGIN` is
+  `https://`, `SameSite=Lax`. `keyring_csrf` is readable by JS with the same
   lifetime.
 - Every non-`GET` request must carry `X-CSRF-Token` matching the
-  `stoop_csrf` cookie (double-submit pattern) — a session cookie alone is
+  `keyring_csrf` cookie (double-submit pattern) — a session cookie alone is
   never enough to mutate anything.
 
 ## Authorization
@@ -107,13 +107,13 @@ redacted before the row is written, never merely on read.
 
 ## Backups
 
-**`BACKUP_PASSPHRASE` is the only key to every archive Stoop writes.** See
+**`BACKUP_PASSPHRASE` is the only key to every archive Keyring writes.** See
 `docs/OPERATIONS.md` for the operational rules; the cryptographic details:
 
 - The database half of the archive is a `VACUUM INTO` snapshot — a
   consistent, point-in-time copy taken without stopping writes — never a raw
   copy of the live (and possibly WAL-in-flight) `.db` file.
-- The archive is `tar(stoop.db + uploads/) → gzip → AES-256-GCM`, with a
+- The archive is `tar(keyring.db + uploads/) → gzip → AES-256-GCM`, with a
   16-byte scrypt salt (`N=2^15, r=8, p=1`), a 12-byte GCM IV, and a 16-byte
   GCM authentication tag, in the pinned layout documented in
   `docs/RESTORE.md`. GCM's authentication tag means a wrong passphrase and a

@@ -7,16 +7,16 @@
 # a Node build with node_modules and a native better-sqlite3/sharp compile
 # happening there. So the stack lives on flash; the code it builds does not.
 #
-# The service is named `stoop` on purpose — every command in README.md,
-# docs/OPERATIONS.md and docs/RESTORE.md says `docker compose exec stoop ...`.
+# The service is named `keyring` on purpose — every command in README.md,
+# docs/OPERATIONS.md and docs/RESTORE.md says `docker compose exec keyring ...`.
 # It gets renamed with the rest of the Keyring rebrand, not before.
 
 services:
-  stoop:
+  keyring:
     build:
       context: /mnt/user/appdata/keyring/src
-    image: stoop:latest
-    container_name: stoop
+    image: keyring:latest
+    container_name: keyring
     restart: unless-stopped
     env_file:
       - .env
@@ -26,12 +26,12 @@ services:
       # LAN access. Not needed once the tunnel is up — cloudflared dials out,
       # so nothing has to be published. 8088 rather than 8080 because 8080
       # collides with a lot of Unraid containers.
-      - "${STOOP_PORT:-8088}:8080"
+      - "${KEYRING_PORT:-8088}:8080"
     volumes:
       # Everything persistent: the database, uploads, backups, setup token.
       # Deliberately NOT inside the src directory, so replacing the source to
       # upgrade can never touch your data.
-      - ${STOOP_DATA_DIR:-/mnt/user/appdata/keyring/data}:/data
+      - ${KEYRING_DATA_DIR:-/mnt/user/appdata/keyring/data}:/data
     healthcheck:
       test: ["CMD", "node", "/healthcheck.mjs"]
       interval: 30s
@@ -52,11 +52,11 @@ services:
   # ---------------------------------------------------------------------
   # cloudflared:
   #   image: cloudflare/cloudflared:latest
-  #   container_name: stoop-cloudflared
+  #   container_name: keyring-cloudflared
   #   restart: unless-stopped
   #   command: tunnel --no-autoupdate run
   #   environment:
   #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
   #   depends_on:
-  #     stoop:
+  #     keyring:
   #       condition: service_healthy

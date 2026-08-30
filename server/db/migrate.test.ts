@@ -14,9 +14,9 @@ describe("migration runner", () => {
     dir = "";
   });
 
-  it("creates stoop.db in WAL mode and applies 0001_auth_core.sql", () => {
-    dir = mkdtempSync(join(tmpdir(), "stoop-migrate-"));
-    const db = openDb(join(dir, "stoop.db"));
+  it("creates keyring.db in WAL mode and applies 0001_auth_core.sql", () => {
+    dir = mkdtempSync(join(tmpdir(), "keyring-migrate-"));
+    const db = openDb(join(dir, "keyring.db"));
     expect(db.pragma("journal_mode", { simple: true })).toBe("wal");
 
     const result = runMigrations(db);
@@ -31,8 +31,8 @@ describe("migration runner", () => {
   });
 
   it("is a no-op on a second run", () => {
-    dir = mkdtempSync(join(tmpdir(), "stoop-migrate-"));
-    const db = openDb(join(dir, "stoop.db"));
+    dir = mkdtempSync(join(tmpdir(), "keyring-migrate-"));
+    const db = openDb(join(dir, "keyring.db"));
     const first = runMigrations(db);
     expect(first.applied.length).toBeGreaterThan(0);
 
@@ -43,14 +43,14 @@ describe("migration runner", () => {
   });
 
   it("fails loudly when an already-applied migration file's checksum changes", () => {
-    dir = mkdtempSync(join(tmpdir(), "stoop-migrate-"));
+    dir = mkdtempSync(join(tmpdir(), "keyring-migrate-"));
     const migDir = join(dir, "migrations");
     mkdirSync(migDir);
     const source = join(process.cwd(), "server", "db", "migrations", "0001_auth_core.sql");
     const copy = join(migDir, "0001_auth_core.sql");
     writeFileSync(copy, readFileSync(source, "utf8"));
 
-    const db = openDb(join(dir, "stoop.db"));
+    const db = openDb(join(dir, "keyring.db"));
     runMigrations(db, migDir);
 
     writeFileSync(copy, `${readFileSync(copy, "utf8")}\n-- tampered\n`);

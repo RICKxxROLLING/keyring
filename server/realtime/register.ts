@@ -20,7 +20,7 @@ import { propertyChannel, GLOBAL_CHANNEL } from "../../shared/realtime.js";
 
 declare module "fastify" {
   interface FastifyRequest {
-    stoopSession?: ResolvedSession;
+    keyringSession?: ResolvedSession;
   }
 }
 
@@ -71,11 +71,11 @@ export async function registerRealtime(app: FastifyInstance, ctx: AppContext): P
         if (!resolved) {
           throw new ApiError("UNAUTHENTICATED", "Sign in required.");
         }
-        req.stoopSession = resolved;
+        req.keyringSession = resolved;
       },
     },
     (socket: WsLike, req: FastifyRequest) => {
-      const resolved = req.stoopSession;
+      const resolved = req.keyringSession;
       if (!resolved) {
         socket.close(1008, "no session");
         return;

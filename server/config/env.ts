@@ -1,4 +1,25 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+
+/**
+ * Where the database lives, when DB_PATH is not set explicitly.
+ *
+ * The file was called `stoop.db` before the rename to Keyring. New
+ * deployments get `keyring.db`, but an existing deployment must NOT quietly
+ * start a brand-new empty database beside its real one — that presents as
+ * "all my data vanished after an update", which is about the worst possible
+ * outcome of a cosmetic rename.
+ *
+ * So: prefer keyring.db; adopt a pre-existing stoop.db when keyring.db is not
+ * there. Setting DB_PATH explicitly overrides all of this.
+ */
+function defaultDbPath(dataDir: string): string {
+  const current = join(dataDir, "keyring.db");
+  if (existsSync(current)) return current;
+  const legacy = join(dataDir, "stoop.db");
+  if (existsSync(legacy)) return legacy;
+  return current;
+}
 
 export interface Env {
   NODE_ENV: "development" | "test" | "production";
@@ -105,7 +126,7 @@ export function loadEnv(): Env {
     APP_VERSION: str("APP_VERSION", "1.0.0"),
     APP_TIMEZONE: str("APP_TIMEZONE", "America/New_York"),
     DATA_DIR: dataDir,
-    DB_PATH: str("DB_PATH", join(dataDir, "stoop.db")),
+    DB_PATH: str("DB_PATH", defaultDbPath(dataDir)),
     UPLOAD_DIR: str("UPLOAD_DIR", join(dataDir, "uploads")),
     BACKUP_DIR: str("BACKUP_DIR", join(dataDir, "backups")),
     SESSION_SECRET: secret || "dev-only-insecure-secret-dev-only-insecure",

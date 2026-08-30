@@ -1,6 +1,6 @@
 {
-  "name": "Stoop",
-  "short_name": "Stoop",
+  "name": "Keyring",
+  "short_name": "Keyring",
   "description": "Collaborative property management for small portfolios.",
   "start_url": "/",
   "scope": "/",

@@ -120,8 +120,8 @@ export async function performBackup(runId: string, actor: BackupActor = {}): Pro
   let staging: string | null = null;
   let outPath: string | null = null;
   try {
-    staging = mkdtempSync(join(tmpdir(), "stoop-backup-"));
-    const dbSnapshotPath = join(staging, "stoop.db");
+    staging = mkdtempSync(join(tmpdir(), "keyring-backup-"));
+    const dbSnapshotPath = join(staging, "keyring.db");
     const uploadsStagingPath = join(staging, "uploads");
     await mkdir(uploadsStagingPath, { recursive: true });
 
@@ -137,11 +137,11 @@ export async function performBackup(runId: string, actor: BackupActor = {}): Pro
     const { count: uploadFileCount, bytes: uploadsBytes } = countUploads(uploadsStagingPath);
 
     await mkdir(env.BACKUP_DIR, { recursive: true });
-    let archiveName = `stoop-${localTimestamp(env.APP_TIMEZONE)}.tar.gz.enc`;
+    let archiveName = `keyring-${localTimestamp(env.APP_TIMEZONE)}.tar.gz.enc`;
     let candidate = join(env.BACKUP_DIR, archiveName);
     let suffix = 2;
     while (existsSync(candidate)) {
-      archiveName = `stoop-${localTimestamp(env.APP_TIMEZONE)}-${suffix}.tar.gz.enc`;
+      archiveName = `keyring-${localTimestamp(env.APP_TIMEZONE)}-${suffix}.tar.gz.enc`;
       candidate = join(env.BACKUP_DIR, archiveName);
       suffix += 1;
     }
@@ -149,7 +149,7 @@ export async function performBackup(runId: string, actor: BackupActor = {}): Pro
 
     const { sizeBytes, sha256 } = await encryptToFile({
       cwd: staging,
-      entries: ["stoop.db", "uploads"],
+      entries: ["keyring.db", "uploads"],
       outPath,
       passphrase: env.BACKUP_PASSPHRASE,
     });

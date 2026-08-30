@@ -10,7 +10,7 @@
 //   EOF-16     16 bytes  GCM auth tag
 //
 // The plaintext that is compressed and encrypted is a tar archive containing
-// `stoop.db` (a VACUUM INTO snapshot, never the live file) and `uploads/`.
+// `keyring.db` (a VACUUM INTO snapshot, never the live file) and `uploads/`.
 
 import { createReadStream, createWriteStream, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
@@ -36,7 +36,18 @@ function scrypt(password: string, salt: Buffer, keylen: number, options: ScryptO
   });
 }
 
-export const ARCHIVE_MAGIC = "STOOPB";
+/** Magic written into every new archive. Six ASCII bytes; the header layout is
+ *  unchanged from the "STOOPB" era, only the label differs. */
+export const ARCHIVE_MAGIC = "KEYRNG";
+
+/**
+ * Magics accepted when READING. "STOOPB" is the pre-rebrand label: archives
+ * written before the rename are still perfectly valid — same format, same
+ * version, same KDF — and refusing them would silently turn every existing
+ * backup into an unrestorable file at the exact moment someone needs one.
+ * Read compatibility is permanent; there is no reason to ever drop it.
+ */
+export const ACCEPTED_ARCHIVE_MAGICS: readonly string[] = [ARCHIVE_MAGIC, "STOOPB"];
 export const FORMAT_VERSION = 0x01;
 export const KDF_SCRYPT = 0x01;
 
@@ -87,9 +98,10 @@ export function parseHeader(buf: Buffer): ParsedHeader {
     throw new ArchiveFormatError("Archive is too small to contain a valid header.");
   }
   const magic = buf.toString("ascii", 0, 6);
-  if (magic !== ARCHIVE_MAGIC) {
+  if (!ACCEPTED_ARCHIVE_MAGICS.includes(magic)) {
     throw new ArchiveFormatError(
-      `Not a Stoop backup archive (bad magic: expected "${ARCHIVE_MAGIC}", found "${magic}").`,
+      `Not a Keyring backup archive (bad magic: expected one of ` +
+        `${ACCEPTED_ARCHIVE_MAGICS.map((m) => `"${m}"`).join(", ")}, found "${magic}").`,
     );
   }
   const version = buf.readUInt8(6);
@@ -108,7 +120,7 @@ export function parseHeader(buf: Buffer): ParsedHeader {
 export interface EncryptToFileInput {
   /** Directory the tar entries are relative to (a staging dir). */
   cwd: string;
-  /** Paths (relative to cwd) to include, e.g. ["stoop.db", "uploads"]. */
+  /** Paths (relative to cwd) to include, e.g. ["keyring.db", "uploads"]. */
   entries: string[];
   outPath: string;
   passphrase: string;

@@ -42,7 +42,7 @@ export function createSession(userId: string, req: FastifyRequest): CreatedSessi
   return { sessionId, sessionToken, csrfToken, expiresAt };
 }
 
-/** Sets the paired `stoop_session` (HttpOnly) and `stoop_csrf` (readable) cookies. */
+/** Sets the paired `keyring_session` (HttpOnly) and `keyring_csrf` (readable) cookies. */
 export function setSessionCookies(reply: FastifyReply, session: CreatedSession): void {
   const env = getEnv();
   const maxAge = env.SESSION_TTL_HOURS * 3600;

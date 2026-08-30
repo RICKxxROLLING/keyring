@@ -18,9 +18,28 @@ describe("archive header (§C11.2)", () => {
     const iv = Buffer.from("abcdefabcdef", "utf8"); // 12 bytes
     const header = buildHeader(salt, iv);
     expect(header.length).toBe(HEADER_LEN);
-    expect(header.toString("ascii", 0, 6)).toBe("STOOPB");
+    expect(header.toString("ascii", 0, 6)).toBe("KEYRNG");
 
     const parsed = parseHeader(header);
+    expect(parsed.version).toBe(1);
+    expect(parsed.kdfId).toBe(1);
+    expect(parsed.salt.equals(salt)).toBe(true);
+    expect(parsed.iv.equals(iv)).toBe(true);
+  });
+
+  it("still accepts the pre-rebrand STOOPB magic", () => {
+    // Archives written before the Keyring rename are byte-identical apart from
+    // the six-byte label. Rejecting them would turn every backup taken before
+    // the rename into an unrestorable file — discovered, inevitably, during an
+    // actual restore. Read compatibility is permanent.
+    const salt = Buffer.from("0123456789abcdef", "utf8"); // 16 bytes
+    const iv = Buffer.from("abcdefabcdef", "utf8"); // 12 bytes
+    const legacy = buildHeader(salt, iv);
+    // Overwrite only the six magic bytes; everything after them is untouched,
+    // which is exactly what a pre-rename archive on disk looks like.
+    legacy.write("STOOPB", 0, "ascii");
+
+    const parsed = parseHeader(legacy);
     expect(parsed.version).toBe(1);
     expect(parsed.kdfId).toBe(1);
     expect(parsed.salt.equals(salt)).toBe(true);
@@ -46,7 +65,7 @@ describe("encryptToFile / decryptToDir round-trip", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "stoop-archive-test-"));
+    dir = mkdtempSync(join(tmpdir(), "keyring-archive-test-"));
   });
 
   afterEach(() => {
@@ -56,7 +75,7 @@ describe("encryptToFile / decryptToDir round-trip", () => {
   it("round-trips a staging tree byte-for-byte", async () => {
     const staging = join(dir, "staging");
     mkdirSync(join(staging, "uploads"), { recursive: true });
-    writeFileSync(join(staging, "stoop.db"), "fake-db-bytes-for-test");
+    writeFileSync(join(staging, "keyring.db"), "fake-db-bytes-for-test");
     writeFileSync(join(staging, "uploads", "a.txt"), "hello upload");
     mkdirSync(join(staging, "uploads", "2026"), { recursive: true });
     writeFileSync(join(staging, "uploads", "2026", "b.bin"), Buffer.from([1, 2, 3, 4, 5]));
@@ -64,7 +83,7 @@ describe("encryptToFile / decryptToDir round-trip", () => {
     const outPath = join(dir, "out.tar.gz.enc");
     const result = await encryptToFile({
       cwd: staging,
-      entries: ["stoop.db", "uploads"],
+      entries: ["keyring.db", "uploads"],
       outPath,
       passphrase: "correct horse battery staple",
     });
@@ -78,7 +97,7 @@ describe("encryptToFile / decryptToDir round-trip", () => {
       passphrase: "correct horse battery staple",
     });
 
-    expect(readFileSync(join(outDir, "stoop.db"), "utf8")).toBe("fake-db-bytes-for-test");
+    expect(readFileSync(join(outDir, "keyring.db"), "utf8")).toBe("fake-db-bytes-for-test");
     expect(readFileSync(join(outDir, "uploads", "a.txt"), "utf8")).toBe("hello upload");
     expect(Array.from(readFileSync(join(outDir, "uploads", "2026", "b.bin")))).toEqual([
       1, 2, 3, 4, 5,
@@ -88,12 +107,12 @@ describe("encryptToFile / decryptToDir round-trip", () => {
   it("fails the GCM tag check with the wrong passphrase, and is indistinguishable from corruption", async () => {
     const staging = join(dir, "staging2");
     mkdirSync(join(staging, "uploads"), { recursive: true });
-    writeFileSync(join(staging, "stoop.db"), "fake-db-bytes-2");
+    writeFileSync(join(staging, "keyring.db"), "fake-db-bytes-2");
 
     const outPath = join(dir, "out2.tar.gz.enc");
     await encryptToFile({
       cwd: staging,
-      entries: ["stoop.db", "uploads"],
+      entries: ["keyring.db", "uploads"],
       outPath,
       passphrase: "right-passphrase",
     });
@@ -104,7 +123,7 @@ describe("encryptToFile / decryptToDir round-trip", () => {
     ).rejects.toThrow(ArchiveAuthError);
   });
 
-  it("rejects a file that is not a Stoop archive at all", async () => {
+  it("rejects a file that is not a Keyring archive at all", async () => {
     const notArchive = join(dir, "not-an-archive.tar.gz.enc");
     writeFileSync(notArchive, Buffer.alloc(100, 1));
     const outDir = join(dir, "restored3");
