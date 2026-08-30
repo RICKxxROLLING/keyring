@@ -237,3 +237,38 @@ Cloudflare, instead of leaving you guessing.
 
 Fill in the four values marked `CHANGE ME` in `stack.env`: `APP_ORIGIN`,
 `SESSION_SECRET`, `BACKUP_PASSPHRASE`, and (later) `TUNNEL_TOKEN`.
+
+---
+
+## Troubleshooting: "the container is healthy but nothing loads"
+
+Almost always the **published port and `APP_ORIGIN` disagree**. `STOOP_PORT` is
+what Docker publishes; the port inside `APP_ORIGIN` is only what the app
+believes its own URL is. Change one and not the other and you browse a port
+nothing is listening on, while the container reports healthy — because it is
+healthy, on a different port.
+
+Ask Docker what is actually published, rather than reading the compose file:
+
+```bash
+docker inspect stoop --format '{{json .HostConfig.PortBindings}}'
+```
+
+`{"8080/tcp":[{"HostPort":"8088"}]}` means the app is on `:8088`, whatever
+`APP_ORIGIN` says. Fix `.env` so both agree, then **recreate** — port bindings
+are fixed at container creation, so a restart will not pick up the change:
+
+```bash
+docker compose up -d --force-recreate stoop
+```
+
+### Where Compose Manager keeps things
+
+The plugin uses **`compose.yaml`**, not `docker-compose.yml`, under
+`/boot/config/plugins/compose.manager/projects/<stack>/`, alongside the `.env`
+it writes. If you are ever unsure which file is live, ask the container — it
+records the file it was created from:
+
+```bash
+docker inspect stoop --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}'
+```

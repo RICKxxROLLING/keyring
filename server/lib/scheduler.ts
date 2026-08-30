@@ -13,13 +13,25 @@ export interface Job {
 interface Logger {
   info: (obj: unknown, msg?: string) => void;
   error: (obj: unknown, msg?: string) => void;
+  debug?: (obj: unknown, msg?: string) => void;
 }
+
+/**
+ * A completion below this interval is routine chatter, not an operational
+ * event, and is logged at debug instead of info.
+ *
+ * The realtime lock sweep runs every 5s. At info level that is ~17,000 lines a
+ * day into the container log, forever, burying the daily backup and PM lines
+ * that an operator actually needs to see. Failures are still logged at error
+ * regardless of interval.
+ */
+const ROUTINE_INTERVAL_MS = 60_000;
 
 const jobs = new Map<string, Job>();
 const lastDailyRun = new Map<string, string>();
 let timers: NodeJS.Timeout[] = [];
 let tick: NodeJS.Timeout | null = null;
-let log: Logger = { info: () => {}, error: () => {} };
+let log: Logger = { info: () => {}, error: () => {}, debug: () => {} };
 let timeZone = "UTC";
 
 /** Called from a workstream's registerX(). Idempotent by name. */
@@ -34,7 +46,11 @@ export function listJobs(): string[] {
 async function run(job: Job): Promise<void> {
   try {
     await job.fn();
-    log.info({ job: job.name }, "job completed");
+    // Daily jobs (backup, PM generation, rent roll) are operational events
+    // worth a log line. High-frequency sweeps are not.
+    const routine = job.intervalMs !== undefined && job.intervalMs < ROUTINE_INTERVAL_MS;
+    if (routine) log.debug?.({ job: job.name }, "job completed");
+    else log.info({ job: job.name }, "job completed");
   } catch (err) {
     log.error({ job: job.name, err }, "job failed");
   }

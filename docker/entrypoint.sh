@@ -11,10 +11,16 @@ PGID="${PGID:-100}"
 DATA_DIR="${DATA_DIR:-/data}"
 
 if ! getent group "$PGID" >/dev/null 2>&1; then
-  groupadd --gid "$PGID" stoop
+  groupadd --system --gid "$PGID" stoop
 fi
 if ! getent passwd "$PUID" >/dev/null 2>&1; then
-  useradd --uid "$PUID" --gid "$PGID" --no-create-home --shell /usr/sbin/nologin stoop
+  # --system: Unraid's default PUID is 99, below Debian's UID_MIN of 1000.
+  # Without it useradd still succeeds but prints
+  #   "warning: stoop's uid 99 outside of the UID_MIN 1000 and UID_MAX 60000 range"
+  # on every single boot, which looks like a problem and is not one. A service
+  # account is exactly what --system is for.
+  useradd --system --uid "$PUID" --gid "$PGID" \
+    --no-create-home --shell /usr/sbin/nologin stoop
 fi
 
 mkdir -p "$DATA_DIR"
