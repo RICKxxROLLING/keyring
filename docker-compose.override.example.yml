@@ -1,0 +1,16 @@
+# Copy this file to `docker-compose.override.yml` (same directory as
+# docker-compose.yml) and edit as needed. `docker compose` merges an
+# `override` file automatically — no extra --file flag required.
+#
+# Common edits for an Unraid box:
+#   - point the bind mount at your appdata share
+#   - drop the published port once the Cloudflare Tunnel is confirmed working,
+#     so nothing is reachable except through the tunnel
+#   - pin the image to a specific tag instead of rebuilding locally
+
+services:
+  stoop:
+    volumes:
+      - /mnt/user/appdata/stoop:/data
+    # Uncomment to stop publishing a host port entirely (tunnel-only access):
+    # ports: []

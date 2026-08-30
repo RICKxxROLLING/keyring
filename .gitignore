@@ -8,3 +8,12 @@ data/
 uploads/
 backups/
 .crew/
+
+# T5 additions — append only, never remove a line above.
+.env.local
+*.log
+coverage/
+*.tar.gz.enc
+setup-token.txt
+.DS_Store
+Thumbs.db
