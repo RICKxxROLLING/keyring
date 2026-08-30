@@ -40,7 +40,9 @@ export function buildHealthPayload(): HealthPayload {
 }
 
 export function mapBackupRunRow(row: Record<string, unknown>): BackupRun {
-  return camelRow<BackupRun>(row);
+  // BackupRun (shared/types.ts, frozen) has no index signature, so it cannot
+  // be used directly as camelRow<T>'s constrained type argument.
+  return camelRow(row) as unknown as BackupRun;
 }
 
 export function getLastBackup(): BackupRun | null {

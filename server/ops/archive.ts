@@ -20,13 +20,21 @@ import {
   createHash,
   randomBytes,
   scrypt as scryptCallback,
+  type ScryptOptions,
 } from "node:crypto";
-import { promisify } from "node:util";
 import { pipeline } from "node:stream/promises";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 import * as tar from "tar";
 
-const scrypt = promisify(scryptCallback);
+// util.promisify() does not reliably resolve crypto.scrypt's 4-arg (with
+// options) overload across @types/node versions, so wrap it by hand.
+function scrypt(password: string, salt: Buffer, keylen: number, options: ScryptOptions): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scryptCallback(password, salt, keylen, options, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey);
+    });
+  });
+}
 
 export const ARCHIVE_MAGIC = "STOOPB";
 export const FORMAT_VERSION = 0x01;
@@ -48,12 +56,12 @@ export class ArchiveFormatError extends Error {}
 export class ArchiveAuthError extends Error {}
 
 export async function deriveKey(passphrase: string, salt: Buffer): Promise<Buffer> {
-  const key = (await scrypt(passphrase, salt, KEY_LEN, {
+  const key = await scrypt(passphrase, salt, KEY_LEN, {
     N: SCRYPT_N,
     r: SCRYPT_R,
     p: SCRYPT_P,
     maxmem: 256 * 1024 * 1024,
-  })) as Buffer;
+  });
   return key;
 }
 

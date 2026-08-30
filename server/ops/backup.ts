@@ -43,7 +43,11 @@ function row(id: string): BackupRun {
     string,
     unknown
   >;
-  return camelRow<BackupRun>(r);
+  // BackupRun (shared/types.ts, frozen) has no index signature, so it cannot
+  // be used directly as camelRow<T>'s constrained type argument; the shape is
+  // guaranteed by the SQL SELECT above and by 4001_ops.sql's schema, not by
+  // the type checker either way.
+  return camelRow(r) as unknown as BackupRun;
 }
 
 function finish(id: string, patch: Record<string, unknown>): BackupRun {

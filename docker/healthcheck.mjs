@@ -2,6 +2,7 @@
 // docker/healthcheck.mjs — used by the Dockerfile HEALTHCHECK instruction.
 // Deliberately dependency-free (runs inside the runtime image, no node_modules
 // lookup games). Exits 0 when GET /healthz returns 200, 1 otherwise.
+/* global process, fetch, AbortController, setTimeout, clearTimeout, console */
 
 const port = process.env.PORT || "8080";
 const url = `http://127.0.0.1:${port}/healthz`;
