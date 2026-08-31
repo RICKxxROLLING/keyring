@@ -1,45 +1,111 @@
 import { Link } from "react-router-dom";
-import type { AttentionItem } from "../../shared/types";
-import { formatDaysOut } from "../lib/format";
-import { attentionSeverityDisplay, ATTENTION_KIND_LABEL } from "../lib/status";
-import { StatusPill } from "./StatusPill";
-import { EmptyState } from "./Form";
-import { AlertIcon } from "./icons";
 import type { ReactElement } from "react";
+import type { AttentionItem, PropertyCard } from "../../shared/types";
+import { formatDaysOut } from "../lib/format";
+import { ATTENTION_KIND_LABEL } from "../lib/status";
+import { EmptyState } from "./Form";
 
-/** Renders every AttentionKind (design §C4) — required by the dashboard acceptance criterion. */
-export function AttentionFeed(props: { items: AttentionItem[] }): ReactElement {
+/**
+ * "Needs a hand" — the cross-property feed.
+ *
+ * Renders every AttentionKind. The leading dot is the owning property's HERO
+ * colour, which is the point of the feed: five properties' items interleave
+ * here, and colour is what lets the eye group them without reading a word.
+ *
+ * Severity is deliberately NOT carried by that dot. Hero is identity, status
+ * is state — collapsing them would mean you could no longer tell "urgent" from
+ * "belongs to the red property". Age carries urgency instead, in mono, which is
+ * also what the design does.
+ */
+export function AttentionFeed(props: {
+  items: AttentionItem[];
+  properties?: PropertyCard[];
+}): ReactElement {
   if (props.items.length === 0) {
-    return <EmptyState title="Nothing needs attention" detail="You're all caught up across every property." />;
+    return (
+      <EmptyState
+        title="Nothing needs attention"
+        detail="You're all caught up across every property."
+      />
+    );
   }
 
+  const heroFor = (propertyId: string): string | null =>
+    props.properties?.find((p) => p.id === propertyId)?.heroColor ?? null;
+
   return (
-    <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
-      {props.items.map((item) => {
-        const severity = attentionSeverityDisplay(item.severity);
-        return (
-          <li key={item.id}>
-            <Link to={item.url} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50">
-              <span className="mt-0.5 shrink-0 text-slate-400" aria-hidden="true">
-                <AlertIcon width={18} height={18} />
+    <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+      {props.items.map((item) => (
+        <li key={item.id} style={{ borderTop: "1px solid var(--line-soft)" }}>
+          <Link
+            to={item.url}
+            className="kr-attention-row"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 12,
+              padding: "12px 4px",
+              minHeight: 44,
+              color: "var(--ink)",
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                flex: "none",
+                marginTop: 6,
+                width: 9,
+                height: 9,
+                borderRadius: 999,
+                background: heroFor(item.propertyId) ?? "var(--metal)",
+              }}
+            />
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {item.title}
               </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate font-semibold text-slate-900">{item.title}</p>
-                  <StatusPill severity={severity} label={ATTENTION_KIND_LABEL[item.kind]} />
-                </div>
-                <p className="truncate text-sm text-slate-500">
-                  {item.propertyName}
-                  {item.unitLabel ? ` · ${item.unitLabel}` : ""} · {item.detail}
-                </p>
-              </div>
-              {item.daysOut !== null && (
-                <span className="shrink-0 text-xs font-semibold text-slate-500">{formatDaysOut(item.daysOut)}</span>
-              )}
-            </Link>
-          </li>
-        );
-      })}
+              <span
+                style={{
+                  display: "block",
+                  marginTop: 2,
+                  fontSize: 12.5,
+                  color: "var(--ink-3)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {item.propertyName}
+                {item.unitLabel ? ` · ${item.unitLabel}` : ""}
+                {" · "}
+                {/* The kind stays its own node, not concatenated into the line:
+                    it is the one part a reader scans for ("rent unpaid" vs
+                    "lease expiring"), and keeping it addressable is what lets a
+                    test assert every AttentionKind actually renders. */}
+                <span>{ATTENTION_KIND_LABEL[item.kind]}</span>
+                {item.detail ? ` · ${item.detail}` : ""}
+              </span>
+            </span>
+            {item.daysOut !== null && (
+              <span
+                className="kr-label kr-tabular"
+                style={{ flex: "none", marginTop: 3, fontSize: 10 }}
+              >
+                {formatDaysOut(item.daysOut)}
+              </span>
+            )}
+          </Link>
+        </li>
+      ))}
     </ul>
   );
 }

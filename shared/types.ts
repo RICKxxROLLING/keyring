@@ -817,6 +817,9 @@ export interface PropertyCard {
   coverUrl: string | null;
   quickFacts: PropertyQuickFacts;
   attentionCount: number;
+  /** The property's hero colour — see Property.heroColor. Carried on the card so
+   *  the keyring rail and the dashboard grid can paint without a second fetch. */
+  heroColor: string | null;
 }
 
 export interface DashboardPayload {

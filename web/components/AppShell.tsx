@@ -1,14 +1,15 @@
 import { useState, type ReactNode, type ReactElement } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useSession } from "../lib/session";
 import { useOnlineStatus } from "../lib/offline";
 import { useConnectionState } from "../lib/realtime";
 import { BellIcon, HomeIcon, PlusIcon, SearchIcon, UserIcon, WifiOffIcon } from "./icons";
-import { IconButton } from "./Button";
 import { GlobalPresenceBar } from "./PresenceBar";
 import { QuickAddSheet } from "./QuickAdd";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineBanner } from "./OfflineBanner";
+import { KeyRail } from "./KeyRail";
+import { ThemeToggle } from "./ThemeToggle";
 
 const NAV_ITEMS = [
   { to: "/", label: "Home", icon: HomeIcon },
@@ -17,6 +18,14 @@ const NAV_ITEMS = [
   { to: "/settings", label: "You", icon: UserIcon },
 ];
 
+/**
+ * The Keyring shell: the keyring rail on the left, a quiet top bar, content.
+ *
+ * The rail is the design's organizing element. On phones it collapses to a
+ * horizontal strip of key tags (see KeyRail) and the existing bottom nav is
+ * kept, because the phone-first brief still holds — the handoff simply does
+ * not cover mobile, so the language is extended rather than replaced.
+ */
 export function AppShell(props: { children: ReactNode }): ReactElement {
   const { session, logout } = useSession();
   const online = useOnlineStatus();
@@ -27,77 +36,153 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
   const isOffline = !online || connection.state === "offline";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex" }}>
       <a href="#main" className="skip-link">
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
-          <Link to="/" className="flex items-center gap-2 font-extrabold tracking-tight text-slate-900">
-            <span className="text-brand-600">Keyring</span>
-          </Link>
+      <KeyRail />
 
-          <button
-            type="button"
-            onClick={() => navigate("/search")}
-            className="tap-target hidden flex-1 items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 text-sm text-slate-500 hover:bg-slate-100 sm:flex"
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <header
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 30,
+            background: "var(--bg)",
+            borderBottom: "1px solid var(--line-soft)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 20px",
+            }}
           >
-            <SearchIcon width={16} height={16} />
-            Search properties, notes, work orders…
-          </button>
+            <button
+              type="button"
+              onClick={() => navigate("/search")}
+              className="kr-search"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flex: 1,
+                maxWidth: 340,
+                minHeight: 40,
+                padding: "0 12px",
+                background: "var(--panel-2)",
+                border: "1px solid var(--line)",
+                borderRadius: 10,
+                color: "var(--ink-3)",
+                fontSize: 13,
+                textAlign: "left",
+              }}
+            >
+              <SearchIcon width={15} height={15} />
+              Find a door, a tenant, a receipt
+            </button>
 
-          <div className="ml-auto flex items-center gap-1">
-            <GlobalPresenceBar />
-            <IconButton label="Quick add" onClick={() => setQuickAddOpen(true)} className="hidden sm:inline-flex">
-              <PlusIcon />
-            </IconButton>
-            <NotificationBell />
-            {session && (
-              <nav className="hidden items-center gap-3 border-l border-slate-200 pl-3 text-sm md:flex">
-                <NavLink to="/settings" className="font-medium text-slate-600 hover:text-slate-900">
-                  {session.user.displayName}
-                </NavLink>
-                {session.user.role === "owner" && (
-                  <NavLink to="/admin" className="font-medium text-slate-600 hover:text-slate-900">
-                    Admin
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <GlobalPresenceBar />
+              <ThemeToggle />
+              <NotificationBell />
+              {session && (
+                <>
+                  <NavLink
+                    to="/settings"
+                    title={session.user.displayName}
+                    style={{
+                      display: "grid",
+                      placeItems: "center",
+                      width: 32,
+                      height: 32,
+                      borderRadius: 999,
+                      background: "oklch(0.755 0.110 82 / 0.30)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      color: "var(--ink)",
+                    }}
+                  >
+                    {initials(session.user.displayName)}
                   </NavLink>
-                )}
-                <button type="button" onClick={() => void logout()} className="font-medium text-slate-500 hover:text-slate-900">
-                  Log out
-                </button>
-              </nav>
-            )}
+                  <button
+                    type="button"
+                    onClick={() => void logout()}
+                    className="kr-rail-link hidden md:block"
+                    style={{ fontSize: 13, color: "var(--ink-3)" }}
+                  >
+                    Log out
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-        {isOffline && <OfflineBanner />}
-      </header>
+          {isOffline && <OfflineBanner />}
+        </header>
 
-      <main id="main" className="mx-auto max-w-6xl px-4 py-4 pb-24 md:pb-8">
-        {props.children}
-      </main>
+        <main id="main" style={{ flex: 1, padding: "0 20px 96px" }} className="md:pb-8">
+          {props.children}
+        </main>
+      </div>
 
       <button
         type="button"
         onClick={() => setQuickAddOpen(true)}
         aria-label="Quick add"
-        className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 sm:hidden"
+        className="sm:hidden"
+        style={{
+          position: "fixed",
+          bottom: 80,
+          right: 16,
+          zIndex: 30,
+          display: "grid",
+          placeItems: "center",
+          width: 56,
+          height: 56,
+          borderRadius: 999,
+          background: "var(--ink)",
+          color: "var(--panel)",
+          boxShadow: "var(--shadow)",
+        }}
       >
         <PlusIcon width={26} height={26} />
       </button>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white md:hidden" aria-label="Primary">
-        <div className="mx-auto flex max-w-6xl">
+      <nav
+        className="md:hidden"
+        aria-label="Primary"
+        style={{
+          position: "fixed",
+          insetInline: 0,
+          bottom: 0,
+          zIndex: 30,
+          background: "var(--panel)",
+          borderTop: "1px solid var(--line)",
+        }}
+      >
+        <div style={{ display: "flex" }}>
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === "/"}
-              className={({ isActive }) =>
-                `tap-target flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium ${
-                  isActive ? "text-brand-600" : "text-slate-500"
-                }`
-              }
+              className="tap-target"
+              style={({ isActive }) => ({
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 2,
+                padding: "8px 0",
+                minHeight: 56,
+                fontSize: 11.5,
+                fontWeight: 600,
+                color: isActive ? "var(--ink)" : "var(--ink-3)",
+              })}
             >
               <item.icon width={22} height={22} />
               {item.label}
@@ -108,8 +193,24 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
 
       {isOffline && (
         <div
-          className="fixed bottom-20 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white shadow md:hidden"
+          className="md:hidden"
           role="status"
+          style={{
+            position: "fixed",
+            bottom: 80,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 12px",
+            borderRadius: 999,
+            background: "var(--ink)",
+            color: "var(--panel)",
+            fontSize: 12,
+            fontWeight: 500,
+          }}
         >
           <WifiOffIcon width={14} height={14} />
           Offline
@@ -119,4 +220,13 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
       <QuickAddSheet open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
     </div>
   );
+}
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
 }

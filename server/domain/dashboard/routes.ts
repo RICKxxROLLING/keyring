@@ -34,6 +34,7 @@ export function registerDashboardRoutes(app: FastifyInstance, _ctx: AppContext):
       coverUrl: coverUrlFor(p.coverUploadId),
       quickFacts: p.quickFacts,
       attentionCount: attentionByProperty.get(p.id) ?? 0,
+      heroColor: p.heroColor,
     }));
 
     const unitTotals = db

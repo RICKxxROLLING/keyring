@@ -185,3 +185,52 @@ h1, h2, h3, .kr-display {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ------------------------------------------------------- keyring rail --- */
+
+.kr-key-row {
+  transition: background 140ms ease, opacity 140ms ease;
+}
+.kr-key-row:hover {
+  background: var(--panel) !important;
+  opacity: 1 !important;
+}
+.kr-cut-key:hover {
+  border-color: var(--ink-3);
+  color: var(--ink);
+}
+.kr-rail-link:hover {
+  color: var(--ink);
+}
+
+/* The mobile key strip scrolls; hide its scrollbar without hiding overflow. */
+.kr-rail + nav::-webkit-scrollbar {
+  display: none;
+}
+
+/* Cards lift and take a hero-tinted border on hover (handoff: HERO / 0.55). */
+.kr-card {
+  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+  box-shadow: var(--shadow-sm);
+}
+.kr-card:hover {
+  box-shadow: var(--shadow);
+}
+
+/* Tap targets stay >= 44px on touch, which the desktop-only handoff does not
+   have to worry about but the phone-first brief does. */
+@media (pointer: coarse) {
+  .kr-key-row,
+  .kr-rail-link,
+  .kr-cut-key {
+    min-height: 44px;
+  }
+}
+
+.kr-attention-row:hover {
+  background: var(--panel);
+  border-radius: 10px;
+}
+.kr-search:hover {
+  border-color: var(--ink-3);
+}

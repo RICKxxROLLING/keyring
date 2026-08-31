@@ -68,6 +68,7 @@ const SESSION: SessionInfo = {
 function propertyCard(p: PropertyView): PropertyCard {
   return {
     id: p.id,
+    heroColor: p.heroColor,
     name: p.name,
     addressLine1: p.addressLine1,
     city: p.city,

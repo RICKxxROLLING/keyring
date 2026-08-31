@@ -3,13 +3,16 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { DashboardPage } from "./DashboardPage";
+import { SessionProvider } from "../lib/session";
 
 function renderDashboard() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <DashboardPage />
+        <SessionProvider>
+          <DashboardPage />
+        </SessionProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
