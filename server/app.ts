@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
@@ -30,22 +30,16 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   runMigrations(db);
 
   const app = Fastify({
-    // TRUST_PROXY is `boolean | number`, where the number is a HOP COUNT
-    // (default 1 = the cloudflared sidecar). Fastify supports the numeric form
-    // at runtime — it hands it straight to proxy-addr — but its TypeScript
-    // option type lists only boolean | string | string[] | TrustProxyFunction.
-    // A raw number therefore fails every fastify() overload, TS falls through
-    // to the last one (HTTP/2 secure), and the instance is inferred as
-    // Http2SecureServer, which cascades into further errors at the register*
-    // seam below.
+    // TRUST_PROXY is a boolean or a comma-separated list of trusted IPs /
+    // CIDR ranges / the presets loopback, linklocal, uniquelocal. Defaults to
+    // loopback,uniquelocal so only a private peer — the cloudflared sidecar
+    // on the Docker bridge — can have its X-Forwarded-For believed.
     //
-    // Do NOT "fix" that by stringifying the number: Fastify reads a STRING
-    // trustProxy as a comma-separated list of trusted IPs/subnets, so "1"
-    // means "trust the host named 1", matches nothing, and req.ip silently
-    // falls back to the socket address — defeating the whole point.
-    // (server/auth/routes.auth.test.ts catches exactly that regression.)
-    // One cast at one boundary is the honest fix.
-    trustProxy: env.TRUST_PROXY as Exclude<FastifyServerOptions["trustProxy"], undefined>,
+    // A hop COUNT is deliberately not supported: this Fastify version fails
+    // closed on a numeric trustProxy, so a number would trust nothing and
+    // attribute every request to the sidecar. loadEnv() coerces a bare number
+    // to the safe default rather than passing it through.
+    trustProxy: env.TRUST_PROXY,
     genReqId: () => newId("req"),
     bodyLimit: 1_000_000,
     logger: {
@@ -75,7 +69,11 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:"],
         fontSrc: ["'self'", "data:"],
-        connectSrc: ["'self'", "ws:", "wss:"],
+        // 'self' covers the same-origin WebSocket at /ws. Bare "ws:"/"wss:"
+        // match ANY host, which would let injected script stream dossier data
+        // to an arbitrary destination — removing the one directive that
+        // otherwise contains an XSS to this origin.
+        connectSrc: ["'self'"],
         manifestSrc: ["'self'"],
         workerSrc: ["'self'"],
         objectSrc: ["'none'"],

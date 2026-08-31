@@ -1,5 +1,5 @@
 // server/domain/properties/routes.ts
-import { nextHeroColor } from "../../../shared/hero-colors.js";
+import { HERO_COLORS, nextHeroColor } from "../../../shared/hero-colors.js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { getDb, tx } from "../../db/index.js";
@@ -69,8 +69,20 @@ const CreatePropertySchema = z
     notes: zOptText(20000),
     sortOrder: z.number().int().default(0),
     archivedAt: zIsoDateTime.nullable().optional(),
-    /** The Keyring hero colour. Omitted on create means "assign one from the palette". */
-    heroColor: zOptText(64),
+    /**
+     * The Keyring hero colour. Omitted on create means "assign one from the
+     * palette". Constrained TO the palette rather than accepting any string:
+     * this value is echoed to every client and passed into React style
+     * objects, which is safe today only because every render site happens to
+     * be a style object. Validating here removes the dependency on that
+     * staying true — and CSP already carries styleSrc unsafe-inline, so a
+     * future <style> render site would turn a free-text colour into CSS
+     * injection.
+     */
+    heroColor: z
+      .enum(HERO_COLORS.map((c) => c.value) as [string, ...string[]])
+      .nullable()
+      .optional(),
   })
   .strict();
 

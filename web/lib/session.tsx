@@ -52,6 +52,11 @@ export function SessionProvider(props: { children: ReactNode }): ReactElement {
     setUnauthenticatedHandler(() => {
       setSessionState(null);
       setStatus("unauthenticated");
+      // Expiry and revocation land here, not in logout() — and with a 14-day
+      // TTL most sessions end this way, so this is the COMMON path. Without
+      // it, the dossier cache (names, phones, lease terms) survives on the
+      // device for every session that was not explicitly signed out.
+      void clearOfflineCaches();
     });
     return () => setUnauthenticatedHandler(null);
   }, []);

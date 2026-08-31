@@ -40,7 +40,13 @@ export async function completeEnrollment(
   const row = db.prepare(`SELECT * FROM users WHERE id = ?`).get(challenge.userId) as
     | UserRow
     | undefined;
-  if (!row || !row.totp_secret) throw new ApiError("FORBIDDEN", "Invalid or expired code.");
+  // is_active matters even though the resulting session would be inert
+  // (resolveSessionFromRequest joins on is_active = 1): without it, an owner
+  // deactivating someone mid-window still gets a spurious `login` audit row
+  // and a totp_enrolled_at stamp for an account that is supposed to be shut.
+  if (!row || !row.totp_secret || !row.is_active) {
+    throw new ApiError("FORBIDDEN", "Invalid or expired code.");
+  }
 
   // Second factor first: a wrong recovery code must not be distinguishable
   // from a wrong TOTP code, and must burn an attempt either way.

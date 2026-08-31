@@ -82,8 +82,20 @@ export async function restoreArchive(input: RestoreArchiveInput): Promise<Restor
     passphrase: input.passphrase,
   });
 
-  const dbPath = join(input.outDir, "keyring.db");
+  // Accept the pre-rename entry name as well as the current one.
+  //
+  // archive.ts already accepts the old "STOOPB" magic, precisely so that a
+  // backup taken before the rename does not become unrestorable. But the tar
+  // entry was named stoop.db, and looking only for keyring.db reintroduced the
+  // exact failure one step later: the archive decrypts and authenticates, then
+  // reports "did not contain keyring.db" — during a restore, which is the
+  // worst possible moment to discover it. verifyArchive goes through here too,
+  // so it would also have reported every old archive as broken.
+  const DB_ENTRY_NAMES = ["keyring.db", "stoop.db"] as const;
   const uploadsDir = join(input.outDir, "uploads");
+  const dbPath =
+    DB_ENTRY_NAMES.map((n) => join(input.outDir, n)).find((p) => existsSync(p)) ??
+    join(input.outDir, DB_ENTRY_NAMES[0]);
 
   if (!existsSync(dbPath)) {
     return {
@@ -95,7 +107,7 @@ export async function restoreArchive(input: RestoreArchiveInput): Promise<Restor
       rowCounts: {},
       uploads: { count: 0, bytes: 0 },
       archiveSha256,
-      error: "Archive did not contain keyring.db.",
+      error: `Archive did not contain a database (looked for ${DB_ENTRY_NAMES.join(" or ")}).`,
     };
   }
 
