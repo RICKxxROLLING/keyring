@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactElement } from "react";
+import { AuthLayout } from "../components/AuthLayout";
 import { useNavigate, useParams } from "react-router-dom";
 import type { EnrollmentChallenge, RecoveryCodes, SessionInfo } from "../../shared/types";
 import { apiGet, apiPost, ApiClientError } from "../lib/api";
@@ -53,9 +54,11 @@ export function InvitePage(): ReactElement {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-1 text-2xl font-black text-slate-900">Join Keyring</h1>
+    <AuthLayout
+      wide
+      title="You have been handed a key"
+      subtitle="Pick a password and set up your authenticator. Only the person who invited you can create this account."
+    >
 
         {loadError && <ErrorNotice message="This invite link is invalid, expired, or already used." />}
         {!preview && !loadError && <Spinner label="Checking invite…" />}
@@ -97,7 +100,6 @@ export function InvitePage(): ReactElement {
             }}
           />
         )}
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

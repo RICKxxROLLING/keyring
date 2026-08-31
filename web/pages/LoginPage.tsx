@@ -1,11 +1,12 @@
 import { useState, type FormEvent, type ReactElement } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { EnrollmentChallenge, RecoveryCodes, SessionInfo } from "../../shared/types";
 import { apiPost, ApiClientError } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Button } from "../components/Button";
 import { EnrollmentFlow } from "../components/EnrollmentFlow";
 import { ErrorNotice, Field, TextInput } from "../components/Form";
+import { AuthLayout } from "../components/AuthLayout";
 
 type Step = "password" | "totp" | "recovery" | "reenroll";
 
@@ -29,7 +30,7 @@ export function LoginPage(): ReactElement {
   const [enrollment, setEnrollment] = useState<EnrollmentChallenge | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const { setSession } = useSession();
+  const { setSession, needsSetup } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -88,10 +89,29 @@ export function LoginPage(): ReactElement {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-1 text-2xl font-black text-slate-900">Keyring</h1>
-        <p className="mb-5 text-sm text-slate-500">Sign in to manage your properties.</p>
+    <AuthLayout
+      title="Keyring"
+      subtitle={
+        step === "reenroll"
+          ? "Set up your authenticator again to finish signing in."
+          : "Sign in to manage your properties."
+      }
+      wide={step === "reenroll"}
+      footer={
+        // The setup screen is not linked from anywhere and the server is the
+        // only thing that knows whether it is still available, so offer it
+        // exactly when it applies rather than leaving a first-run user to
+        // guess the URL.
+        needsSetup ? (
+          <>
+            No account yet?{" "}
+            <Link to="/setup" style={{ color: "var(--ink)", fontWeight: 600 }}>
+              Complete first-time setup
+            </Link>
+          </>
+        ) : null
+      }
+    >
 
         {error && (
           <div className="mb-3">
@@ -101,7 +121,7 @@ export function LoginPage(): ReactElement {
 
         {step === "reenroll" && enrollment && mfaToken && (
           <div>
-            <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
+            <p className="mb-4 text-sm" style={{ color: "var(--ink-2)" }}>
               An owner reset your two-factor authentication. Scan this code with your
               authenticator app to set it up again — your old entry for this account no longer
               works, so delete it. You will get a fresh set of recovery codes.
@@ -161,7 +181,7 @@ export function LoginPage(): ReactElement {
             <button
               type="button"
               onClick={() => setStep("recovery")}
-              className="tap-target mt-2 w-full text-center text-sm font-medium text-slate-500 hover:text-slate-800"
+              className="tap-target kr-rail-link mt-2 w-full text-center text-sm font-medium" style={{ color: "var(--ink-3)" }}
             >
               Use a recovery code instead
             </button>
@@ -179,13 +199,12 @@ export function LoginPage(): ReactElement {
             <button
               type="button"
               onClick={() => setStep("totp")}
-              className="tap-target mt-2 w-full text-center text-sm font-medium text-slate-500 hover:text-slate-800"
+              className="tap-target kr-rail-link mt-2 w-full text-center text-sm font-medium" style={{ color: "var(--ink-3)" }}
             >
               Back to authenticator code
             </button>
           </form>
         )}
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

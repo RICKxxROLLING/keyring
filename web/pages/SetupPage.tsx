@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type ReactElement } from "react";
+import { AuthLayout } from "../components/AuthLayout";
 import { useNavigate } from "react-router-dom";
 import type { EnrollmentChallenge, RecoveryCodes, SessionInfo } from "../../shared/types";
 import { apiPost, ApiClientError } from "../lib/api";
@@ -37,13 +38,11 @@ export function SetupPage(): ReactElement {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-1 text-2xl font-black text-slate-900">Set up Keyring</h1>
-        <p className="mb-5 text-sm text-slate-500">
-          Create the first owner account. You'll need the setup token from the server console or{" "}
-          <code className="rounded bg-slate-100 px-1">setup-token.txt</code>.
-        </p>
+    <AuthLayout
+      wide
+      title="Cut the first key"
+      subtitle="Create the owner account. You will need the setup token — it is printed once in the server log and written to setup-token.txt in your data directory."
+    >
 
         {error && (
           <div className="mb-3">
@@ -82,7 +81,6 @@ export function SetupPage(): ReactElement {
             }}
           />
         )}
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

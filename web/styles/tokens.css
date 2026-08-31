@@ -310,3 +310,112 @@ h1, h2, h3, .kr-display {
 .kr-module-link:hover {
   border-color: var(--ink-3);
 }
+
+/* ------------------------------------------------------ form primitives --- */
+/* These are used on every screen, so tokenising them is what carries the
+   design language into the parts not yet individually restyled. Utility
+   classes rather than per-component inline styles, so the existing markup
+   keeps working. */
+
+.kr-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+.kr-input::placeholder {
+  color: var(--ink-3);
+}
+.kr-input:focus {
+  outline: none;
+  border-color: var(--ink-3);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ink-3) 18%, transparent);
+}
+
+.kr-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.kr-field-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.kr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: opacity 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+.kr-btn-primary {
+  background: var(--ink);
+  color: var(--panel);
+  border: 1px solid var(--ink);
+}
+.kr-btn-primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+.kr-btn-secondary {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.kr-btn-secondary:hover:not(:disabled) {
+  border-color: var(--ink-3);
+}
+.kr-btn-danger {
+  background: var(--crit);
+  color: var(--panel);
+  border: 1px solid var(--crit);
+}
+.kr-btn-danger:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.kr-btn-ghost {
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid transparent;
+}
+.kr-btn-ghost:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+.kr-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.kr-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 34px 24px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+/* Keyboard focus must stay visible everywhere, including on the tokenised
+   controls above. */
+:focus-visible {
+  outline: 2px solid var(--ink-3);
+  outline-offset: 2px;
+}

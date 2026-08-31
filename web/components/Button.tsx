@@ -4,10 +4,10 @@ import { useOnlineStatus } from "../lib/offline";
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 
 const VARIANT_CLASS: Record<Variant, string> = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700 focus-visible:outline-brand-600",
-  secondary: "bg-white text-slate-900 border border-slate-300 hover:bg-slate-50",
+  primary: "kr-btn kr-btn-primary",
+  secondary: "kr-btn kr-btn-secondary",
   danger: "bg-white text-red-700 border border-red-300 hover:bg-red-50",
-  ghost: "bg-transparent text-slate-700 hover:bg-slate-100",
+  ghost: "kr-btn kr-btn-ghost",
 };
 
 /**
@@ -47,8 +47,7 @@ export function IconButton({
       {...rest}
       aria-label={label}
       title={label}
-      className={`tap-target inline-flex items-center justify-center rounded-full text-slate-600 hover:bg-slate-100
-        focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ${className}`}
+      className={`tap-target kr-btn kr-btn-ghost rounded-full ${className}`}
     />
   );
 }

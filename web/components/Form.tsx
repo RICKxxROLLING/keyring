@@ -1,15 +1,14 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes, ReactElement } from "react";
 
-const fieldClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 " +
-  "placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";
+/** Tokenised in web/styles/tokens.css so every input follows the theme. */
+const fieldClass = "kr-input";
 
 export function Field(props: { label: string; htmlFor?: string; hint?: string; error?: string; children: ReactNode }): ReactElement {
   return (
     <label className="mb-3 block" htmlFor={props.htmlFor}>
-      <span className="mb-1 block text-sm font-medium text-slate-700">{props.label}</span>
+      <span className="kr-field-label">{props.label}</span>
       {props.children}
-      {props.hint && !props.error && <span className="mt-1 block text-xs text-slate-500">{props.hint}</span>}
+      {props.hint && !props.error && <span className="kr-field-hint">{props.hint}</span>}
       {props.error && <span className="mt-1 block text-xs font-medium text-red-600">{props.error}</span>}
     </label>
   );
@@ -29,9 +28,9 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>): ReactEle
 
 export function EmptyState(props: { title: string; detail?: string; action?: ReactNode }): ReactElement {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
-      <p className="font-semibold text-slate-700">{props.title}</p>
-      {props.detail && <p className="text-sm text-slate-500">{props.detail}</p>}
+    <div className="kr-empty">
+      <p className="kr-display" style={{ fontSize: 17 }}>{props.title}</p>
+      {props.detail && <p className="text-sm" style={{ color: "var(--ink-3)" }}>{props.detail}</p>}
       {props.action}
     </div>
   );
@@ -39,8 +38,8 @@ export function EmptyState(props: { title: string; detail?: string; action?: Rea
 
 export function Spinner(props: { label?: string }): ReactElement {
   return (
-    <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500" role="status">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-600" aria-hidden="true" />
+    <div className="flex items-center justify-center gap-2 py-8 text-sm" style={{ color: "var(--ink-3)" }} role="status">
+      <span className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: "var(--line)", borderTopColor: "var(--ink)" }} aria-hidden="true" />
       {props.label ?? "Loading…"}
     </div>
   );
