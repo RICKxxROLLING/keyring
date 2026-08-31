@@ -1,28 +1,34 @@
 import { NavLink, Outlet, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import type { PropertyDossier } from "../../shared/types";
 import { apiGet } from "../lib/api";
 import { qk } from "../lib/query";
 import { usePropertyChannel } from "../lib/realtime";
-import { formatCents, formatDate } from "../lib/format";
-import { propertyStatusDisplay } from "../lib/status";
-import { StatusPill } from "../components/StatusPill";
+import { formatCents } from "../lib/format";
 import { PropertyPresenceBar } from "../components/PresenceBar";
 import { ErrorNotice, Spinner } from "../components/Form";
-import type { ReactElement } from "react";
+import { KeyGlyph, hero } from "../components/KeyGlyph";
 
+/**
+ * One property — the design handoff's screen 2.
+ *
+ * The hero colour carries the page: a tinted header wash, a matching bottom
+ * border, tinted chips, and the active tab sitting flush against the header's
+ * edge so the two read as one surface.
+ *
+ * TABS. The design shows five; the app has eleven modules. The five are the
+ * ones with a designed home, and the rest are reachable from Overview rather
+ * than being deleted — a tab bar with eleven items is the thing the design was
+ * deliberately avoiding, but losing a feature to make a bar look calm is worse.
+ * Every route still exists and still works if linked or bookmarked.
+ */
 const TABS = [
   { to: "overview", label: "Overview" },
-  { to: "notes", label: "Notes" },
-  { to: "maintenance", label: "Maintenance" },
-  { to: "projects", label: "Projects" },
   { to: "tenants", label: "Tenants" },
-  { to: "money", label: "Money" },
-  { to: "specs", label: "Specs" },
-  { to: "compliance", label: "Compliance" },
-  { to: "turnover", label: "Turnover" },
-  { to: "files", label: "Files" },
-  { to: "timeline", label: "Timeline" },
+  { to: "money", label: "Ledger" },
+  { to: "maintenance", label: "Maintenance" },
+  { to: "files", label: "Papers" },
 ];
 
 export function DossierPage(): ReactElement {
@@ -36,68 +42,211 @@ export function DossierPage(): ReactElement {
   });
 
   if (dossier.isPending) return <Spinner label="Loading property…" />;
-  if (dossier.isError || !dossier.data) return <ErrorNotice message="Couldn't load this property." />;
+  if (dossier.isError || !dossier.data) {
+    return <ErrorNotice message="Couldn't load this property." />;
+  }
 
   const { property } = dossier.data;
-  const status = propertyStatusDisplay(property.status);
+  const color = property.heroColor;
   const qf = property.quickFacts;
+  const filled = qf.unitCount - qf.vacantUnits;
 
   return (
     <div>
-      <header className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-black text-slate-900">{property.name}</h1>
-            <p className="text-sm text-slate-500">
-              {property.addressLine1}, {property.city}, {property.state} {property.postalCode}
-            </p>
+      {/* ---------------------------------------------------- hero header --- */}
+      <header
+        style={{
+          // Full-bleed within the content column: the wash should reach the
+          // page edges, not sit in a card.
+          marginInline: "calc(clamp(12px, 3vw, 28px) * -1)",
+          padding: "22px clamp(12px, 3vw, 28px) 0",
+          background: hero.tint(color, 11),
+          borderBottom: `1px solid ${hero.border(color, 0.28)}`,
+        }}
+      >
+        <nav className="kr-label" aria-label="Breadcrumb" style={{ marginBottom: 14 }}>
+          <NavLink to="/" style={{ color: "var(--ink-3)" }}>
+            The keyring
+          </NavLink>
+          <span aria-hidden="true"> / </span>
+          <span style={{ color: "var(--ink-2)" }}>{property.name}</span>
+        </nav>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0, flex: 1 }}>
+            <span className="hidden sm:inline">
+              <KeyGlyph color={color} size="hero" holeColor="transparent" />
+            </span>
+            <span className="sm:hidden">
+              <KeyGlyph color={color} size="rail" holeColor="transparent" />
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <h1 className="kr-display kr-h-property" style={{ margin: 0 }}>
+                {property.name}
+              </h1>
+              <p className="kr-label" style={{ margin: "8px 0 0", fontSize: 10 }}>
+                {property.addressLine1}, {property.city} {property.state}
+                {property.yearBuilt ? ` · Built ${property.yearBuilt}` : ""}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
             <PropertyPresenceBar propertyId={property.id} />
-            <StatusPill severity={status.severity} label={status.label} />
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-3 text-sm sm:grid-cols-4">
-          <Fact label="Units" value={`${qf.occupiedUnits}/${qf.unitCount} occupied`} />
-          <Fact label="Monthly rent" value={formatCents(qf.monthlyRentCents)} />
-          <Fact label="Open work orders" value={String(qf.openWorkOrders)} />
-          <Fact label="Active projects" value={String(qf.activeProjects)} />
-          <Fact label="Next lease expiry" value={qf.nextLeaseExpiry ? `${qf.nextLeaseExpiry.unitLabel} · ${formatDate(qf.nextLeaseExpiry.endDate)}` : "None"} />
-          <Fact label="Next compliance due" value={qf.nextComplianceDue ? `${qf.nextComplianceDue.title} · ${formatDate(qf.nextComplianceDue.dueDate)}` : "None"} />
-          <Fact label="YTD expenses" value={formatCents(qf.ytdExpenseCents)} />
-          <Fact label="YTD rent received" value={formatCents(qf.ytdRentReceivedCents)} />
-        </dl>
+        {/* Chips: the facts you say out loud when describing the building. */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "16px 0 0" }}>
+          <Chip color={color}>{propertyTypeLabel(property.propertyType)}</Chip>
+          <Chip color={color}>
+            {qf.unitCount === 1 ? "1 door" : `${qf.unitCount} doors`} · {filled} filled
+          </Chip>
+          {property.purchaseDate && (
+            <Chip color={color}>Owned since {property.purchaseDate.slice(0, 4)}</Chip>
+          )}
+        </div>
+
+        {/* Tabs sit flush to the header's bottom edge; the active one matches
+            the panel and eats the border so header and body read as one. */}
+        <nav
+          className="kr-scroll-x"
+          aria-label="Property sections"
+          style={{ marginTop: 18, marginBottom: -1 }}
+        >
+          <div style={{ display: "flex", gap: 4, minWidth: "max-content" }}>
+            {TABS.map((tab) => (
+              <NavLink
+                key={tab.to}
+                to={tab.to}
+                className="kr-tab"
+                style={({ isActive }) => ({
+                  padding: "10px 16px",
+                  minHeight: 44,
+                  display: "flex",
+                  alignItems: "center",
+                  borderRadius: "11px 11px 0 0",
+                  border: isActive ? `1px solid ${hero.border(color, 0.28)}` : "1px solid transparent",
+                  borderBottomColor: isActive ? "var(--panel)" : "transparent",
+                  background: isActive ? "var(--panel)" : "transparent",
+                  color: isActive ? "var(--ink)" : "var(--ink-3)",
+                  fontSize: 13.5,
+                  fontWeight: isActive ? 600 : 500,
+                  whiteSpace: "nowrap",
+                })}
+              >
+                {tab.label}
+              </NavLink>
+            ))}
+          </div>
+        </nav>
       </header>
 
-      <nav className="mb-4 overflow-x-auto border-b border-slate-200" aria-label="Property sections">
-        <div className="flex min-w-max gap-1">
-          {TABS.map((tab) => (
-            <NavLink
-              key={tab.to}
-              to={tab.to}
-              className={({ isActive }) =>
-                `tap-target whitespace-nowrap border-b-2 px-3 py-2 text-sm font-semibold ${
-                  isActive ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-800"
-                }`
-              }
-            >
-              {tab.label}
-            </NavLink>
-          ))}
+      {/* ----------------------------------------------------- stat strip --- */}
+      <div
+        className="kr-scroll-x"
+        style={{
+          margin: "22px 0",
+          border: "1px solid var(--line)",
+          borderRadius: 14,
+          background: "var(--line-soft)",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, minmax(150px, 1fr))",
+            gap: 1,
+            minWidth: "max-content",
+          }}
+        >
+          <Stat label="Rent roll" value={`${formatCents(qf.monthlyRentCents)}`} suffix="/mo" />
+          <Stat
+            label="Collected this month"
+            value={
+              qf.ytdRentReceivedCents >= qf.monthlyRentCents
+                ? "All in"
+                : formatCents(qf.ytdRentReceivedCents)
+            }
+            valueColor={
+              qf.ytdRentReceivedCents >= qf.monthlyRentCents ? "var(--ok)" : undefined
+            }
+          />
+          <Stat label="Doors filled" value={`${filled} of ${qf.unitCount}`} />
+          <Stat
+            label="Open requests"
+            value={String(qf.openWorkOrders)}
+            valueColor={qf.openWorkOrders > 0 ? hero.solid(color) : undefined}
+          />
         </div>
-      </nav>
+      </div>
 
       <Outlet context={dossier.data} />
     </div>
   );
 }
 
-function Fact(props: { label: string; value: string }): ReactElement {
+function Chip({ color, children }: { color: string | null; children: React.ReactNode }): ReactElement {
   return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-slate-400">{props.label}</dt>
-      <dd className="font-semibold text-slate-800">{props.value}</dd>
+    <span
+      style={{
+        padding: "5px 12px",
+        borderRadius: 999,
+        background: "var(--panel)",
+        border: `1px solid ${hero.border(color, 0.35)}`,
+        fontSize: 12.5,
+        color: "var(--ink-2)",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  suffix,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+  valueColor?: string;
+}): ReactElement {
+  return (
+    <div style={{ background: "var(--panel)", padding: "16px 18px" }}>
+      <span className="kr-label" style={{ fontSize: 9.5 }}>
+        {label}
+      </span>
+      <p
+        className="kr-display kr-tabular"
+        style={{
+          margin: "8px 0 0",
+          fontSize: 24,
+          lineHeight: 1,
+          letterSpacing: "-0.018em",
+          color: valueColor ?? "var(--ink)",
+        }}
+      >
+        {value}
+        {suffix && (
+          <span style={{ fontSize: 13, color: "var(--ink-3)", fontFamily: "var(--font-sans)" }}>
+            {suffix}
+          </span>
+        )}
+      </p>
     </div>
   );
+}
+
+function propertyTypeLabel(t: string): string {
+  return t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

@@ -291,3 +291,22 @@ h1, h2, h3, .kr-display {
     width: 224px !important;
   }
 }
+
+/* ----------------------------------------------------------- dossier --- */
+
+.kr-tab:hover {
+  color: var(--ink);
+}
+
+/* The stat strip and tab bar scroll themselves rather than the page. */
+.kr-scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+.kr-scroll-x::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+
+.kr-module-link:hover {
+  border-color: var(--ink-3);
+}

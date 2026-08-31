@@ -8,7 +8,7 @@ import { GlobalPresenceBar } from "./PresenceBar";
 import { QuickAddSheet } from "./QuickAdd";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineBanner } from "./OfflineBanner";
-import { KeyRail } from "./KeyRail";
+import { KeyRail, KeyStrip } from "./KeyRail";
 import { ThemeToggle } from "./ThemeToggle";
 
 const NAV_ITEMS = [
@@ -44,6 +44,10 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
       <KeyRail />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {/* The mobile key strip lives INSIDE this column. As a sibling of the
+            desktop rail it landed in the shell's flex ROW and stretched to full
+            height, turning each key tag into a full-viewport column. */}
+        <KeyStrip />
         <header
           style={{
             position: "sticky",

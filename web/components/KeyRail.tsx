@@ -24,25 +24,86 @@ import { KeyGlyph, hero } from "./KeyGlyph";
 const RAIL_ROW_HEIGHT = 46; // 9px pad + 28px glyph + 9px pad
 const RING_TOP = 8;
 
-export function KeyRail(): ReactElement {
-  // The rail rides the dashboard payload, which every authenticated view
-  // already loads — so opening a property costs no extra request.
+/**
+ * Shared data for both presentations. The rail rides the dashboard payload,
+ * which every authenticated view already loads, so opening a property costs no
+ * extra request.
+ */
+function useRingProperties(): { properties: PropertyCard[]; activeId: string | null } {
   const dashboard = useQuery({
     queryKey: qk.dashboard,
     queryFn: () => apiGet<DashboardPayload>("/api/dashboard"),
     staleTime: 30_000,
   });
   const active = useMatch("/p/:propertyId/*");
-  const activeId = active?.params.propertyId ?? null;
+  return {
+    properties: dashboard.data?.properties ?? [],
+    activeId: active?.params.propertyId ?? null,
+  };
+}
 
-  const properties = dashboard.data?.properties ?? [];
+/**
+ * The mobile presentation: a horizontal strip of key tags.
+ *
+ * Rendered INSIDE the content column, not as a sibling of the desktop rail.
+ * They were siblings originally, which put the strip in the shell's flex ROW —
+ * so it became a full-height column and each key tag stretched to the viewport.
+ */
+export function KeyStrip(): ReactElement {
+  const { properties, activeId } = useRingProperties();
 
   return (
-    <>
-      {/* ---------------------------------------------------- desktop rail --- */}
-      <nav
-        aria-label="Properties"
-        className="kr-rail hidden shrink-0 flex-col lg:flex"
+    <nav
+      aria-label="Properties"
+      className="lg:hidden kr-scroll-x"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "10px clamp(12px, 3vw, 28px)",
+        background: "var(--bg-2)",
+        borderBottom: "1px solid var(--line)",
+      }}
+    >
+      {properties.map((p) => {
+        const isActive = p.id === activeId;
+        return (
+          <NavLink
+            key={p.id}
+            to={`/p/${p.id}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flex: "none",
+              padding: "8px 12px 8px 8px",
+              borderRadius: 999,
+              minHeight: 44,
+              background: isActive ? hero.tint(p.heroColor, 12) : "var(--panel)",
+              border: `1px solid ${isActive ? hero.border(p.heroColor, 0.35) : "var(--line)"}`,
+              color: "var(--ink)",
+              fontSize: 13.5,
+              fontWeight: isActive ? 700 : 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <KeyGlyph color={p.heroColor} size="card" holeColor="var(--bg-2)" />
+            {p.name}
+            {p.attentionCount > 0 && <AttentionCount property={p} />}
+          </NavLink>
+        );
+      })}
+    </nav>
+  );
+}
+
+export function KeyRail(): ReactElement {
+  const { properties, activeId } = useRingProperties();
+
+  return (
+    <nav
+      aria-label="Properties"
+      className="kr-rail hidden shrink-0 flex-col lg:flex"
         style={{
           width: 268,
           background: "var(--bg-2)",
@@ -107,49 +168,7 @@ export function KeyRail(): ReactElement {
             <RailLink to="/settings">Settings</RailLink>
           </div>
         </div>
-      </nav>
-
-      {/* ----------------------------------------------------- mobile strip --- */}
-      <nav
-        aria-label="Properties"
-        className="lg:hidden"
-        style={{
-          display: "flex",
-          gap: 8,
-          overflowX: "auto",
-          padding: "10px 12px",
-          background: "var(--bg-2)",
-          borderBottom: "1px solid var(--line)",
-          scrollbarWidth: "none",
-        }}
-      >
-        {properties.map((p) => (
-          <NavLink
-            key={p.id}
-            to={`/p/${p.id}`}
-            style={({ isActive }) => ({
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flex: "none",
-              padding: "8px 12px 8px 8px",
-              borderRadius: 999,
-              minHeight: 44,
-              background: isActive ? hero.tint(p.heroColor, 12) : "var(--panel)",
-              border: `1px solid ${isActive ? hero.border(p.heroColor, 0.35) : "var(--line)"}`,
-              color: "var(--ink)",
-              fontSize: 13.5,
-              fontWeight: isActive ? 700 : 600,
-              whiteSpace: "nowrap",
-            })}
-          >
-            <KeyGlyph color={p.heroColor} size="card" holeColor="var(--bg-2)" />
-            {p.name}
-            {p.attentionCount > 0 && <AttentionCount property={p} />}
-          </NavLink>
-        ))}
-      </nav>
-    </>
+    </nav>
   );
 }
 
