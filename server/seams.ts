@@ -42,10 +42,35 @@ export interface Notifier {
   notifyUsers: (input: NotifyUsersInput) => void;
 }
 
+/**
+ * Closing live sockets when a session or account is revoked.
+ *
+ * This exists because revoking a session in the database only stopped its HTTP
+ * requests. A WebSocket authenticates once, in the /ws preValidation hook, and
+ * was never re-checked — so a revoked session's socket kept receiving `entity`
+ * frames carrying whole rows (tenant names, phones, emails, lease terms) and
+ * `draft` frames carrying in-flight text, indefinitely.
+ *
+ * That made three separate remediations half-effective: changing a password
+ * after a suspected compromise, resetting a user's TOTP, and deactivating a
+ * departing manager. Each cut off HTTP and left the live feed running.
+ *
+ * Auth (T1) must not import realtime (T2), so it goes through the seam like
+ * every other cross-workstream call.
+ */
+export interface SocketCloser {
+  /** Close every socket belonging to one session. */
+  closeSession: (sessionId: string) => void;
+  /** Close every socket belonging to a user, across all their devices. */
+  closeUser: (userId: string) => void;
+}
+
 const noopNotifier: Notifier = { notifyMentions: () => {}, notifyUsers: () => {} };
+const noopSocketCloser: SocketCloser = { closeSession: () => {}, closeUser: () => {} };
 
 let publisher: (e: EntityEventInput) => void = () => {};
 let notifier: Notifier = noopNotifier;
+let socketCloser: SocketCloser = noopSocketCloser;
 
 /** Installed by T2 inside registerRealtime(). */
 export function setPublisher(fn: (e: EntityEventInput) => void): void {
@@ -54,9 +79,13 @@ export function setPublisher(fn: (e: EntityEventInput) => void): void {
 export function setNotifier(n: Notifier): void {
   notifier = n;
 }
+export function setSocketCloser(c: SocketCloser): void {
+  socketCloser = c;
+}
 export function resetSeams(): void {
   publisher = () => {};
   notifier = noopNotifier;
+  socketCloser = noopSocketCloser;
 }
 
 /** Called by T3 AFTER the write transaction commits. Never throws. */
@@ -81,5 +110,27 @@ export function notifyUsers(input: NotifyUsersInput): void {
     notifier.notifyUsers(input);
   } catch {
     /* ignore */
+  }
+}
+
+/**
+ * Called by auth after marking a session revoked. Never throws: a socket that
+ * cannot be closed must not fail the request that revoked the session — the
+ * database revocation is the source of truth, this is enforcement of it.
+ */
+export function closeSocketsForSession(sessionId: string): void {
+  try {
+    socketCloser.closeSession(sessionId);
+  } catch {
+    /* best effort */
+  }
+}
+
+/** Called by auth when every session for a user is revoked (deactivate, TOTP reset). */
+export function closeSocketsForUser(userId: string): void {
+  try {
+    socketCloser.closeUser(userId);
+  } catch {
+    /* best effort */
   }
 }

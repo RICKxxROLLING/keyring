@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { closeSocketsForSession, closeSocketsForUser } from "../seams.js";
 import { getDb } from "../db/index.js";
 import { getEnv } from "../config/env.js";
 import { newId, newToken } from "../lib/ids.js";
@@ -73,6 +74,9 @@ export function revokeSession(sessionId: string): void {
   getDb()
     .prepare(`UPDATE sessions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL`)
     .run(nowIso(), sessionId);
+  // A WebSocket authenticates once at upgrade and is never re-checked, so the
+  // database row alone does not stop it. Hang up too.
+  closeSocketsForSession(sessionId);
 }
 
 /** Revokes every active session for a user (deactivation, role change safety, etc). */
@@ -80,6 +84,7 @@ export function revokeAllSessionsForUser(userId: string): void {
   getDb()
     .prepare(`UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL`)
     .run(nowIso(), userId);
+  closeSocketsForUser(userId);
 }
 
 /**
@@ -100,5 +105,14 @@ export function revokeOtherSessionsForUser(userId: string, keepSessionId: string
         WHERE user_id = ? AND id != ? AND revoked_at IS NULL`,
     )
     .run(nowIso(), userId, keepSessionId);
+  // Close their sockets too, then reconnect nothing: the caller keeps its own
+  // session, and its client re-establishes its own socket normally.
+  for (const row of getDb()
+    .prepare(
+      `SELECT id FROM sessions WHERE user_id = ? AND id != ? AND revoked_at IS NOT NULL`,
+    )
+    .all(userId, keepSessionId) as { id: string }[]) {
+    closeSocketsForSession(row.id);
+  }
   return result.changes;
 }

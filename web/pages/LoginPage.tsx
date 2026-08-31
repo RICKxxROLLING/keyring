@@ -126,12 +126,33 @@ export function LoginPage(): ReactElement {
               authenticator app to set it up again — your old entry for this account no longer
               works, so delete it. You will get a fresh set of recovery codes.
             </p>
+            {/* Required alongside the authenticator code. The password already
+                unlocked the new secret, so without this a stolen password alone
+                would be enough to take the account during the reset window. */}
+            <div className="mb-4">
+              <Field
+                label="One of your recovery codes"
+                hint="Required to prove this account is yours. It will be used up."
+              >
+                <TextInput
+                  required
+                  autoFocus
+                  autoComplete="one-time-code"
+                  value={recoveryCode}
+                  onChange={(e) => setRecoveryCode(e.target.value)}
+                  placeholder="xxxxx-xxxxx"
+                />
+              </Field>
+            </div>
             <EnrollmentFlow
               enrollment={enrollment}
               onVerify={(verifyCode) =>
                 apiPost<{ session: SessionInfo; recovery: RecoveryCodes }>(
                   "/api/auth/login/enroll",
-                  { mfaToken, code: verifyCode },
+                  // A recovery code is required as well as the authenticator
+                  // code. Your password already unlocked the new secret, so
+                  // this is the factor that proves the account is yours.
+                  { mfaToken, code: verifyCode, recoveryCode },
                 )
               }
               onComplete={(session) => {

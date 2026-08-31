@@ -44,6 +44,14 @@ const PasswordChangeSchema = z
   .object({ currentPassword: z.string().min(1).max(200), newPassword: z.string().min(1).max(200) })
   .strict();
 
+const ReEnrollSchema = z
+  .object({
+    mfaToken: z.string().min(1).max(200),
+    code: z.string().min(1).max(20),
+    recoveryCode: z.string().min(1).max(20),
+  })
+  .strict();
+
 const RegenerateSchema = z
   .object({ password: z.string().min(1).max(200), code: z.string().min(1).max(20) })
   .strict();
@@ -130,21 +138,27 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   /**
    * Confirm a re-enrollment started by POST /api/auth/login above, after an
    * owner reset this user's TOTP. Same shape as the bootstrap and
-   * invite-accept verify endpoints: consumes the "enroll" challenge, stamps
-   * totp_enrolled_at, issues a fresh set of recovery codes (the old ones were
-   * cleared at reset), and signs the user in.
+   * invite-accept verify endpoints, with one addition: it also consumes a
+   * RECOVERY CODE. The password already unlocked the new secret at /login, so
+   * without a second factor here a stolen password alone would be enough to
+   * take over the account during the reset window. The old codes are retired
+   * and a fresh batch issued once enrollment completes.
    */
   app.post(
     "/api/auth/login/enroll",
     { config: { rateLimit: AUTH_RATE_LIMIT } },
     async (req, reply) => {
-      const body = parseBody(req, MfaCodeSchema);
+      const body = parseBody(req, ReEnrollSchema);
       return completeEnrollment(
         body.mfaToken,
         body.code,
         req,
         reply,
         "Re-enrolled TOTP after an administrative reset, and signed in.",
+        // Two factors, still. The password got you the new secret; a recovery
+        // code is what proves you are the account's owner and not someone who
+        // merely knows the password.
+        { requireRecoveryCode: body.recoveryCode },
       );
     },
   );

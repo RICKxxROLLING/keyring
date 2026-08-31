@@ -116,7 +116,7 @@ describe("users", () => {
     expect(res.statusCode).toBe(409);
   });
 
-  it("totp/reset re-arms enrollment, voids recovery codes, revokes sessions, and is audited", async () => {
+  it("totp/reset re-arms enrollment, KEEPS recovery codes, revokes sessions, and is audited", async () => {
     ctx = await createTestApp();
     const owner = await bootstrapOwner(ctx.app, ctx.dir);
     const manager = await issueAndAcceptInvite(ctx.app, owner);
@@ -142,12 +142,17 @@ describe("users", () => {
     // hand back an EnrollmentChallenge instead of a login challenge.
     expect(row.totp_enrolled_at).toBeNull();
 
-    // Unused recovery codes are voided, so the gap between reset and
-    // re-enrollment is not a single-factor window.
+    // Recovery codes SURVIVE the reset, and that is the point.
+    //
+    // An earlier version cleared them here, with a comment claiming it avoided
+    // a single-factor window. It created one: /api/auth/login hands the new
+    // TOTP secret to whoever presents the password, so with the codes also
+    // gone, a stolen password alone would enroll and take the account. The
+    // codes are the surviving second factor, and re-enrollment consumes one.
     const codes = db
       .prepare(`SELECT COUNT(*) AS n FROM recovery_codes WHERE user_id = ? AND used_at IS NULL`)
       .get(manager.userId) as { n: number };
-    expect(codes.n).toBe(0);
+    expect(codes.n).toBe(10);
 
     const meRes = await ctx.app.inject({
       method: "GET",
@@ -160,6 +165,58 @@ describe("users", () => {
       .prepare(`SELECT COUNT(*) AS n FROM audit_log WHERE action = 'totp_reset'`)
       .get() as { n: number };
     expect(audited.n).toBe(1);
+  });
+
+  it("re-enrollment after a reset REQUIRES a valid recovery code", async () => {
+    // The security property this endpoint exists to preserve. /api/auth/login
+    // hands the new TOTP secret to anyone with the password, so the recovery
+    // code is the only thing standing between a stolen password and a taken
+    // account during the reset window.
+    ctx = await createTestApp();
+    const owner = await bootstrapOwner(ctx.app, ctx.dir);
+    const manager = await issueAndAcceptInvite(ctx.app, owner);
+
+    await ctx.app.inject({
+      method: "POST",
+      url: `/api/users/${manager.userId}/totp/reset`,
+      headers: authHeaders(owner),
+    });
+
+    const login = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: { "content-type": "application/json" },
+      payload: { email: manager.email, password: manager.password },
+    });
+    const body = login.json() as {
+      data: { mfaToken: string; enrollment?: { secret: string } };
+    };
+    const goodTotp = totpCodeFor(body.data.enrollment!.secret, manager.email);
+
+    // A correct TOTP code from the handed-out secret is NOT enough on its own.
+    const wrongCode = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login/enroll",
+      headers: { "content-type": "application/json" },
+      payload: { mfaToken: body.data.mfaToken, code: goodTotp, recoveryCode: "aaaaa-bbbbb" },
+    });
+    expect(wrongCode.statusCode).toBe(403);
+    expect(wrongCode.headers["set-cookie"]).toBeUndefined();
+
+    // Omitting it entirely is a validation failure, not a way around it.
+    const missing = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login/enroll",
+      headers: { "content-type": "application/json" },
+      payload: { mfaToken: body.data.mfaToken, code: goodTotp },
+    });
+    expect(missing.statusCode).toBe(422);
+
+    // Still not enrolled, so the account was not taken.
+    const after = getDb()
+      .prepare(`SELECT totp_enrolled_at FROM users WHERE id = ?`)
+      .get(manager.userId) as { totp_enrolled_at: string | null };
+    expect(after.totp_enrolled_at).toBeNull();
   });
 
   it("a user whose TOTP was reset can re-enroll themselves and sign back in", async () => {
@@ -196,6 +253,9 @@ describe("users", () => {
       payload: {
         mfaToken: body.data.mfaToken,
         code: totpCodeFor(body.data.enrollment!.secret, manager.email),
+        // Two factors: the password got the secret, a recovery code proves
+        // this is the account owner and not someone who knows the password.
+        recoveryCode: manager.recoveryCodes[0],
       },
     });
     expect(verify.statusCode).toBe(200);

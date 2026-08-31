@@ -4,7 +4,7 @@
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { AppContext } from "../context.js";
-import { setPublisher, setNotifier } from "../seams.js";
+import { setPublisher, setNotifier, setSocketCloser } from "../seams.js";
 import type { EntityEventInput } from "../seams.js";
 import { registerJob } from "../lib/scheduler.js";
 import { ApiError } from "../lib/errors.js";
@@ -49,6 +49,11 @@ export async function registerRealtime(app: FastifyInstance, ctx: AppContext): P
 
   setPublisher(publishEntityImpl);
   setNotifier({ notifyMentions: notifyMentionsImpl, notifyUsers: notifyUsersImpl });
+  // Revoking a session must reach the live socket, not just HTTP.
+  setSocketCloser({
+    closeSession: (sessionId) => hub.closeConnectionsForSession(sessionId),
+    closeUser: (userId) => hub.closeConnectionsForUser(userId),
+  });
 
   registerJob({
     name: "realtime-lock-sweep",

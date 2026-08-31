@@ -11,7 +11,6 @@ import { requireAuth, requireRole } from "./middleware.js";
 import { toUser, type UserRow } from "./serialize.js";
 import { revokeAllSessionsForUser } from "./session.js";
 import { generateTotpSecret } from "./totp.js";
-import { clearUnusedRecoveryCodes } from "./recovery.js";
 
 const IdParamSchema = z.object({ id: z.string().min(1) }).strict();
 
@@ -235,9 +234,19 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
           `UPDATE users SET totp_secret = ?, totp_enrolled_at = NULL, updated_at = ? WHERE id = ?`,
         )
         .run(secret, nowIso(), id);
-      // Clear unused recovery codes too. Leaving them live would mean the
-      // window between reset and re-enrollment is genuinely single-factor.
-      clearUnusedRecoveryCodes(id);
+      // DO NOT clear the recovery codes here. An earlier version did, with a
+      // comment claiming it prevented a single-factor window — it created one.
+      //
+      // Recovery codes ARE the second factor. During the reset window
+      // POST /api/auth/login hands the new TOTP secret to whoever presents the
+      // password, so if the codes were also gone, the password alone would be
+      // enough to enroll and get a full session. Pre-reset that took password
+      // AND an unused recovery code; clearing them traded two factors for one,
+      // on the exact path an owner is told to use when someone loses a phone.
+      //
+      // The codes stay live and POST /api/auth/login/enroll consumes one to
+      // complete the re-enrollment, so two factors are required throughout.
+      // The fresh batch is issued there, once the account is enrolled again.
       revokeAllSessionsForUser(id);
       writeAudit({
         actorUserId: req.user!.id,

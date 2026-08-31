@@ -6,8 +6,16 @@ import type { UserRef } from "../../shared/types.js";
 
 export interface ConnRecord {
   connId: string;
-  /** Minimal duck-typed WebSocket: only what the hub needs to send frames. */
-  socket: { send: (data: string) => void; readyState: number };
+  /**
+   * Minimal duck-typed WebSocket: what the hub needs to send frames, plus
+   * `close` — revoking a session has to be able to hang up on the socket, not
+   * merely stop sending to it.
+   */
+  socket: {
+    send: (data: string) => void;
+    readyState: number;
+    close: (code?: number, reason?: string) => void;
+  };
   userId: string;
   user: UserRef;
   sessionId: string;
@@ -99,4 +107,42 @@ export function broadcast(channel: Channel, msg: ServerMessage, exceptConnId?: s
 
 export function allConnections(): ConnRecord[] {
   return [...connections.values()];
+}
+
+/**
+ * Close every socket belonging to one session, or to one user.
+ *
+ * A WebSocket authenticates once, at upgrade, and is never re-checked — so
+ * revoking a session in the database stopped its HTTP requests but left its
+ * live feed running, still delivering whole entity rows (tenant names, phones,
+ * lease terms) and in-flight draft text. These are how a revocation actually
+ * reaches the socket.
+ *
+ * 1008 is "policy violation", which is the accurate close code and tells a
+ * well-behaved client not to reconnect with the same credentials.
+ */
+export function closeConnectionsForSession(sessionId: string): number {
+  return closeMatching((c) => c.sessionId === sessionId);
+}
+
+export function closeConnectionsForUser(userId: string): number {
+  return closeMatching((c) => c.userId === userId);
+}
+
+function closeMatching(predicate: (c: ConnRecord) => boolean): number {
+  let closed = 0;
+  // Snapshot first: closing mutates the map via the socket's close handler.
+  for (const conn of [...connections.values()]) {
+    if (!predicate(conn)) continue;
+    try {
+      conn.socket.close(1008, "session revoked");
+    } catch {
+      /* already gone */
+    }
+    // Drop it immediately rather than waiting for the close event, so a socket
+    // that never fires one cannot keep receiving broadcasts in the meantime.
+    removeConnection(conn.connId);
+    closed++;
+  }
+  return closed;
 }
