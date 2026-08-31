@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { SessionInfo } from "../../shared/types";
 import { apiGet, apiPost, setUnauthenticatedHandler } from "./api";
+import { clearOfflineCaches } from "./offline";
 
 export type SessionStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -70,6 +71,17 @@ export function SessionProvider(props: { children: ReactNode }): ReactElement {
     } finally {
       setSessionState(null);
       setStatus("unauthenticated");
+      // Clearing React state is not enough. The offline caches hold complete
+      // dossier payloads — tenant names, phone numbers, email addresses, lease
+      // terms, deposit amounts — and they survive logout, browser restart and
+      // session expiry. On a shared or lost device that is real exposure of
+      // someone else's personal data long after the person who signed in
+      // believed they had signed out.
+      //
+      // Best-effort: Cache Storage is unavailable in a private window and
+      // throws outright when site data is blocked, so a failure here must not
+      // leave the user stuck on a half-completed logout.
+      await clearOfflineCaches();
     }
   }, []);
 

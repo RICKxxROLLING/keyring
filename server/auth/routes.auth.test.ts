@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createTestApp, type TestApp } from "../testing/harness.js";
 import { getDb } from "../db/index.js";
-import { authHeaders, bootstrapOwner, parseEnvelope, totpCodeFor } from "./test-support.js";
+import {
+  authHeaders,
+  bootstrapOwner,
+  parseEnvelope,
+  setCookieHeader,
+  totpCodeFor,
+} from "./test-support.js";
 
 describe("login (two-step)", () => {
   let ctx: TestApp;
@@ -235,5 +241,63 @@ describe("login (two-step)", () => {
       .prepare(`SELECT COUNT(*) AS n FROM audit_log WHERE action = 'password_changed'`)
       .get() as { n: number };
     expect(audited.n).toBe(1);
+  });
+
+  it("changing a password ends every OTHER session but keeps the current one", async () => {
+    ctx = await createTestApp();
+    const owner = await bootstrapOwner(ctx.app, ctx.dir);
+
+    // A second, independent session for the same user, obtained the way a real
+    // second device would: a full two-step login. This is the stand-in for a
+    // session stolen from another machine.
+    const step1 = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: { "content-type": "application/json" },
+      payload: { email: owner.email, password: owner.password },
+    });
+    const { mfaToken } = parseEnvelope<{ mfaToken: string }>(step1).data!;
+    const step2 = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/login/totp",
+      headers: { "content-type": "application/json" },
+      payload: { mfaToken, code: totpCodeFor(owner.totpSecret, owner.email) },
+    });
+    expect(step2.statusCode).toBe(200);
+    const other = { cookie: setCookieHeader(step2) };
+
+    // It works before the change.
+    const beforeRes = await ctx.app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: { cookie: other.cookie },
+    });
+    expect(beforeRes.statusCode).toBe(200);
+
+    const changed = await ctx.app.inject({
+      method: "POST",
+      url: "/api/auth/password",
+      headers: authHeaders(owner),
+      payload: { currentPassword: owner.password, newPassword: "a different long passphrase 42" },
+    });
+    expect(changed.statusCode).toBe(200);
+    expect(parseEnvelope<{ otherSessionsEnded: number }>(changed).data?.otherSessionsEnded).toBe(1);
+
+    // The other session is dead: changing a password after a suspected
+    // compromise has to actually end the attacker's access.
+    const afterRes = await ctx.app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: { cookie: other.cookie },
+    });
+    expect(afterRes.statusCode).toBe(401);
+
+    // ...and the caller is still signed in on the device in front of them.
+    const stillMine = await ctx.app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: authHeaders(owner),
+    });
+    expect(stillMine.statusCode).toBe(200);
   });
 });

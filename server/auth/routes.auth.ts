@@ -13,7 +13,13 @@ import { hashPassword, passwordPolicyError, verifyPassword } from "./password.js
 import { accountKey, assertNotLockedOut, recordFailure, recordSuccess } from "./ratelimit.js";
 import { clearUnusedRecoveryCodes, consumeRecoveryCode, issueRecoveryCodes } from "./recovery.js";
 import { toUser, type UserRow } from "./serialize.js";
-import { clearSessionCookies, createSession, revokeSession, setSessionCookies } from "./session.js";
+import {
+  clearSessionCookies,
+  createSession,
+  revokeOtherSessionsForUser,
+  revokeSession,
+  setSessionCookies,
+} from "./session.js";
 import { totpEnrollmentUri, verifyTotpCode } from "./totp.js";
 import { completeEnrollment } from "./enroll.js";
 
@@ -277,7 +283,13 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     return ok(sessionInfoOf(row, sessionRow.csrf_token, sessionRow.expires_at));
   });
 
-  app.post("/api/auth/password", { preHandler: [requireAuth] }, async (req) => {
+  // AUTH_RATE_LIMIT applies: this endpoint takes the current password, so
+  // without it `currentPassword` is guessable at the global limit (600/min)
+  // from an already-authenticated session.
+  app.post(
+    "/api/auth/password",
+    { preHandler: [requireAuth], config: { rateLimit: AUTH_RATE_LIMIT } },
+    async (req) => {
     const body = parseBody(req, PasswordChangeSchema);
     const row = getUserRow(req.user!.id);
     const matches = await verifyPassword(row.password_hash, body.currentPassword);
@@ -292,6 +304,13 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     getDb()
       .prepare(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`)
       .run(newHash, nowIso(), row.id);
+
+    // End every OTHER session. Changing a password is what someone does after
+    // they think a session was stolen; if the stolen session survives it, the
+    // remediation they just performed did nothing. The current session is kept
+    // so the change does not sign them out of the device in front of them.
+    const endedElsewhere = revokeOtherSessionsForUser(row.id, req.sessionId!);
+
     writeAudit({
       actorUserId: row.id,
       actorLabel: row.display_name,
@@ -299,12 +318,16 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       entityType: "user",
       entityId: row.id,
       propertyId: null,
-      summary: "Changed password.",
+      summary:
+        endedElsewhere > 0
+          ? `Changed password; signed out of ${endedElsewhere} other ${endedElsewhere === 1 ? "session" : "sessions"}.`
+          : "Changed password.",
       ip: req.ip ?? null,
       requestId: String(req.id),
     });
-    return ok({ ok: true } as const);
-  });
+    return ok({ ok: true, otherSessionsEnded: endedElsewhere } as const);
+    },
+  );
 
   app.post("/api/auth/recovery-codes/regenerate", { preHandler: [requireAuth] }, async (req) => {
     const body = parseBody(req, RegenerateSchema);

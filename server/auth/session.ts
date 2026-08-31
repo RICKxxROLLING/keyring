@@ -81,3 +81,24 @@ export function revokeAllSessionsForUser(userId: string): void {
     .prepare(`UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL`)
     .run(nowIso(), userId);
 }
+
+/**
+ * Revokes every session for a user EXCEPT the one making the request.
+ *
+ * Used when changing a password. Someone changing their password after a
+ * suspected compromise expects it to end the attacker's access — if the
+ * stolen session keeps working, the obvious remediation quietly does nothing.
+ * Keeping the caller's own session alive is what stops the change from
+ * logging them out of the device they are sitting at.
+ *
+ * @returns how many sessions were ended, so the caller can tell the user.
+ */
+export function revokeOtherSessionsForUser(userId: string, keepSessionId: string): number {
+  const result = getDb()
+    .prepare(
+      `UPDATE sessions SET revoked_at = ?
+        WHERE user_id = ? AND id != ? AND revoked_at IS NULL`,
+    )
+    .run(nowIso(), userId, keepSessionId);
+  return result.changes;
+}
