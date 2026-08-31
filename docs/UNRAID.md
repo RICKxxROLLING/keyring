@@ -19,6 +19,9 @@ build context is `${KEYRING_SRC:-.}` for exactly this reason.
 
 ### Option A — clone from GitHub (recommended; makes updates one command)
 
+(You only need a local clone if you want to build from source or run a local
+change — the normal update path is the registry image, above.)
+
 Two Unraid facts shape this:
 
 - **Unraid does not ship `git`.** You can add it with the Nerd Tools plugin, but
@@ -304,3 +307,50 @@ The entrypoint now also detects this on boot: it scans for any path under
 `/data` not owned by `PUID:PGID` (stopping at the first one, so it stays cheap)
 and re-chowns when it finds one. A restart alone will therefore repair it —
 but the `-u` flag stops it happening in the first place.
+
+---
+
+## Updating without the terminal
+
+The stack **pulls a prebuilt image** from GitHub Container Registry rather than
+building on your server. That is deliberate: a locally-built tag has no
+registry to compare against, so Compose Manager's "check for updates" always
+reported "latest" and never offered anything — it was answering a question
+about a registry image that did not exist.
+
+Now:
+
+**Docker → Compose → check for updates → update.** That is the whole flow.
+No `git pull`, no `--build`, no multi-minute native compile on the array.
+
+Every push to `main` triggers `.github/workflows/publish.yml`, which builds for
+`linux/amd64` and `linux/arm64` and pushes `ghcr.io/rickxxrolling/keyring:latest`
+plus a `sha-<commit>` tag.
+
+### One-time setup
+
+After the first workflow run completes, **make the package public**:
+
+`github.com/users/RICKxxROLLING/packages/container/keyring/settings` →
+Change visibility → Public.
+
+A public *repository* does not make its *packages* public — they are separate
+settings. If you skip this, the pull fails with `denied` or `unauthorized` and
+the server would need GHCR credentials.
+
+### Rolling back
+
+The workflow also tags each build with its commit, so pinning to a known-good
+version is a one-line edit in the stack:
+
+```yaml
+image: ghcr.io/rickxxrolling/keyring:sha-<the commit sha>
+```
+
+Change it back to `:latest` when you want to follow main again.
+
+### Running a local change instead
+
+The bottom of `docker/unraid/docker-compose.stack.yml` has a commented build
+context for exactly this. Use the tag `keyring:local` rather than the GHCR one,
+so a later registry pull does not look like a downgrade.

@@ -1,21 +1,31 @@
-# Paste this into Unraid: Docker -> Compose -> Add New Stack -> Edit Stack.
+# Paste into Unraid: Docker -> Compose -> Add New Stack -> Edit Stack.
 #
-# Differs from the repo's own docker-compose.yml in exactly one way that
-# matters: the build context is an ABSOLUTE path to the source on your array.
-# Compose Manager keeps each stack on the FLASH drive
-# (/boot/config/plugins/compose.manager/projects/<name>/), and you do not want
-# a Node build with node_modules and a native better-sqlite3/sharp compile
-# happening there. So the stack lives on flash; the code it builds does not.
+# This stack PULLS a prebuilt image from GitHub Container Registry rather than
+# building from source on your server. That is what makes Compose Manager's
+# "check for updates" meaningful: a locally-built tag has no registry to compare
+# against, so the plugin always reported "latest" and never offered an update.
 #
-# The service is named `keyring` on purpose — every command in README.md,
-# docs/OPERATIONS.md and docs/RESTORE.md says `docker compose exec keyring ...`.
-# It gets renamed with the rest of the Keyring rebrand, not before.
+# To update now: Compose Manager -> check for updates -> update. No terminal,
+# no git pull, no multi-minute native build on the array.
+#
+# The image is published by .github/workflows/publish.yml on every push to
+# main, for linux/amd64 and linux/arm64.
+#
+# ONE-TIME SETUP: after the first workflow run, make the package public at
+#   github.com/users/RICKxxROLLING/packages/container/keyring/settings
+# ("Change visibility" -> Public). Otherwise your server has to authenticate to
+# GHCR to pull it. The repo being public does NOT make the package public —
+# they are separate settings, and this catches most people out.
+#
+# The service is named `keyring`. If you are migrating from the `stoop` stack,
+# remove the old container once this one is healthy.
 
 services:
   keyring:
-    build:
-      context: /mnt/user/appdata/keyring/src
-    image: keyring:latest
+    image: ghcr.io/rickxxrolling/keyring:latest
+    # Always check the registry on `up`, so an update actually replaces the
+    # image rather than reusing a stale local copy.
+    pull_policy: always
     container_name: keyring
     restart: unless-stopped
     env_file:
@@ -23,16 +33,15 @@ services:
     environment:
       TZ: ${APP_TIMEZONE:-America/New_York}
     ports:
-      # LAN access. Not needed once the tunnel is up — cloudflared dials out,
-      # so nothing has to be published. 8088 rather than 8080 because 8080
-      # collides with a lot of Unraid containers.
-      # KEYRING_PORT is the current name; STOOP_PORT is honoured as a fallback so
-      # a .env written before the rename keeps working. Set either one.
+      # KEYRING_PORT is the current name; STOOP_PORT is honoured as a fallback
+      # so a .env written before the rename keeps working. Set either one.
+      #
+      # This must match the port inside APP_ORIGIN. They are independent
+      # settings and nothing warns you: change one and the page silently stops
+      # answering while the container still reports healthy.
       - "${KEYRING_PORT:-${STOOP_PORT:-8088}}:8080"
     volumes:
       # Everything persistent: the database, uploads, backups, setup token.
-      # Deliberately NOT inside the src directory, so replacing the source to
-      # upgrade can never touch your data.
       - ${KEYRING_DATA_DIR:-${STOOP_DATA_DIR:-/mnt/user/appdata/keyring/data}}:/data
     healthcheck:
       test: ["CMD", "node", "/healthcheck.mjs"]
@@ -42,15 +51,14 @@ services:
       retries: 3
 
   # ---------------------------------------------------------------------
-  # Uncomment once the app is working on your LAN and you have a tunnel token.
-  # Doing it in two stages means that if something breaks you know whether it
-  # was the app or Cloudflare.
+  # Uncomment once the app works on your LAN and you have a tunnel token.
+  # Two stages means a failure tells you whether it was the app or Cloudflare.
   #
   # Before uncommenting, set in .env:
   #   TUNNEL_TOKEN   your Cloudflare tunnel connector token
   #   APP_ORIGIN     the https:// hostname, exactly — it gates Secure cookies
-  #                  and the WebSocket origin check, and a mismatch shows up
-  #                  as login loops rather than an obvious error
+  #                  and the WebSocket origin check, and a mismatch shows up as
+  #                  login loops rather than an obvious error
   # ---------------------------------------------------------------------
   # cloudflared:
   #   image: cloudflare/cloudflared:latest
@@ -62,3 +70,19 @@ services:
   #   depends_on:
   #     keyring:
   #       condition: service_healthy
+
+# ---------------------------------------------------------------------------
+# BUILDING FROM SOURCE INSTEAD
+#
+# If you want to run a local change without pushing it, or GHCR is unreachable,
+# replace the image/pull_policy lines above with a build context and run
+# `docker compose up -d --build`:
+#
+#   keyring:
+#     build:
+#       context: ${KEYRING_SRC:-/mnt/user/appdata/keyring/src}
+#     image: keyring:local
+#
+# Note the different tag. Tagging a local build `ghcr.io/...:latest` makes the
+# next registry pull look like a downgrade and gets confusing fast.
+# ---------------------------------------------------------------------------
