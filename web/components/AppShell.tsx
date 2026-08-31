@@ -58,7 +58,7 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
               display: "flex",
               alignItems: "center",
               gap: 12,
-              padding: "12px 20px",
+              padding: "12px clamp(12px, 3vw, 28px)",
             }}
           >
             <button
@@ -123,7 +123,10 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
           {isOffline && <OfflineBanner />}
         </header>
 
-        <main id="main" style={{ flex: 1, padding: "0 20px 96px" }} className="md:pb-8">
+        {/* kr-content centres and caps the column, and its inline padding is
+            fluid — so this works from a 320px phone up to an ultrawide without
+            the 1360px min-width the mock assumed. */}
+        <main id="main" className="kr-content" style={{ flex: 1, paddingBottom: 96 }}>
           {props.children}
         </main>
       </div>

@@ -54,10 +54,7 @@ export function DashboardPage(): ReactElement {
 
   return (
     <div style={{ paddingTop: 28 }}>
-      <h1
-        className="kr-display"
-        style={{ margin: 0, fontSize: 38, lineHeight: 1.1, letterSpacing: "-0.022em" }}
-      >
+      <h1 className="kr-display kr-h1" style={{ margin: 0 }}>
         {greeting()}, {firstName}.
       </h1>
       <p
@@ -77,7 +74,7 @@ export function DashboardPage(): ReactElement {
         style={{
           display: "grid",
           gap: 16,
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
           margin: "26px 0 0",
         }}
       >
@@ -116,10 +113,7 @@ export function DashboardPage(): ReactElement {
           margin: "34px 0 16px",
         }}
       >
-        <h2
-          className="kr-display"
-          style={{ margin: 0, fontSize: 22, letterSpacing: "-0.014em" }}
-        >
+        <h2 className="kr-display kr-h2" style={{ margin: 0 }}>
           On the ring
         </h2>
         <span className="kr-label">
@@ -131,7 +125,7 @@ export function DashboardPage(): ReactElement {
         style={{
           display: "grid",
           gap: 18,
-          gridTemplateColumns: "repeat(auto-fill, minmax(288px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(min(288px, 100%), 1fr))",
         }}
       >
         {data.properties.map((p) => (
@@ -143,7 +137,7 @@ export function DashboardPage(): ReactElement {
         style={{
           display: "grid",
           gap: 18,
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))",
           margin: "34px 0 0",
         }}
       >

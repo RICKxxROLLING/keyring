@@ -6,7 +6,7 @@ services:
       # (/boot/config/plugins/compose.manager/projects/<name>/), which is small,
       # slow and should not be a build context — so point KEYRING_SRC at the
       # source on your array instead. See docs/UNRAID.md.
-      context: ${KEYRING_SRC:-.}
+      context: ${KEYRING_SRC:-${STOOP_SRC:-.}}
     image: keyring:latest
     container_name: keyring
     restart: unless-stopped
@@ -21,11 +21,11 @@ services:
       # this only if you also want LAN access without going through the
       # tunnel. Comment it out (or set KEYRING_PORT to nothing meaningful) for a
       # tunnel-only deployment with zero exposed host ports.
-      - "${KEYRING_PORT:-8080}:8080"
+      - "${KEYRING_PORT:-${STOOP_PORT:-8080}}:8080"
     volumes:
       # ALL persistent state lives under this one bind mount:
       # keyring.db*, uploads/, backups/, setup-token.txt.
-      - ${KEYRING_DATA_DIR:-./data}:/data
+      - ${KEYRING_DATA_DIR:-${STOOP_DATA_DIR:-./data}}:/data
     healthcheck:
       test: ["CMD", "node", "/healthcheck.mjs"]
       interval: 30s

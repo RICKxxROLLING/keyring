@@ -26,12 +26,14 @@ services:
       # LAN access. Not needed once the tunnel is up — cloudflared dials out,
       # so nothing has to be published. 8088 rather than 8080 because 8080
       # collides with a lot of Unraid containers.
-      - "${KEYRING_PORT:-8088}:8080"
+      # KEYRING_PORT is the current name; STOOP_PORT is honoured as a fallback so
+      # a .env written before the rename keeps working. Set either one.
+      - "${KEYRING_PORT:-${STOOP_PORT:-8088}}:8080"
     volumes:
       # Everything persistent: the database, uploads, backups, setup token.
       # Deliberately NOT inside the src directory, so replacing the source to
       # upgrade can never touch your data.
-      - ${KEYRING_DATA_DIR:-/mnt/user/appdata/keyring/data}:/data
+      - ${KEYRING_DATA_DIR:-${STOOP_DATA_DIR:-/mnt/user/appdata/keyring/data}}:/data
     healthcheck:
       test: ["CMD", "node", "/healthcheck.mjs"]
       interval: 30s

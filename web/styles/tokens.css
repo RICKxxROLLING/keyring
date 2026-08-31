@@ -234,3 +234,60 @@ h1, h2, h3, .kr-display {
 .kr-search:hover {
   border-color: var(--ink-3);
 }
+
+/* ==========================================================================
+   Responsive layer.
+
+   The handoff is explicit that it did not design for responsiveness: it holds
+   a 1360px min-width and scrolls horizontally below that. That is fine for a
+   mock and wrong for an app you use on a phone in a basement, so the values
+   are kept and the LAYOUT is made fluid.
+
+   Two rules do most of the work:
+     - Grids use minmax(min(Npx, 100%), 1fr) so a track can never be wider
+       than its container. Plain minmax(Npx, 1fr) overflows below N.
+     - Display type uses clamp() so the 38px greeting and 44px property name
+       scale down instead of wrapping into three lines on a phone.
+   ========================================================================== */
+
+/* Fluid display sizes. The upper bound is the handoff's value, so at the
+   design width the type is exactly as drawn. */
+.kr-h1 {
+  font-size: clamp(1.65rem, 1.1rem + 2.4vw, 2.375rem); /* -> 38px */
+  line-height: 1.1;
+  letter-spacing: -0.022em;
+}
+.kr-h-property {
+  font-size: clamp(1.85rem, 1.1rem + 3.4vw, 2.75rem); /* -> 44px */
+  line-height: 1.02;
+  letter-spacing: -0.026em;
+}
+.kr-h2 {
+  font-size: clamp(1.15rem, 1rem + 0.6vw, 1.375rem); /* -> 22px */
+  letter-spacing: -0.014em;
+}
+
+/* The content column. Wide enough for the three-up card grid at the design
+   width, capped so a 4K display does not stretch a ledger row to a metre. */
+.kr-content {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: clamp(12px, 3vw, 28px);
+}
+
+/* Anything that can exceed its container scrolls itself rather than the page:
+   ledger tables, stat strips, tab bars. The page body must never scroll
+   sideways. */
+.kr-scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/* The rail narrows before it disappears, so a 1024-1280px laptop keeps the
+   keyring instead of jumping straight to the mobile strip. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .kr-rail {
+    width: 224px !important;
+  }
+}
