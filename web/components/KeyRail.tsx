@@ -6,6 +6,7 @@ import { apiGet } from "../lib/api";
 import { qk } from "../lib/query";
 import { useSession } from "../lib/session";
 import { KeyGlyph, hero } from "./KeyGlyph";
+import { RingMark } from "./RingMark";
 import { Avatar } from "./Avatar";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationBell } from "./NotificationBell";
@@ -136,8 +137,10 @@ export function KeyRail(): ReactElement {
             color: "var(--ink)",
           }}
         >
-          {/* The master key holds up the ring: the way back to the portfolio. */}
-          <KeyGlyph color="var(--ink-2)" size="rail" holeColor="var(--bg-2)" />
+          {/* The ring itself, not a key: this is the way back to ALL of them.
+              A key here would say "one property", which is the one thing this
+              link does not mean. */}
+          <RingMark size={26} />
           <span className="kr-label" style={{ color: "var(--ink-2)" }}>
             On the ring · {properties.filter((p) => p.stage === "owned").length}
           </span>

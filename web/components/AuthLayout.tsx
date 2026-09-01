@@ -1,7 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
-import { KeyGlyph } from "./KeyGlyph";
+import { PortfolioRing } from "./RingMark";
 import { ThemeToggle } from "./ThemeToggle";
-import { HERO_COLORS } from "../../shared/hero-colors";
 
 /**
  * The chrome every unauthenticated screen shares: setup, login, invite accept.
@@ -52,12 +51,12 @@ export function AuthLayout(props: {
           padding: "clamp(20px, 4vw, 30px)",
         }}
       >
-        {/* The ring, as a row of keys — the palette, and a preview of what you
-            are signing in to. Decorative, so hidden from assistive tech. */}
-        <div aria-hidden="true" style={{ display: "flex", gap: 2, marginBottom: 18 }}>
-          {HERO_COLORS.map((c) => (
-            <KeyGlyph key={c.id} color={c.value} size="card" />
-          ))}
+        {/* The portfolio mark: one bead per hero colour on a ring. This was a
+            row of six key glyphs, which said the same thing in a rougher way —
+            the supplied icon set draws it properly. Decorative, so hidden from
+            assistive tech. */}
+        <div aria-hidden="true" style={{ marginBottom: 18 }}>
+          <PortfolioRing size={46} />
         </div>
 
         <h1
