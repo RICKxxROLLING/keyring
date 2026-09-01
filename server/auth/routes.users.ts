@@ -44,6 +44,74 @@ function getUserOr404(id: string): UserRow {
   return row;
 }
 
+/**
+ * Invite rows are cleaned up as part of removing a user rather than blocking it.
+ *
+ * `accepted_user_id` is the spent token that created the account, and
+ * `created_by` is an invite this person sent. Neither is a record worth keeping
+ * once the account is gone, and both are NOT NULL or unhandled foreign keys, so
+ * something has to give.
+ */
+const INVITE_CLEANUP_COLUMNS = ["accepted_user_id", "created_by"] as const;
+
+interface UserReference {
+  table: string;
+  column: string;
+  count: number;
+}
+
+/**
+ * Everything that would stop this user row being deleted.
+ *
+ * Asked of the schema — sqlite_master plus foreign_key_list — rather than from a
+ * hand-written list of tables. A list gets out of date the moment a migration
+ * adds a column, and the failure mode is a delete that blows up with a bare
+ * "FOREIGN KEY constraint failed" and no indication of what is holding it.
+ *
+ * Only genuinely blocking references are reported: CASCADE and SET NULL columns
+ * (sessions, MFA challenges, the audit log's actor) resolve themselves, and
+ * invites are cleaned up by the caller.
+ */
+function blockingReferencesToUser(userId: string): UserReference[] {
+  const db = getDb();
+  const tables = (
+    db
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
+      .all() as { name: string }[]
+  ).map((r) => r.name);
+
+  const found: UserReference[] = [];
+  for (const table of tables) {
+    const fks = db.pragma(`foreign_key_list(${table})`) as {
+      table: string;
+      from: string;
+      on_delete: string;
+    }[];
+    for (const fk of fks) {
+      if (fk.table !== "users") continue;
+      const resolvesItself = fk.on_delete === "CASCADE" || fk.on_delete === "SET NULL";
+      if (resolvesItself) continue;
+      if (table === "invites" && (INVITE_CLEANUP_COLUMNS as readonly string[]).includes(fk.from)) {
+        continue;
+      }
+      const { n } = db
+        .prepare(`SELECT COUNT(*) AS n FROM "${table}" WHERE "${fk.from}" = ?`)
+        .get(userId) as { n: number };
+      if (n > 0) found.push({ table, column: fk.from, count: n });
+    }
+  }
+  return found;
+}
+
+/** "3 properties and 1 work order" — for a message a person can act on. */
+function describeReferences(refs: UserReference[]): string {
+  const byTable = new Map<string, number>();
+  for (const r of refs) byTable.set(r.table, (byTable.get(r.table) ?? 0) + r.count);
+  return [...byTable.entries()]
+    .map(([table, n]) => `${n} in ${table.replace(/_/g, " ")}`)
+    .join(", ");
+}
+
 export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
   app.get("/api/users", { preHandler: [requireAuth] }, async (req) => {
     const q = parseQuery(req, ListUsersQuerySchema);
@@ -260,6 +328,81 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
         requestId: String(req.id),
       });
       return ok({ ok: true } as const);
+    },
+  );
+
+  /**
+   * Remove a user for good.
+   *
+   * Three guards, in the order they can be understood:
+   *
+   *   1. Not yourself. An owner deleting the account they are signed in as is
+   *      never what they meant.
+   *   2. Deactivated first. Deletion is irreversible and deactivation is not,
+   *      so the reversible step has to happen first and be looked at. It also
+   *      inherits the "there must always be one active owner" rule for free —
+   *      an owner who cannot be deactivated cannot reach this route.
+   *   3. Nothing of theirs survives them. Every created_by/updated_by in the
+   *      schema is NOT NULL, so a user who authored records genuinely cannot be
+   *      deleted without destroying or falsifying that history. Deactivation is
+   *      the right answer there, and the message says so with the counts.
+   *
+   * Spent invites are cleared as part of the removal — see
+   * INVITE_CLEANUP_COLUMNS. Sessions, MFA challenges and notifications cascade.
+   * Audit entries keep actor_label, so the history stays readable after the
+   * actor id goes null.
+   */
+  app.delete(
+    "/api/users/:id",
+    { preHandler: [requireAuth, requireRole("owner")] },
+    async (req) => {
+      const { id } = parseParams(req, IdParamSchema);
+      if (id === req.user!.id) {
+        throw new ApiError("CONFLICT", "You cannot remove the account you are signed in as.");
+      }
+
+      const before = getUserOr404(id);
+      if (toBool(before.is_active)) {
+        throw new ApiError(
+          "CONFLICT",
+          `Deactivate ${before.display_name} first. Removing an account cannot be undone, so it has to be switched off and looked at before it can be deleted.`,
+        );
+      }
+
+      const blocking = blockingReferencesToUser(id);
+      if (blocking.length > 0) {
+        throw new ApiError(
+          "CONFLICT",
+          `${before.display_name} created records that would have to be destroyed to remove the account (${describeReferences(blocking)}). Leave the account deactivated — it cannot sign in, and the history stays intact.`,
+        );
+      }
+
+      const db = getDb();
+      const removed = db.transaction(() => {
+        const invites = db
+          .prepare(`DELETE FROM invites WHERE accepted_user_id = ? OR created_by = ?`)
+          .run(id, id).changes;
+        const users = db.prepare(`DELETE FROM users WHERE id = ?`).run(id).changes;
+        return { invites, users };
+      })();
+
+      if (removed.users === 0) throw new ApiError("NOT_FOUND", "User not found.");
+
+      auditFromRequest(req, {
+        action: "delete",
+        entityType: "user",
+        entityId: id,
+        propertyId: null,
+        summary: `Removed the deactivated account ${before.display_name} (@${before.handle})`,
+        before: {
+          handle: before.handle,
+          email: before.email,
+          role: before.role,
+          invitesCleared: removed.invites,
+        },
+      });
+
+      return ok({ id, invitesCleared: removed.invites });
     },
   );
 }

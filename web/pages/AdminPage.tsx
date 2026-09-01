@@ -1,11 +1,11 @@
 import { useState, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuditEntry, BackupRun, Invite, OpsInfo, Page, Role, User } from "../../shared/types";
-import { apiDelete, apiGet, apiPatch, apiPost } from "../lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost, ApiClientError } from "../lib/api";
 import { formatDateTime, formatRelativeTime } from "../lib/format";
 import { useSession } from "../lib/session";
 import { Button } from "../components/Button";
-import { EmptyState, Field, Select, Spinner, TextInput } from "../components/Form";
+import { EmptyState, ErrorNotice, Field, Select, Spinner, TextInput } from "../components/Form";
 import { DemoDataPanel } from "../components/DemoDataPanel";
 
 type AdminTab = "users" | "invites" | "audit" | "backups" | "data";
@@ -68,10 +68,27 @@ function UsersPanel(): ReactElement {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
   });
 
+  const removeUser = useMutation({
+    mutationFn: (id: string) => apiDelete<{ id: string }>(`/api/users/${id}`),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
+  });
+
   if (users.isPending) return <Spinner />;
 
   return (
-    <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <>
+      {removeUser.isError && (
+        <div className="mb-3">
+          <ErrorNotice
+            message={
+              removeUser.error instanceof ApiClientError
+                ? removeUser.error.message
+                : "Couldn't remove that account."
+            }
+          />
+        </div>
+      )}
+      <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
       {users.data?.items.map((u) => (
         <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>
@@ -117,10 +134,35 @@ function UsersPanel(): ReactElement {
             >
               {u.isActive ? "Deactivate" : "Reactivate"}
             </Button>
+            {/* Only on an account that is already switched off. Deactivation is
+                reversible and this is not, so the reversible step has to have
+                happened — and been looked at — before the button even appears.
+                The server enforces this too; hiding it is the courtesy, not the
+                control. */}
+            {!u.isActive && u.id !== session?.user.id && (
+              <Button
+                variant="danger"
+                disabled={removeUser.isPending}
+                onClick={() => {
+                  const okToRemove = window.confirm(
+                    `Permanently remove ${u.displayName} (@${u.handle})?\n\n` +
+                      `This cannot be undone. Their sign-in, sessions and the invite ` +
+                      `that created the account are deleted.\n\n` +
+                      `The audit log keeps what they did, under their name.\n\n` +
+                      `If they created any records, this will be refused — leave the ` +
+                      `account deactivated instead.`,
+                  );
+                  if (okToRemove) removeUser.mutate(u.id);
+                }}
+              >
+                {removeUser.isPending ? "Removing…" : "Remove"}
+              </Button>
+            )}
           </div>
         </li>
       ))}
-    </ul>
+      </ul>
+    </>
   );
 }
 
