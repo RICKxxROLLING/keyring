@@ -4,11 +4,12 @@ import { useSession } from "../lib/session";
 import { useOnlineStatus } from "../lib/offline";
 import { useConnectionState } from "../lib/realtime";
 import { BellIcon, HomeIcon, PlusIcon, SearchIcon, UserIcon, WifiOffIcon } from "./icons";
-import { GlobalPresenceBar } from "./PresenceBar";
 import { QuickAddSheet } from "./QuickAdd";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineBanner } from "./OfflineBanner";
 import { KeyRail, KeyStrip } from "./KeyRail";
+import { KeyGlyph } from "./KeyGlyph";
+import { Avatar } from "./Avatar";
 import { ThemeToggle } from "./ThemeToggle";
 
 const NAV_ITEMS = [
@@ -19,15 +20,19 @@ const NAV_ITEMS = [
 ];
 
 /**
- * The Keyring shell: the keyring rail on the left, a quiet top bar, content.
+ * The Keyring shell: the keyring on the left, content beside it.
  *
- * The rail is the design's organizing element. On phones it collapses to a
- * horizontal strip of key tags (see KeyRail) and the existing bottom nav is
- * kept, because the phone-first brief still holds — the handoff simply does
- * not cover mobile, so the language is extended rather than replaced.
+ * The rail is the design's organizing element, and on desktop it is the ONLY
+ * navigation — there is no top bar, because everything one would have held is
+ * already on the ring.
+ *
+ * On phones the rail collapses to a horizontal strip of key tags under a
+ * matching header, and the bottom nav stays, because the phone-first brief
+ * still holds — the handoff does not cover mobile, so the language is extended
+ * rather than replaced.
  */
 export function AppShell(props: { children: ReactNode }): ReactElement {
-  const { session, logout } = useSession();
+  const { session } = useSession();
   const online = useOnlineStatus();
   const connection = useConnectionState();
   const navigate = useNavigate();
@@ -44,88 +49,80 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
       <KeyRail />
 
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        {/* The mobile key strip lives INSIDE this column. As a sibling of the
-            desktop rail it landed in the shell's flex ROW and stretched to full
-            height, turning each key tag into a full-viewport column. */}
-        <KeyStrip />
+        {/* Mobile only. On desktop there is no top bar at all: the rail already
+            carries the identity, the standing links and the account controls,
+            so a band of chrome across the top was a second navigation for
+            things that were already on screen.
+
+            On mobile the rail cannot be there, so the header IS the ring: the
+            master key and the clasp on one row, the key tags hanging below it
+            on the same surface. Same metaphor, turned on its side. */}
         <header
+          className="lg:hidden"
           style={{
             position: "sticky",
             top: 0,
             zIndex: 30,
-            background: "var(--bg)",
-            borderBottom: "1px solid var(--line-soft)",
+            background: "var(--bg-2)",
           }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              padding: "12px clamp(12px, 3vw, 28px)",
+              gap: 10,
+              padding: "10px clamp(12px, 3vw, 28px) 2px",
             }}
           >
-            <button
-              type="button"
-              onClick={() => navigate("/search")}
-              className="kr-search"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                flex: 1,
-                maxWidth: 340,
-                minHeight: 40,
-                padding: "0 12px",
-                background: "var(--panel-2)",
-                border: "1px solid var(--line)",
-                borderRadius: 10,
-                color: "var(--ink-3)",
-                fontSize: 13,
-                textAlign: "left",
-              }}
+            <NavLink
+              to="/"
+              end
+              aria-label="The keyring — all properties"
+              style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--ink)" }}
             >
-              <SearchIcon width={15} height={15} />
-              Find a door, a tenant, a receipt
-            </button>
+              <KeyGlyph color="var(--ink-2)" size="rail" holeColor="var(--bg-2)" />
+              <span
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: 19,
+                  fontWeight: 500,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Keyring
+              </span>
+            </NavLink>
 
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-              <GlobalPresenceBar />
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => navigate("/search")}
+                aria-label="Search"
+                className="tap-target"
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  width: 36,
+                  height: 36,
+                  borderRadius: 999,
+                  color: "var(--ink-2)",
+                }}
+              >
+                <SearchIcon width={17} height={17} />
+              </button>
               <ThemeToggle />
               <NotificationBell />
               {session && (
-                <>
-                  <NavLink
-                    to="/settings"
-                    title={session.user.displayName}
-                    style={{
-                      display: "grid",
-                      placeItems: "center",
-                      width: 32,
-                      height: 32,
-                      borderRadius: 999,
-                      background: "oklch(0.755 0.110 82 / 0.30)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      color: "var(--ink)",
-                    }}
-                  >
-                    {initials(session.user.displayName)}
-                  </NavLink>
-                  <button
-                    type="button"
-                    onClick={() => void logout()}
-                    className="kr-rail-link hidden md:block"
-                    style={{ fontSize: 13, color: "var(--ink-3)" }}
-                  >
-                    Log out
-                  </button>
-                </>
+                <NavLink to="/settings" title={session.user.displayName}>
+                  <Avatar user={session.user} size={30} />
+                </NavLink>
               )}
             </div>
           </div>
-          {isOffline && <OfflineBanner />}
+          <KeyStrip />
         </header>
+
+        {isOffline && <OfflineBanner />}
 
         {/* kr-content centres and caps the column, and its inline padding is
             fluid — so this works from a 320px phone up to an ultrawide without
@@ -229,11 +226,3 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
   );
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0] ?? "")
-    .join("")
-    .toUpperCase();
-}

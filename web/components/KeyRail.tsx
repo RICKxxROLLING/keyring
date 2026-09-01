@@ -6,11 +6,17 @@ import { apiGet } from "../lib/api";
 import { qk } from "../lib/query";
 import { useSession } from "../lib/session";
 import { KeyGlyph, hero } from "./KeyGlyph";
+import { Avatar } from "./Avatar";
+import { ThemeToggle } from "./ThemeToggle";
+import { NotificationBell } from "./NotificationBell";
+import { GlobalPresenceBar } from "./PresenceBar";
 
 /**
  * The keyring — the design language's organizing element.
  *
- * Desktop: a 268px rail of key tags hanging on a metal ring wire.
+ * Desktop: a rail of key tags hanging on a metal ring wire. Its width is fluid
+ *          (--rail-w) because it has to fit real property names — at a fixed
+ *          268px every name of any length was cut off with an ellipsis.
  * Mobile:  the same keys as a horizontal scrolling strip. The handoff does not
  *          design mobile but names this adaptation explicitly ("the keyring
  *          rail becomes a horizontal strip of key tags"), so it extends the
@@ -46,9 +52,10 @@ function useRingProperties(): { properties: PropertyCard[]; activeId: string | n
 /**
  * The mobile presentation: a horizontal strip of key tags.
  *
- * Rendered INSIDE the content column, not as a sibling of the desktop rail.
- * They were siblings originally, which put the strip in the shell's flex ROW —
- * so it became a full-height column and each key tag stretched to the viewport.
+ * Rendered inside the mobile header, hanging under the master key — never as a
+ * sibling of the desktop rail. They were siblings originally, which put the
+ * strip in the shell's flex ROW, so it became a full-height column and each key
+ * tag stretched to the viewport.
  */
 export function KeyStrip(): ReactElement {
   const { properties, activeId } = useRingProperties();
@@ -99,7 +106,7 @@ export function KeyStrip(): ReactElement {
 
 export function KeyRail(): ReactElement {
   const { properties, activeId } = useRingProperties();
-  const { session } = useSession();
+  const { session, logout } = useSession();
   const isOwner = session?.user.role === "owner";
 
   return (
@@ -107,7 +114,7 @@ export function KeyRail(): ReactElement {
       aria-label="Properties"
       className="kr-rail hidden shrink-0 flex-col lg:flex"
         style={{
-          width: 268,
+          width: "var(--rail-w)",
           background: "var(--bg-2)",
           borderRight: "1px solid var(--line)",
           padding: "22px 16px 16px",
@@ -186,6 +193,67 @@ export function KeyRail(): ReactElement {
             <RailLink to="/vendors">Vendors</RailLink>
             {isOwner && <RailLink to="/admin">Admin</RailLink>}
             <RailLink to="/settings">Settings</RailLink>
+          </div>
+
+          {/* Everything the desktop top bar used to hold. It was a whole band
+              of chrome across the top for four controls that belong with the
+              other standing links, so the bar is gone on desktop and its
+              contents live here at the foot of the ring. */}
+          <div
+            style={{
+              marginTop: 16,
+              paddingTop: 14,
+              borderTop: "1px solid var(--line)",
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            <GlobalPresenceBar />
+            {session && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <NavLink
+                  to="/settings"
+                  title={session.user.displayName}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    minWidth: 0,
+                    flex: 1,
+                    color: "var(--ink)",
+                  }}
+                >
+                  <Avatar user={session.user} size={28} />
+                  <span
+                    style={{
+                      minWidth: 0,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {session.user.displayName}
+                  </span>
+                </NavLink>
+                <ThemeToggle />
+                <NotificationBell />
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="kr-rail-link"
+              style={{
+                justifySelf: "start",
+                paddingLeft: 6,
+                fontSize: 12.5,
+                color: "var(--ink-3)",
+              }}
+            >
+              Log out
+            </button>
           </div>
         </div>
     </nav>
