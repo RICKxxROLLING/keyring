@@ -10,9 +10,18 @@ import { workOrderStatusDisplay } from "../../lib/status";
 import { Button } from "../../components/Button";
 import { EmptyState, Field, Select, TextInput } from "../../components/Form";
 import { StatusPill } from "../../components/StatusPill";
+import { ExpandableRow } from "../../components/ExpandableRow";
 import { WorkOrderDetail } from "../../components/WorkOrderDetail";
 
 const FREQUENCIES: PmFrequency[] = ["monthly", "quarterly", "semiannual", "annual", "custom_days"];
+
+/** Reads the cadence the way you would say it out loud. */
+function frequencyLabel(tpl: { frequency: PmFrequency; intervalDays: number | null }): string {
+  if (tpl.frequency === "custom_days") {
+    return tpl.intervalDays ? `Every ${tpl.intervalDays} days` : "Custom interval";
+  }
+  return tpl.frequency.charAt(0).toUpperCase() + tpl.frequency.slice(1);
+}
 
 export function MaintenanceTab(): ReactElement {
   const dossier = useDossier();
@@ -60,6 +69,23 @@ export function MaintenanceTab(): ReactElement {
 
   const togglePmActive = useMutation({
     mutationFn: (tpl: PmTemplate) => apiPatch<PmTemplate>(`/api/pm-templates/${tpl.id}`, { active: !tpl.active, expectedVersion: tpl.version }),
+    onSuccess: invalidate,
+  });
+
+  /**
+   * Edit one field of a recurring schedule.
+   *
+   * Each control sends only what it changed, with the template's current
+   * version — so two people editing different fields of the same schedule
+   * don't clobber each other, and a stale edit comes back as a conflict
+   * rather than silently winning.
+   */
+  const patchPm = useMutation({
+    mutationFn: ({ tpl, body }: { tpl: PmTemplate; body: Record<string, unknown> }) =>
+      apiPatch<PmTemplate>(`/api/pm-templates/${tpl.id}`, {
+        ...body,
+        expectedVersion: tpl.version,
+      }),
     onSuccess: invalidate,
   });
 
@@ -147,24 +173,138 @@ export function MaintenanceTab(): ReactElement {
       {dossier.pmTemplates.length === 0 ? (
         <EmptyState title="No recurring maintenance set up" />
       ) : (
-        <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>
           {dossier.pmTemplates.map((tpl) => (
-            <li key={tpl.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-slate-900">{tpl.title}</p>
-                <p className="text-sm text-slate-500">
-                  {tpl.frequency.replace("_", " ")} · Next due {formatDate(tpl.nextDueDate)}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => togglePmActive.mutate(tpl)}
-                className={`tap-target rounded-full px-3 py-1 text-xs font-semibold ${
-                  tpl.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
-                }`}
+            <li key={tpl.id}>
+              <ExpandableRow
+                color={dossier.property.heroColor}
+                label={`Recurring: ${tpl.title}`}
+                summary={
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
+                  >
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: "block", fontWeight: 600, fontSize: 14.5 }}>
+                        {tpl.title}
+                      </span>
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: 12.5,
+                          color: "var(--ink-3)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {frequencyLabel(tpl)} · next {formatDate(tpl.nextDueDate)}
+                      </span>
+                    </span>
+                    <span
+                      className="kr-label"
+                      style={{
+                        flex: "none",
+                        padding: "3px 9px",
+                        borderRadius: 999,
+                        fontSize: 9,
+                        background: tpl.active ? "var(--ok-fill)" : "var(--panel-2)",
+                        color: tpl.active ? "var(--ok)" : "var(--ink-3)",
+                      }}
+                    >
+                      {tpl.active ? "Active" : "Paused"}
+                    </span>
+                  </span>
+                }
               >
-                {tpl.active ? "Active" : "Paused"}
-              </button>
+                {/* The controls the tracking list asked for: change the
+                    cadence, add detail, or stop it generating — without
+                    deleting the history of what it already produced. */}
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 12,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))",
+                    marginTop: 12,
+                  }}
+                >
+                  <Field label="Frequency">
+                    <Select
+                      value={tpl.frequency}
+                      onChange={(e) =>
+                        patchPm.mutate({ tpl, body: { frequency: e.target.value } })
+                      }
+                    >
+                      {FREQUENCIES.map((f) => (
+                        <option key={f} value={f}>
+                          {f.replace("_", " ")}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  {tpl.frequency === "custom_days" && (
+                    <Field label="Every N days">
+                      <TextInput
+                        inputMode="numeric"
+                        defaultValue={String(tpl.intervalDays ?? 30)}
+                        onBlur={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isFinite(n) && n > 0 && n !== tpl.intervalDays) {
+                            patchPm.mutate({ tpl, body: { intervalDays: Math.round(n) } });
+                          }
+                        }}
+                      />
+                    </Field>
+                  )}
+                  <Field label="Next due">
+                    <TextInput
+                      type="date"
+                      defaultValue={tpl.nextDueDate}
+                      onChange={(e) =>
+                        e.target.value &&
+                        patchPm.mutate({ tpl, body: { nextDueDate: e.target.value } })
+                      }
+                    />
+                  </Field>
+                  <Field label="Generate this many days early">
+                    <TextInput
+                      inputMode="numeric"
+                      defaultValue={String(tpl.leadDays)}
+                      onBlur={(e) => {
+                        const n = Number(e.target.value);
+                        if (Number.isFinite(n) && n >= 0 && n !== tpl.leadDays) {
+                          patchPm.mutate({ tpl, body: { leadDays: Math.round(n) } });
+                        }
+                      }}
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Details" hint="Carried onto every work order this creates.">
+                  <TextInput
+                    defaultValue={tpl.description ?? ""}
+                    placeholder="Filter size, access notes, who to call…"
+                    onBlur={(e) => {
+                      if (e.target.value !== (tpl.description ?? "")) {
+                        patchPm.mutate({ tpl, body: { description: e.target.value || null } });
+                      }
+                    }}
+                  />
+                </Field>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+                  <Button variant="secondary" onClick={() => togglePmActive.mutate(tpl)}>
+                    {tpl.active ? "Pause this schedule" : "Resume this schedule"}
+                  </Button>
+                  <span style={{ fontSize: 12.5, color: "var(--ink-3)", alignSelf: "center" }}>
+                    {tpl.active
+                      ? "Pausing stops new work orders. Ones already created stay."
+                      : "Paused — nothing new is being generated."}
+                  </span>
+                </div>
+              </ExpandableRow>
             </li>
           ))}
         </ul>
@@ -172,6 +312,7 @@ export function MaintenanceTab(): ReactElement {
 
       {openWo && (
         <WorkOrderDetail
+          color={dossier.property.heroColor}
           workOrder={openWo}
           onClose={() => {
             params.delete("wo");

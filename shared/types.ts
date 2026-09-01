@@ -66,6 +66,8 @@ export type LeaseStatus = "upcoming" | "active" | "ended" | "terminated";
 export type RentStatus = "unpaid" | "partial" | "paid" | "late" | "waived";
 
 export type PmFrequency = "monthly" | "quarterly" | "semiannual" | "annual" | "custom_days";
+export const PM_FREQUENCIES: readonly PmFrequency[] =
+  ["monthly", "quarterly", "semiannual", "annual", "custom_days"];
 
 export type ComplianceKind =
   | "insurance" | "tax" | "inspection" | "license" | "hoa" | "permit" | "other";

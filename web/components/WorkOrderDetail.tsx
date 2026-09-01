@@ -1,10 +1,11 @@
+import { WorkOrderTimeline } from "./WorkOrderTimeline";
 import { useState, type ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User, WorkOrderCommentView, WorkOrderStatus, WorkOrderView } from "../../shared/types";
 import { PRIORITIES, WORK_ORDER_STATUSES } from "../../shared/types";
 import { apiGet, apiPatch, apiPost, apiUpload, ApiClientError } from "../lib/api";
 import { qk } from "../lib/query";
-import { formatDate, formatRelativeTime } from "../lib/format";
+import { formatDate } from "../lib/format";
 import { workOrderStatusDisplay } from "../lib/status";
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
@@ -14,7 +15,12 @@ import { StatusPill } from "./StatusPill";
 import { VersionConflictDialog } from "./VersionConflictDialog";
 import { CameraIcon } from "./icons";
 
-export function WorkOrderDetail(props: { workOrder: WorkOrderView; onClose: () => void }): ReactElement {
+export function WorkOrderDetail(props: {
+  workOrder: WorkOrderView;
+  onClose: () => void;
+  /** Owning property's hero colour, so the timeline matches its key. */
+  color?: string | null;
+}): ReactElement {
   const wo = props.workOrder;
   const queryClient = useQueryClient();
   const [description, setDescription] = useState(wo.description ?? "");
@@ -142,20 +148,20 @@ export function WorkOrderDetail(props: { workOrder: WorkOrderView; onClose: () =
         />
       </label>
 
-      <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
-        Comments ({comments.data?.items.length ?? 0})
+      {/* One strand instead of a bare comment list: every edit from the audit
+          log, every comment, and every photo, in the order they happened. The
+          edit history already existed and was never shown, so "who moved this
+          to scheduled, and when?" had no answer in the UI. */}
+      <h3 className="kr-label" style={{ marginBottom: 2 }}>
+        Activity
       </h3>
-      <ul className="mb-3 space-y-2">
-        {comments.data?.items.map((c) => (
-          <li key={c.id} className="rounded-lg bg-slate-50 p-2 text-sm">
-            <p className="mb-0.5 text-xs font-semibold text-slate-500">
-              {c.author?.displayName} · {formatRelativeTime(c.createdAt)}
-            </p>
-            <p className="whitespace-pre-wrap text-slate-800">{c.body}</p>
-          </li>
-        ))}
-      </ul>
-      <div className="flex gap-2">
+      <WorkOrderTimeline
+        workOrderId={wo.id}
+        color={props.color ?? null}
+        attachments={wo.attachments}
+        comments={comments.data?.items ?? []}
+      />
+      <div className="flex gap-2" style={{ marginTop: 12 }}>
         <TextInput value={commentBody} onChange={(e) => setCommentBody(e.target.value)} placeholder="Add a comment…" />
         <Button onClick={() => addComment.mutate()} disabled={!commentBody.trim() || addComment.isPending}>
           Post

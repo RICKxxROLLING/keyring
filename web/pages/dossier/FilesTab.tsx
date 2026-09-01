@@ -6,6 +6,7 @@ import { useDossier } from "../../lib/dossier-context";
 import { formatRelativeTime } from "../../lib/format";
 import { EmptyState } from "../../components/Form";
 import { CameraIcon } from "../../components/icons";
+import { AttachmentList } from "../../components/AttachmentList";
 import type { ReactElement } from "react";
 
 export function FilesTab(): ReactElement {
@@ -46,21 +47,84 @@ export function FilesTab(): ReactElement {
       {dossier.attachments.length === 0 ? (
         <EmptyState title="No files yet" detail="Photos and documents attached anywhere on this property show up here." />
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {dossier.attachments.map((u: Upload) => (
-            <li key={u.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              {u.kind === "image" ? (
-                <img src={u.thumbUrl ?? u.url} alt={u.filename} className="h-28 w-full object-cover" />
-              ) : (
-                <div className="flex h-28 w-full items-center justify-center bg-slate-50 text-xs text-slate-500">PDF</div>
-              )}
-              <div className="p-2">
-                <p className="truncate text-xs font-medium text-slate-700">{u.filename}</p>
-                <p className="text-[11px] text-slate-400">{formatRelativeTime(u.createdAt)}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          {/* A grid of thumbnails to scan, and a list you can act on.
+              Previously the tiles were inert: names and pictures with nothing
+              behind them, so a lease you had filed could be seen but not
+              opened, downloaded or printed. */}
+          <ul
+            style={{
+              listStyle: "none",
+              margin: "0 0 22px",
+              padding: 0,
+              display: "grid",
+              gap: 12,
+              gridTemplateColumns: "repeat(auto-fill, minmax(min(150px, 100%), 1fr))",
+            }}
+          >
+            {dossier.attachments.map((u: Upload) => (
+              <li key={u.id}>
+                <a
+                  href={`/api/uploads/${u.id}/raw`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`Open ${u.filename}`}
+                  className="kr-card"
+                  style={{
+                    display: "block",
+                    overflow: "hidden",
+                    borderRadius: 14,
+                    border: "1px solid var(--line)",
+                    background: "var(--panel)",
+                    color: "var(--ink)",
+                  }}
+                >
+                  {u.kind === "image" ? (
+                    <img
+                      src={u.thumbUrl ?? u.url}
+                      alt={u.filename}
+                      style={{ display: "block", width: "100%", height: 112, objectFit: "cover" }}
+                    />
+                  ) : (
+                    <span
+                      className="kr-label"
+                      style={{
+                        display: "grid",
+                        placeItems: "center",
+                        height: 112,
+                        background: "var(--panel-2)",
+                      }}
+                    >
+                      PDF
+                    </span>
+                  )}
+                  <span style={{ display: "block", padding: "8px 10px 10px" }}>
+                    <span
+                      style={{
+                        display: "block",
+                        fontSize: 12.5,
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {u.filename}
+                    </span>
+                    <span className="kr-label" style={{ fontSize: 9 }}>
+                      {formatRelativeTime(u.createdAt)}
+                    </span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+
+          <h3 className="kr-label" style={{ marginBottom: 4 }}>
+            All files
+          </h3>
+          <AttachmentList uploads={dossier.attachments} />
+        </>
       )}
     </div>
   );
