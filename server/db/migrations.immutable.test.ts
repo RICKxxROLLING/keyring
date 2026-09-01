@@ -37,6 +37,7 @@ const FROZEN: ReadonlyArray<readonly [string, string]> = [
   ["1001_realtime.sql", "ae6d8810764f6e8a0b12e20c5c9b481cdb117f748de5b3fce4261aba97580034"],
   ["2001_domain.sql", "a81f69e95cd9a8e16549f3612f0d941dae2851927793505fcc0960cbfbc83b05"],
   ["2002_property_hero_color.sql", "7a91cc181b0501956be569e4f746e468813641c37aba562571c47cf2fb865092"],
+  ["2003_rent_reference_expense_recurring.sql", "61f790632e5954daffee758215d20eb52a8b0353cfaa859fb20fa8665fe5b1f1"],
   ["4001_ops.sql", "2fe7894758d6ea9285c12bf4c96acfd7a3642da2a0b6b5ac7ef04278717342cc"],
 ];
 

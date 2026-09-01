@@ -392,7 +392,7 @@ export const leases: LeaseView[] = [
 ];
 
 function rentEntry(id: Id, propertyId: Id, unitId: Id, leaseId: Id, period: string, dueCents: number, receivedCents: number, status: RentEntry["status"]): RentEntry {
-  return { id, propertyId, unitId, leaseId, period, amountDueCents: dueCents, amountReceivedCents: receivedCents, receivedOn: receivedCents > 0 ? date(-2) : null, method: receivedCents > 0 ? "ach" : null, status, note: null, createdAt: iso(-30), updatedAt: iso(-2), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 };
+  return { id, propertyId, unitId, leaseId, period, amountDueCents: dueCents, amountReceivedCents: receivedCents, receivedOn: receivedCents > 0 ? date(-2) : null, method: receivedCents > 0 ? "ach" : null, reference: receivedCents > 0 ? `CHK-${1000 + Number(id.slice(-2))}` : null, status, note: null, createdAt: iso(-30), updatedAt: iso(-2), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 };
 }
 
 export const rentEntries: RentEntry[] = [
@@ -407,9 +407,9 @@ function currentPeriod(): string {
 }
 
 export const expenses: PropertyExpense[] = [
-  { id: "exp_00000001", propertyId: "prp_00000001", unitId: null, category: "repair", description: "Faucet parts", amountCents: 4200, incurredOn: date(-3), vendorId: "ven_00000001", workOrderId: "wo_00000001", projectId: null, note: null, createdAt: iso(-3), updatedAt: iso(-3), createdBy: "usr_00000002", updatedBy: "usr_00000002", version: 1 },
-  { id: "exp_00000002", propertyId: "prp_00000001", unitId: null, category: "capex", description: "Exterior paint (materials + labor)", amountCents: 690000, incurredOn: date(-3), vendorId: null, workOrderId: null, projectId: "prj_00000001", note: null, createdAt: iso(-3), updatedAt: iso(-3), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
-  { id: "exp_00000003", propertyId: "prp_00000004", unitId: null, category: "utility", description: "Common area electric", amountCents: 18000, incurredOn: date(-15), vendorId: null, workOrderId: null, projectId: null, note: null, createdAt: iso(-15), updatedAt: iso(-15), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
+  { id: "exp_00000001", propertyId: "prp_00000001", unitId: null, category: "repair", description: "Faucet parts", amountCents: 4200, incurredOn: date(-3), vendorId: "ven_00000001", workOrderId: "wo_00000001", projectId: null, isRecurring: false, recurrenceNote: null, note: null, createdAt: iso(-3), updatedAt: iso(-3), createdBy: "usr_00000002", updatedBy: "usr_00000002", version: 1 },
+  { id: "exp_00000002", propertyId: "prp_00000001", unitId: null, category: "capex", description: "Exterior paint (materials + labor)", amountCents: 690000, incurredOn: date(-3), vendorId: null, workOrderId: null, projectId: "prj_00000001", isRecurring: false, recurrenceNote: null, note: null, createdAt: iso(-3), updatedAt: iso(-3), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
+  { id: "exp_00000003", propertyId: "prp_00000004", unitId: null, category: "utility", description: "Common area electric", amountCents: 18000, incurredOn: date(-15), vendorId: null, workOrderId: null, projectId: null, isRecurring: false, recurrenceNote: null, note: null, createdAt: iso(-15), updatedAt: iso(-15), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
 ];
 
 export const specs: SpecEntryView[] = [

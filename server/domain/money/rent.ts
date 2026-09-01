@@ -48,6 +48,9 @@ const CreateRentSchema = z
     amountReceivedCents: zCents.default(0),
     receivedOn: zIsoDate.nullable().optional(),
     method: zOptText(60),
+    /** Check number, confirmation code, money-order stub — whatever you would
+     *  search for when reconciling a bank statement. */
+    reference: zOptText(120),
     status: z.enum(["unpaid", "partial", "paid", "late", "waived"]).optional(),
     note: zOptText(2000),
   })
@@ -79,9 +82,9 @@ export function generateRentRoll(propertyId: string, period: string, actorId: st
     const at = nowIso();
     db.prepare(
       `INSERT INTO rent_entries (id, property_id, unit_id, lease_id, period, amount_due_cents,
-         amount_received_cents, received_on, method, status, note, created_at, updated_at,
+         amount_received_cents, received_on, method, reference, status, note, created_at, updated_at,
          created_by, updated_by, version)
-       VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NULL, 'unpaid', NULL, ?, ?, ?, ?, 1)`,
+       VALUES (?, ?, ?, ?, ?, ?, 0, NULL, NULL, NULL, 'unpaid', NULL, ?, ?, ?, ?, 1)`,
     ).run(id, propertyId, lease.unit_id, lease.lease_id, period, lease.rent_cents, at, at, actorId, actorId);
     writeAudit({
       actorUserId: actorId,
@@ -161,10 +164,10 @@ export function registerRentRoutes(app: FastifyInstance, _ctx: AppContext): void
       const snake = snakeKeys(body);
       db.prepare(
         `INSERT INTO rent_entries (id, property_id, unit_id, lease_id, period, amount_due_cents,
-           amount_received_cents, received_on, method, status, note, created_at, updated_at,
+           amount_received_cents, received_on, method, reference, status, note, created_at, updated_at,
            created_by, updated_by, version)
          VALUES (@id,@property_id,@unit_id,@lease_id,@period,@amount_due_cents,
-           @amount_received_cents,@received_on,@method,@status,@note,@created_at,@updated_at,
+           @amount_received_cents,@received_on,@method,@reference,@status,@note,@created_at,@updated_at,
            @created_by,@updated_by,1)`,
       ).run({
         id,
@@ -176,6 +179,7 @@ export function registerRentRoutes(app: FastifyInstance, _ctx: AppContext): void
         amount_received_cents: snake.amount_received_cents ?? 0,
         received_on: snake.received_on ?? null,
         method: snake.method ?? null,
+        reference: snake.reference ?? null,
         status,
         note: snake.note ?? null,
         created_at: at,

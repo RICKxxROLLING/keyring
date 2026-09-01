@@ -892,6 +892,7 @@ const moneyHandlers = [
     const now = new Date().toISOString();
     const entry: RentEntry = {
       id: fx.genId("rnt"),
+      reference: (body["reference"] as string | null) ?? null,
       propertyId: params.propertyId as string,
       unitId: String(body["unitId"] ?? ""),
       leaseId: (body["leaseId"] as string | null) ?? null,
@@ -940,6 +941,8 @@ const moneyHandlers = [
     const now = new Date().toISOString();
     const expense: PropertyExpense = {
       id: fx.genId("exp"),
+      isRecurring: Boolean(body["isRecurring"]),
+      recurrenceNote: (body["recurrenceNote"] as string | null) ?? null,
       propertyId: params.propertyId as string,
       unitId: (body["unitId"] as string | null) ?? null,
       category: (body["category"] as PropertyExpense["category"]) ?? "other",

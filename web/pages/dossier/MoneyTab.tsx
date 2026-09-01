@@ -9,6 +9,8 @@ import { rentStatusDisplay } from "../../lib/status";
 import { Button } from "../../components/Button";
 import { EmptyState, Field, Select, TextInput } from "../../components/Form";
 import { StatusPill } from "../../components/StatusPill";
+import { ExpandableRow, DetailGrid } from "../../components/ExpandableRow";
+import { AttachmentList } from "../../components/AttachmentList";
 
 const CATEGORIES: ExpenseCategory[] = [
   "repair", "capex", "utility", "insurance", "tax", "management", "supplies", "legal", "landscaping", "other",
@@ -21,6 +23,22 @@ export function MoneyTab(): ReactElement {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("repair");
   const queryClient = useQueryClient();
+
+  /**
+   * Who is on the hook for a unit's rent, via its active lease.
+   *
+   * Resolved from the lease rather than from Tenant.unitId: the lease is what
+   * actually owes the money, and it is the relationship that ends when someone
+   * moves out. A tenant row can linger against a unit after their lease is
+   * over, which would attach a former tenant's name to a current charge.
+   */
+  function tenantNameFor(unitId: string): string {
+    const lease = dossier.leases.find((l) => l.unitId === unitId && l.status === "active");
+    return (lease?.tenants ?? [])
+      .map((t) => `${t.firstName} ${t.lastName}`.trim())
+      .filter(Boolean)
+      .join(" & ");
+  }
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: qk.dossier(dossier.property.id) });
@@ -74,10 +92,28 @@ export function MoneyTab(): ReactElement {
             const status = rentStatusDisplay(r.status);
             return (
               <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <div>
-                  <p className="font-semibold text-slate-900">{unit?.label ?? "Unit"} · {r.period}</p>
-                  <p className="text-sm text-slate-500">
-                    {formatCents(r.amountReceivedCents)} of {formatCents(r.amountDueCents)}
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontWeight: 600, fontSize: 14.5 }}>
+                    {unit?.label ?? "Unit"} · {r.period}
+                    {/* Who actually owes it. A rent roll listing "Unit B" and a
+                        number is a spreadsheet; the name is what makes it a
+                        record you can act on. */}
+                    {tenantNameFor(r.unitId) && (
+                      <span style={{ color: "var(--ink-2)", fontWeight: 500 }}>
+                        {" "}
+                        · {tenantNameFor(r.unitId)}
+                      </span>
+                    )}
+                  </p>
+                  <p style={{ fontSize: 12.5, color: "var(--ink-3)", marginTop: 2 }}>
+                    <span className="kr-tabular">
+                      {formatCents(r.amountReceivedCents)} of {formatCents(r.amountDueCents)}
+                    </span>
+                    {r.receivedOn ? ` · paid ${formatDate(r.receivedOn)}` : ""}
+                    {r.method ? ` · ${r.method}` : ""}
+                    {/* The check or confirmation number — what you search for
+                        when matching this against a bank statement. */}
+                    {r.reference ? ` · #${r.reference}` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -129,18 +165,97 @@ export function MoneyTab(): ReactElement {
       {dossier.expenses.length === 0 ? (
         <EmptyState title="No expenses recorded" />
       ) : (
-        <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
-          {dossier.expenses.map((e) => (
-            <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div>
-                <p className="font-semibold text-slate-900">{e.description}</p>
-                <p className="text-sm text-slate-500">
-                  {e.category} · {formatDate(e.incurredOn)}
-                </p>
-              </div>
-              <span className="font-semibold text-slate-800">{formatCents(e.amountCents)}</span>
-            </li>
-          ))}
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>
+          {dossier.expenses.map((e) => {
+            const vendor = dossier.vendors.find((v) => v.id === e.vendorId);
+            const workOrder = dossier.workOrders.find((w) => w.id === e.workOrderId);
+            const project = dossier.projects.find((p) => p.id === e.projectId);
+            const unit = dossier.property.units.find((u) => u.id === e.unitId);
+            const receipts = dossier.attachments.filter(
+              (a) => a.parentType === "property_expense" && a.parentId === e.id,
+            );
+            return (
+              <li key={e.id}>
+                <ExpandableRow
+                  color={dossier.property.heroColor}
+                  label={`Expense: ${e.description}`}
+                  summary={
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", fontWeight: 600, fontSize: 14.5 }}>
+                          {e.description}
+                          {e.isRecurring && (
+                            <span
+                              className="kr-label"
+                              style={{
+                                marginLeft: 8,
+                                padding: "2px 7px",
+                                borderRadius: 999,
+                                background: "var(--panel-2)",
+                                border: "1px solid var(--line)",
+                                fontSize: 9,
+                              }}
+                            >
+                              Recurring
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          style={{
+                            display: "block",
+                            fontSize: 12.5,
+                            color: "var(--ink-3)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {e.category} · {formatDate(e.incurredOn)}
+                          {vendor ? ` · ${vendor.company || vendor.name}` : ""}
+                          {receipts.length > 0
+                            ? ` · ${receipts.length} receipt${receipts.length === 1 ? "" : "s"}`
+                            : ""}
+                        </span>
+                      </span>
+                      <span className="kr-tabular" style={{ fontWeight: 600, flex: "none" }}>
+                        {formatCents(e.amountCents)}
+                      </span>
+                    </span>
+                  }
+                >
+                  <DetailGrid
+                    items={[
+                      { label: "Amount", value: formatCents(e.amountCents) },
+                      { label: "Category", value: e.category },
+                      { label: "Incurred", value: formatDate(e.incurredOn) },
+                      { label: "Unit", value: unit?.label ?? "Whole building" },
+                      {
+                        label: "Recurring",
+                        value: e.isRecurring ? (e.recurrenceNote ?? "Yes") : "One-off",
+                      },
+                      { label: "Vendor", value: vendor ? vendor.company || vendor.name : null },
+                      { label: "Work order", value: workOrder ? workOrder.title : null },
+                      { label: "Project", value: project ? project.title : null },
+                      { label: "Note", value: e.note },
+                    ]}
+                  />
+                  {receipts.length > 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      <span className="kr-label" style={{ fontSize: 9.5 }}>
+                        Receipts
+                      </span>
+                      <AttachmentList uploads={receipts} />
+                    </div>
+                  )}
+                </ExpandableRow>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

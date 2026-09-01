@@ -9,7 +9,7 @@ import { newId } from "../../lib/ids.js";
 import { nowIso } from "../../lib/time.js";
 import { buildPage } from "../../lib/paging.js";
 import { snakeKeys } from "../../lib/rowmap.js";
-import { mapRow, mapRows } from "../common/rowmap.js";
+import { mapRow } from "../common/rowmap.js";
 import { requirePropertyExists } from "../common/access.js";
 import { patchWithVersionGuard, assertVersionMatch, recordMutation, recordDelete, publishAfterCommit } from "../common/crud.js";
 import type { AppContext } from "../../context.js";
@@ -32,6 +32,17 @@ const CreateExpenseSchema = z
   .strict();
 
 const PatchExpenseSchema = CreateExpenseSchema.partial().extend({ expectedVersion: zVersion }).strict();
+
+/**
+ * SQLite has no boolean type, so is_recurring arrives as 0 or 1 while
+ * shared/types declares it `boolean`. Coerce in one place rather than leaving
+ * every consumer on truthiness — the moment something does `=== true` it
+ * silently stops matching.
+ */
+function toExpense(row: Record<string, unknown>): PropertyExpense {
+  const e = mapRow<PropertyExpense>(row);
+  return { ...e, isRecurring: Boolean(row["is_recurring"]) };
+}
 
 function getExpenseRow(id: string): PropertyExpense {
   const row = getDb().prepare(`SELECT * FROM property_expenses WHERE id = ?`).get(id) as
@@ -81,7 +92,7 @@ export function registerExpenseRoutes(app: FastifyInstance, _ctx: AppContext): v
     const rows = db
       .prepare(`SELECT * FROM property_expenses WHERE ${clauses.join(" AND ")} ORDER BY incurred_on DESC LIMIT ?`)
       .all(...params, q.limit + 1) as Record<string, unknown>[];
-    const expenses = mapRows<PropertyExpense>(rows);
+    const expenses = (rows as Record<string, unknown>[]).map(toExpense);
     return ok(buildPage(expenses, q.limit, (e) => e.incurredOn));
   });
 

@@ -559,7 +559,12 @@ export interface RentEntry {
   amountDueCents: Cents;
   amountReceivedCents: Cents;
   receivedOn: ISODate | null;
+  /** HOW it was paid: check, ACH, cash, Zelle. */
   method: string | null;
+  /** WHICH payment: check number, confirmation code, money-order stub. Free
+   *  text because these share nothing but being a string you need to find
+   *  again when reconciling a bank statement. */
+  reference: string | null;
   status: RentStatus;
   note: string | null;
   createdAt: ISODateTime;
@@ -580,6 +585,13 @@ export interface PropertyExpense {
   vendorId: Id | null;
   workOrderId: Id | null;
   projectId: Id | null;
+  /** Marks an expense that repeats (insurance, landscaping, the mortgage).
+   *  A statement about the expense, not a schedule — nothing generates from
+   *  it. See migration 2003. */
+  isRecurring: boolean;
+  /** The cadence in plain words: "monthly", "every spring". Free text
+   *  because an enum would be wrong for half of them. */
+  recurrenceNote: string | null;
   note: string | null;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;

@@ -9,6 +9,8 @@ import { leaseStatusDisplay } from "../../lib/status";
 import { Button } from "../../components/Button";
 import { EmptyState, Field, Select, TextInput } from "../../components/Form";
 import { StatusPill } from "../../components/StatusPill";
+import { ExpandableRow, DetailGrid } from "../../components/ExpandableRow";
+import { AttachmentList } from "../../components/AttachmentList";
 
 export function TenantsTab(): ReactElement {
   const dossier = useDossier();
@@ -226,23 +228,84 @@ export function TenantsTab(): ReactElement {
       {dossier.leases.length === 0 ? (
         <EmptyState title="No leases on file" />
       ) : (
-        <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>
           {dossier.leases.map((l) => {
             const status = leaseStatusDisplay(l.status);
+            const tenantNames = l.tenants
+              .map((t) => `${t.firstName} ${t.lastName}`.trim())
+              .join(", ");
             return (
-              <li key={l.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-900">
-                    {l.unitLabel} · {l.tenants.map((t) => `${t.firstName} ${t.lastName}`).join(", ")}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {formatCents(l.rentCents)}/mo · {formatDate(l.startDate)} – {l.endDate ? formatDate(l.endDate) : "month-to-month"}
-                    {l.daysUntilExpiry !== null && l.daysUntilExpiry <= 60 && l.daysUntilExpiry >= 0
-                      ? ` · expires in ${l.daysUntilExpiry}d`
-                      : ""}
-                  </p>
-                </div>
-                <StatusPill severity={status.severity} label={status.label} />
+              <li key={l.id}>
+                <ExpandableRow
+                  color={dossier.property.heroColor}
+                  label={`Lease for ${l.unitLabel}`}
+                  summary={
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", fontWeight: 600, fontSize: 14.5 }}>
+                          {l.unitLabel}
+                          {tenantNames ? ` · ${tenantNames}` : ""}
+                        </span>
+                        <span
+                          style={{
+                            display: "block",
+                            fontSize: 12.5,
+                            color: "var(--ink-3)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {formatCents(l.rentCents)}/mo · {formatDate(l.startDate)} –{" "}
+                          {l.endDate ? formatDate(l.endDate) : "month to month"}
+                          {l.daysUntilExpiry !== null &&
+                          l.daysUntilExpiry <= 60 &&
+                          l.daysUntilExpiry >= 0
+                            ? ` · expires in ${l.daysUntilExpiry} days`
+                            : ""}
+                        </span>
+                      </span>
+                      <StatusPill severity={status.severity} label={status.label} />
+                    </span>
+                  }
+                >
+                  <DetailGrid
+                    items={[
+                      { label: "Monthly rent", value: formatCents(l.rentCents) },
+                      {
+                        label: "Security deposit",
+                        value: l.depositCents ? formatCents(l.depositCents) : "None recorded",
+                      },
+                      { label: "Rent due", value: `Day ${l.dueDay} of the month` },
+                      { label: "Term start", value: formatDate(l.startDate) },
+                      {
+                        label: "Term end",
+                        value: l.endDate ? formatDate(l.endDate) : "Month to month",
+                      },
+                      {
+                        label: "Renewal notice",
+                        value: l.renewalNoticeDays ? `${l.renewalNoticeDays} days` : null,
+                      },
+                      { label: "Tenants", value: tenantNames || null },
+                      { label: "Status", value: status.label },
+                      { label: "Notes", value: l.notes },
+                    ]}
+                  />
+                  {l.attachments.length > 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      <span className="kr-label" style={{ fontSize: 9.5 }}>
+                        Documents
+                      </span>
+                      <AttachmentList uploads={l.attachments} />
+                    </div>
+                  )}
+                </ExpandableRow>
               </li>
             );
           })}
