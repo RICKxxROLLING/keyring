@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ExpenseCategory, PropertyExpense, RentEntry } from "../../../shared/types";
+import type { ExpenseCategory, PropertyExpense, RentEntry, Upload } from "../../../shared/types";
+import { ReceiptScanner } from "../../components/ReceiptScanner";
 import { apiPatch, apiPost } from "../../lib/api";
 import { qk } from "../../lib/query";
 import { useDossier } from "../../lib/dossier-context";
@@ -22,6 +23,11 @@ export function MoneyTab(): ReactElement {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("repair");
+  const [incurredOn, setIncurredOn] = useState(() => new Date().toISOString().slice(0, 10));
+  const [workOrderId, setWorkOrderId] = useState<string>("");
+  // The scanned photo, held until the expense exists — an upload cannot be
+  // re-parented to a row that has not been created yet.
+  const [receipt, setReceipt] = useState<Upload | null>(null);
   const queryClient = useQueryClient();
 
   /**
@@ -40,22 +46,49 @@ export function MoneyTab(): ReactElement {
       .join(" & ");
   }
 
+  const openWorkOrders = dossier.workOrders.filter(
+    (w) => w.status !== "done" && w.status !== "cancelled",
+  );
+
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: qk.dossier(dossier.property.id) });
     void queryClient.invalidateQueries({ queryKey: qk.dashboard });
   }
 
   const addExpense = useMutation({
-    mutationFn: () =>
-      apiPost<PropertyExpense>(`/api/properties/${dossier.property.id}/expenses`, {
-        description,
-        amountCents: parseMoneyInput(amount) ?? 0,
-        category,
-        incurredOn: new Date().toISOString().slice(0, 10),
-      }),
+    mutationFn: async () => {
+      const created = await apiPost<PropertyExpense>(
+        `/api/properties/${dossier.property.id}/expenses`,
+        {
+          description,
+          amountCents: parseMoneyInput(amount) ?? 0,
+          category,
+          incurredOn,
+          workOrderId: workOrderId || null,
+        },
+      );
+      // Move the receipt onto the expense now that there is one to hang it on.
+      // Best effort: the expense is the record that matters, and a photo that
+      // stays filed under the property is a much smaller loss than an expense
+      // that failed to save because re-filing its photo did.
+      if (receipt) {
+        try {
+          await apiPatch<Upload>(`/api/uploads/${receipt.id}`, {
+            parentType: "property_expense",
+            parentId: created.id,
+          });
+        } catch {
+          /* the photo stays under the property */
+        }
+      }
+      return created;
+    },
     onSuccess: () => {
       setDescription("");
       setAmount("");
+      setWorkOrderId("");
+      setReceipt(null);
+      setIncurredOn(new Date().toISOString().slice(0, 10));
       setShowExpense(false);
       invalidate();
     },
@@ -137,6 +170,30 @@ export function MoneyTab(): ReactElement {
 
       {showExpense && (
         <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <ReceiptScanner
+              propertyId={dossier.property.id}
+              workOrders={openWorkOrders}
+              onScanned={(r) => {
+                // Only fills what is still blank, and only what was actually
+                // read — a field the scan could not see must not wipe one you
+                // already typed.
+                setReceipt(r.upload);
+                if (r.fields.totalCents !== undefined && !amount) {
+                  setAmount((r.fields.totalCents / 100).toFixed(2));
+                }
+                if (r.fields.incurredOn) setIncurredOn(r.fields.incurredOn);
+                if (r.fields.category) setCategory(r.fields.category);
+                if (r.fields.vendorName && !description) setDescription(r.fields.vendorName);
+                if (r.workOrderId) setWorkOrderId(r.workOrderId);
+              }}
+            />
+          </div>
+          {receipt && (
+            <p className="sm:col-span-2" style={{ margin: 0, fontSize: 12.5, color: "var(--ink-3)" }}>
+              A receipt photo will be attached to this expense when you add it.
+            </p>
+          )}
           <Field label="Description">
             <TextInput autoFocus value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
@@ -152,6 +209,25 @@ export function MoneyTab(): ReactElement {
               ))}
             </Select>
           </Field>
+          <Field label="Date">
+            <TextInput
+              type="date"
+              value={incurredOn}
+              onChange={(e) => setIncurredOn(e.target.value)}
+            />
+          </Field>
+          {openWorkOrders.length > 0 && (
+            <Field label="Work order" hint="Optional.">
+              <Select value={workOrderId} onChange={(e) => setWorkOrderId(e.target.value)}>
+                <option value="">Not tied to a job</option>
+                {openWorkOrders.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    WO-{w.number} · {w.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Button
             onClick={() => addExpense.mutate()}
             disabled={!description.trim() || parseMoneyInput(amount) === null || addExpense.isPending}

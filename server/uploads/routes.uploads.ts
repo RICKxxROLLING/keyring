@@ -74,7 +74,24 @@ const ListQuerySchema = PagingQuerySchema.extend({
   propertyId: zId.optional(),
 }).strict();
 
-const PatchUploadSchema = z.object({ caption: zOptText(500) }).strict();
+/**
+ * Caption, and re-filing.
+ *
+ * parentType and parentId move together or not at all: half a move would leave
+ * an upload pointing at an id of the wrong kind. A scanned receipt is uploaded
+ * against the property — the only parent that exists at the time — and moved
+ * onto the expense once that expense has been created.
+ */
+const PatchUploadSchema = z
+  .object({
+    caption: zOptText(500),
+    parentType: z.enum(PARENT_TYPES as [AttachmentParentType, ...AttachmentParentType[]]).optional(),
+    parentId: zId.optional(),
+  })
+  .strict()
+  .refine((b) => (b.parentType === undefined) === (b.parentId === undefined), {
+    message: "parentType and parentId must be given together.",
+  });
 
 export function registerUploadRoutes(app: FastifyInstance, _ctx: AppContext): void {
   const db = getDb();
@@ -312,18 +329,36 @@ export function registerUploadRoutes(app: FastifyInstance, _ctx: AppContext): vo
     const { id } = parseParams(req, IdParamSchema);
     const body = parseBody(req, PatchUploadSchema);
     const existing = requireUploadRow(id);
+    // Re-resolved rather than carried over: the new parent decides which
+    // property the upload belongs to, and this throws if it does not exist.
+    const moving = body.parentType !== undefined && body.parentId !== undefined;
+    const propertyId = moving
+      ? resolveParentPropertyId(body.parentType!, body.parentId!)
+      : existing.propertyId;
+
     const dto = tx(() => {
-      db.prepare(`UPDATE uploads SET caption = ? WHERE id = ? AND deleted_at IS NULL`).run(
-        body.caption ?? null,
-        id,
-      );
+      if (moving) {
+        db.prepare(
+          `UPDATE uploads SET caption = ?, parent_type = ?, parent_id = ?, property_id = ?
+            WHERE id = ? AND deleted_at IS NULL`,
+        ).run(body.caption ?? null, body.parentType!, body.parentId!, propertyId, id);
+      } else {
+        db.prepare(`UPDATE uploads SET caption = ? WHERE id = ? AND deleted_at IS NULL`).run(
+          body.caption ?? null,
+          id,
+        );
+      }
       recordMutation(req, {
         action: "update",
         entityType: "upload",
         entityId: id,
-        propertyId: existing.propertyId,
-        summary: `updated caption on "${existing.filename}"`,
-        after: { caption: body.caption ?? null },
+        propertyId,
+        summary: moving
+          ? `filed "${existing.filename}" under ${body.parentType!.replace(/_/g, " ")}`
+          : `updated caption on "${existing.filename}"`,
+        after: moving
+          ? { caption: body.caption ?? null, parentType: body.parentType, parentId: body.parentId }
+          : { caption: body.caption ?? null },
       });
       return toUploadDto(requireUploadRow(id));
     });

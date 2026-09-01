@@ -148,6 +148,73 @@ describe("POST /api/uploads/:id/ocr", () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it("re-files a scanned receipt onto the expense it becomes", async () => {
+    testApp = await createTestApp();
+    const user = createTestUser({ role: "manager" });
+    const propertyId = await makeProperty(testApp, user.headers);
+
+    // Uploaded against the property, because that is the only parent that
+    // exists when the photo is taken.
+    const upload = await uploadTo(testApp, user.headers, "property", propertyId, PNG, "receipt.png");
+
+    const expense = unwrap<{ id: string }>(
+      await testApp.app.inject({
+        method: "POST",
+        url: `/api/properties/${propertyId}/expenses`,
+        headers: user.headers,
+        payload: {
+          description: "Shutoff valve",
+          amountCents: 22_89,
+          category: "supplies",
+          incurredOn: "2026-08-14",
+        },
+      }),
+    );
+
+    const moved = await testApp.app.inject({
+      method: "PATCH",
+      url: `/api/uploads/${upload.id}`,
+      headers: user.headers,
+      payload: { parentType: "property_expense", parentId: expense.id },
+    });
+    expect(moved.statusCode).toBe(200);
+    const dto = unwrap<{ parentType: string; parentId: string; propertyId: string }>(moved);
+    expect(dto.parentType).toBe("property_expense");
+    expect(dto.parentId).toBe(expense.id);
+    // The property is re-derived from the new parent, not carried over blindly.
+    expect(dto.propertyId).toBe(propertyId);
+  });
+
+  it("refuses half a move, which would point at an id of the wrong kind", async () => {
+    testApp = await createTestApp();
+    const user = createTestUser({ role: "manager" });
+    const propertyId = await makeProperty(testApp, user.headers);
+    const upload = await uploadTo(testApp, user.headers, "property", propertyId, PNG, "receipt.png");
+
+    const res = await testApp.app.inject({
+      method: "PATCH",
+      url: `/api/uploads/${upload.id}`,
+      headers: user.headers,
+      payload: { parentType: "property_expense" },
+    });
+    expect(res.statusCode).toBe(422);
+  });
+
+  it("refuses a move to a parent that does not exist", async () => {
+    testApp = await createTestApp();
+    const user = createTestUser({ role: "manager" });
+    const propertyId = await makeProperty(testApp, user.headers);
+    const upload = await uploadTo(testApp, user.headers, "property", propertyId, PNG, "receipt.png");
+
+    const res = await testApp.app.inject({
+      method: "PATCH",
+      url: `/api/uploads/${upload.id}`,
+      headers: user.headers,
+      payload: { parentType: "property_expense", parentId: "exp_00000000000000000000000000" },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
   it("never writes an expense by itself", async () => {
     testApp = await createTestApp();
     const user = createTestUser({ role: "manager" });
