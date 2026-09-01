@@ -34,6 +34,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the version's ordinal counts that day's commits,
+          # and the default shallow clone has exactly one, so every build
+          # would call itself .01.
+          fetch-depth: 0
 
       # Both platforms are built because Unraid runs on x86_64 in the vast
       # majority of cases but not all. amd64 builds natively; arm64 is emulated
@@ -51,6 +56,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }} # provided automatically
 
+      - name: Derive version
+        id: version
+        run: echo "value=$(node scripts/version.mjs)" >> "$GITHUB_OUTPUT"
+
       - name: Derive tags
         id: meta
         uses: docker/metadata-action@v5
@@ -66,6 +75,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.value }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

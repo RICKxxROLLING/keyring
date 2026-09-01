@@ -127,9 +127,23 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
         {/* kr-content centres and caps the column, and its inline padding is
             fluid — so this works from a 320px phone up to an ultrawide without
             the 1360px min-width the mock assumed. */}
-        <main id="main" className="kr-content" style={{ flex: 1, paddingBottom: 96 }}>
+        <main id="main" className="kr-content" style={{ flex: 1 }}>
           {props.children}
         </main>
+
+        {/* The build, so a bug report can name which one. Baked in at build
+            time from the commit's own date and its position in that day, so it
+            identifies the deployment without anyone remembering to bump it.
+            The bottom padding that used to sit on <main> lives here now, to
+            clear the fixed mobile nav. */}
+        <footer
+          className="kr-content"
+          style={{ paddingTop: 28, paddingBottom: 96, color: "var(--ink-3)" }}
+        >
+          <span className="kr-label kr-tabular" style={{ fontSize: 9 }} title="Build version">
+            Keyring {__APP_VERSION__}
+          </span>
+        </footer>
       </div>
 
       <button

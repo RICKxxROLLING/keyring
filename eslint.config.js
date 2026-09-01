@@ -25,4 +25,13 @@ export default tseslint.config(
       eqeqeq: ["error", "always"],
     },
   },
+  // Build-time scripts and config are plain Node modules run outside the app:
+  // `process` and friends are theirs by right, and printing is the point.
+  {
+    files: ["scripts/**/*.{js,mjs}", "*.config.{js,ts,mjs}"],
+    languageOptions: {
+      globals: { process: "readonly", console: "readonly", Buffer: "readonly" },
+    },
+    rules: { "no-console": "off" },
+  },
 );

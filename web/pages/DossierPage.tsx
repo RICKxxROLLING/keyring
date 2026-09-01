@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useParams } from "react-router-dom";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import type { PropertyDossier } from "../../shared/types";
@@ -10,6 +11,8 @@ import { PropertyPresenceBar } from "../components/PresenceBar";
 import { ErrorNotice, Spinner } from "../components/Form";
 import { KeyGlyph, hero } from "../components/KeyGlyph";
 import { ProspectBanner } from "../components/ProspectBanner";
+import { EditPropertyDialog } from "../components/EditPropertyDialog";
+import { Button } from "../components/Button";
 
 /**
  * One property — the design handoff's screen 2.
@@ -44,6 +47,7 @@ const PROSPECT_TABS = [{ to: "deal", label: "The numbers" }];
 
 export function DossierPage(): ReactElement {
   const { propertyId } = useParams<{ propertyId: string }>();
+  const [editing, setEditing] = useState(false);
   usePropertyChannel(propertyId ?? null);
 
   const dossier = useQuery({
@@ -111,6 +115,11 @@ export function DossierPage(): ReactElement {
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
             <PropertyPresenceBar propertyId={property.id} />
+            {/* Cutting a key asks for the minimum on purpose; this is where the
+                rest of it gets filled in, or corrected, afterwards. */}
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              Edit details
+            </Button>
           </div>
         </div>
 
@@ -126,6 +135,12 @@ export function DossierPage(): ReactElement {
         </div>
 
         {property.stage === "prospect" && <ProspectBanner property={property} />}
+
+        <EditPropertyDialog
+          property={property}
+          open={editing}
+          onClose={() => setEditing(false)}
+        />
 
         {/* Tabs sit flush to the header's bottom edge; the active one matches
             the panel and eats the border so header and body read as one. */}

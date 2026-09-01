@@ -19,6 +19,11 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 COPY . .
+# Computed by CI from the git history, which is not in the build context.
+# The fallback in scripts/version.mjs is V0.0.0.00 — deliberately obvious
+# rather than a plausible-looking wrong number.
+ARG APP_VERSION
+ENV APP_VERSION=${APP_VERSION}
 RUN npm run build
 
 # Drop devDependencies from node_modules before it's copied into the runtime image.
@@ -29,10 +34,15 @@ RUN npm prune --omit=dev
 ########################################
 FROM node:24-bookworm-slim AS runtime
 
+# Declared again: an ARG does not survive across build stages. The server
+# reports this at /healthz and in the ops panel, and the web bundle already has
+# it baked in from stage 1.
+ARG APP_VERSION
 ENV NODE_ENV=production \
     PORT=8080 \
     HOST=0.0.0.0 \
-    DATA_DIR=/data
+    DATA_DIR=/data \
+    APP_VERSION=${APP_VERSION}
 
 # gosu: drop root -> PUID/PGID in the entrypoint without setuid-shell games.
 # tini: correct PID 1 signal handling (SIGTERM from `docker compose stop`).

@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Upload } from "../../../shared/types";
-import { apiUpload } from "../../lib/api";
+import type { PropertyView, Upload } from "../../../shared/types";
+import { apiPatch, apiUpload } from "../../lib/api";
 import { qk } from "../../lib/query";
 import { useDossier } from "../../lib/dossier-context";
 import { formatRelativeTime } from "../../lib/format";
 import { EmptyState } from "../../components/Form";
 import { CameraIcon } from "../../components/icons";
+import { hero } from "../../components/KeyGlyph";
 import { AttachmentList } from "../../components/AttachmentList";
 import type { ReactElement } from "react";
 
@@ -22,6 +23,27 @@ export function FilesTab(): ReactElement {
       return apiUpload("/api/uploads", form);
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: qk.dossier(dossier.property.id) }),
+  });
+
+  /**
+   * Pick the photo that represents this property.
+   *
+   * cover_upload_id has been on the schema since the first migration and the
+   * dashboard has always rendered coverUrl, but nothing could ever set it — so
+   * every property card showed a blank plate no matter how many photos were
+   * filed against it.
+   */
+  const setCover = useMutation({
+    mutationFn: (coverUploadId: string | null) =>
+      apiPatch<PropertyView>(`/api/properties/${dossier.property.id}`, {
+        coverUploadId,
+        expectedVersion: dossier.property.version,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: qk.dossier(dossier.property.id) });
+      void queryClient.invalidateQueries({ queryKey: qk.dashboard });
+      void queryClient.invalidateQueries({ queryKey: qk.properties });
+    },
   });
 
   return (
@@ -116,6 +138,34 @@ export function FilesTab(): ReactElement {
                     </span>
                   </span>
                 </a>
+                {/* Outside the anchor: a button nested in a link is invalid, and
+                    clicking it would open the file as well as set the cover. */}
+                {u.kind === "image" && (
+                  <button
+                    type="button"
+                    disabled={setCover.isPending}
+                    onClick={() =>
+                      setCover.mutate(dossier.property.coverUploadId === u.id ? null : u.id)
+                    }
+                    style={{
+                      width: "100%",
+                      marginTop: 4,
+                      padding: "5px 8px",
+                      minHeight: 0,
+                      borderRadius: 9,
+                      border: "1px solid var(--line)",
+                      background:
+                        dossier.property.coverUploadId === u.id
+                          ? hero.tint(dossier.property.heroColor, 16)
+                          : "var(--panel)",
+                      color: "var(--ink-2)",
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {dossier.property.coverUploadId === u.id ? "✓ Cover photo" : "Use as cover"}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
