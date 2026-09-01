@@ -65,8 +65,18 @@
   --color-status-neutral-border: var(--line);
 }
 
+/* Tells the browser what to paint for things the page does not: form controls,
+   scrollbars, the canvas behind an overscroll. It said `light` unconditionally,
+   so in dark mode the UA furniture stayed light. Following the theme means the
+   default follows the device, and an explicit choice pins it. */
 :root {
+  color-scheme: light dark;
+}
+:root[data-theme="light"] {
   color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 html,
@@ -75,10 +85,19 @@ body,
   height: 100%;
 }
 
+/* Background and colour belong to the theme, and are set on body in
+   styles/tokens.css. They were hardcoded here to the pre-design-language
+   slate palette, and because this file imports tokens.css at the top, these
+   won on source order.
+
+   The background never showed the problem — AppShell paints var(--bg) on its
+   own root element — but nothing overrode the colour, so every piece of text
+   that INHERITED rather than declaring its own went near-black in dark mode:
+   the property title, section headings, tenant names, amounts. Anything with
+   an explicit colour looked right, which is what made it read as a handful of
+   unrelated bugs rather than one. */
 body {
   font-family: var(--font-sans);
-  background: #f8fafc;
-  color: #0f172a;
   -webkit-tap-highlight-color: transparent;
 }
 

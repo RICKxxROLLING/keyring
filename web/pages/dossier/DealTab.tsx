@@ -93,7 +93,7 @@ export function DealTab(): ReactElement {
     analysis.verdict === "profitable"
       ? { fg: "var(--ok)", bg: "var(--ok-fill)", glyph: "✓", label: "Profitable" }
       : analysis.verdict === "negative"
-        ? { fg: "var(--bad)", bg: "var(--bad-fill)", glyph: "✕", label: "Negative" }
+        ? { fg: "var(--crit)", bg: "var(--crit-fill)", glyph: "✕", label: "Negative" }
         : { fg: "var(--warn)", bg: "var(--warn-fill)", glyph: "!", label: "Marginal" };
 
   const coastal = inputs.insuranceAnnualCents === null;
@@ -662,7 +662,7 @@ function Stat(props: {
           fontSize: 21,
           fontWeight: 700,
           margin: "3px 0 2px",
-          color: props.tone === "ok" ? "var(--ok)" : props.tone === "bad" ? "var(--bad)" : "var(--ink)",
+          color: props.tone === "ok" ? "var(--ok)" : props.tone === "bad" ? "var(--crit)" : "var(--ink)",
         }}
       >
         {props.value}
@@ -788,7 +788,7 @@ function Td(props: { children: ReactNode; align?: "right"; tone?: "ok" | "bad" }
       style={{
         textAlign: props.align ?? "left",
         padding: "6px 8px",
-        color: props.tone === "ok" ? "var(--ok)" : props.tone === "bad" ? "var(--bad)" : "var(--ink)",
+        color: props.tone === "ok" ? "var(--ok)" : props.tone === "bad" ? "var(--crit)" : "var(--ink)",
       }}
     >
       {props.children}
