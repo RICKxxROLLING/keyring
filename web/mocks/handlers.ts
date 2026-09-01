@@ -68,6 +68,7 @@ const SESSION: SessionInfo = {
 function propertyCard(p: PropertyView): PropertyCard {
   return {
     id: p.id,
+    stage: p.stage,
     heroColor: p.heroColor,
     name: p.name,
     addressLine1: p.addressLine1,
@@ -363,6 +364,7 @@ const aggregateHandlers = [
     const now = new Date().toISOString();
     const created: PropertyView = {
       id: fx.genId("prp"),
+      stage: body["stage"] === "prospect" ? "prospect" : "owned",
       heroColor: "oklch(0.665 0.125 42)",
       name: String(body["name"] ?? "New property"),
       addressLine1: String(body["addressLine1"] ?? ""),

@@ -69,6 +69,8 @@ const CreatePropertySchema = z
     notes: zOptText(20000),
     sortOrder: z.number().int().default(0),
     archivedAt: zIsoDateTime.nullable().optional(),
+    /** Held, or still being considered. Defaults to held. */
+    stage: z.enum(["owned", "prospect"]).default("owned"),
     /**
      * The Keyring hero colour. Omitted on create means "assign one from the
      * palette". Constrained TO the palette rather than accepting any string:
@@ -94,6 +96,9 @@ const PatchPropertySchema = CreatePropertySchema.partial()
   .extend({
     country: zText(2).optional(),
     sortOrder: z.number().int().optional(),
+    // Deciding to buy is a PATCH of this one field; see 2005_property_stage.sql
+    // for why it is a stage rather than a separate kind of record.
+    stage: z.enum(["owned", "prospect"]).optional(),
     expectedVersion: zVersion,
   })
   .strict();
@@ -142,12 +147,12 @@ export function registerPropertyRoutes(app: FastifyInstance, _ctx: AppContext): 
            country, property_type, year_built, sqft, lot_sqft, parcel_number, purchase_date,
            purchase_price_cents, mortgage_lender, mortgage_payment_cents, insurance_carrier,
            insurance_policy_number, cover_upload_id, notes, sort_order, archived_at, hero_color,
-           created_at, updated_at, created_by, updated_by, version)
+           stage, created_at, updated_at, created_by, updated_by, version)
          VALUES (@id, @name, @address_line1, @address_line2, @city, @state, @postal_code,
            @country, @property_type, @year_built, @sqft, @lot_sqft, @parcel_number, @purchase_date,
            @purchase_price_cents, @mortgage_lender, @mortgage_payment_cents, @insurance_carrier,
            @insurance_policy_number, @cover_upload_id, @notes, @sort_order, @archived_at, @hero_color,
-           @created_at, @updated_at, @created_by, @updated_by, 1)`,
+           @stage, @created_at, @updated_at, @created_by, @updated_by, 1)`,
       ).run({
         id,
         name: snake.name,
@@ -172,6 +177,7 @@ export function registerPropertyRoutes(app: FastifyInstance, _ctx: AppContext): 
         notes: snake.notes ?? null,
         sort_order: snake.sort_order ?? 0,
         archived_at: snake.archived_at ?? null,
+        stage: snake.stage ?? "owned",
         // Cut the key: assign a hero colour from the palette, choosing the one
         // least used across the ring so a small portfolio never repeats. It is
         // stored, not derived, so it stays with this property through renames

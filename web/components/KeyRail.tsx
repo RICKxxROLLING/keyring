@@ -108,6 +108,8 @@ export function KeyRail(): ReactElement {
   const { properties, activeId } = useRingProperties();
   const { session, logout } = useSession();
   const isOwner = session?.user.role === "owner";
+  const owned = properties.filter((p) => p.stage === "owned");
+  const prospects = properties.filter((p) => p.stage === "prospect");
 
   return (
     <nav
@@ -137,14 +139,14 @@ export function KeyRail(): ReactElement {
           {/* The master key holds up the ring: the way back to the portfolio. */}
           <KeyGlyph color="var(--ink-2)" size="rail" holeColor="var(--bg-2)" />
           <span className="kr-label" style={{ color: "var(--ink-2)" }}>
-            On the ring · {properties.length}
+            On the ring · {properties.filter((p) => p.stage === "owned").length}
           </span>
         </NavLink>
 
         <div style={{ position: "relative", marginTop: 12 }}>
           {/* The wire. Height is derived from the key count so it ends just
               past the last key, as specified. Decorative. */}
-          {properties.length > 0 && (
+          {owned.length > 0 && (
             <span
               aria-hidden="true"
               style={{
@@ -152,7 +154,7 @@ export function KeyRail(): ReactElement {
                 left: 15,
                 top: RING_TOP,
                 width: 17,
-                height: Math.max(40, properties.length * RAIL_ROW_HEIGHT - 18),
+                height: Math.max(40, owned.length * RAIL_ROW_HEIGHT - 18),
                 border: "2px solid var(--metal)",
                 borderRadius: 999,
                 pointerEvents: "none",
@@ -161,13 +163,31 @@ export function KeyRail(): ReactElement {
           )}
 
           <ul style={{ position: "relative", listStyle: "none", margin: 0, padding: 0 }}>
-            {properties.map((p) => (
+            {owned.map((p) => (
               <li key={p.id}>
                 <KeyRow property={p} active={p.id === activeId} dimmed={activeId !== null} />
               </li>
             ))}
           </ul>
         </div>
+
+        {/* Prospects hang below the ring, not on it — they are buildings you
+            are considering, not keys you hold, and they are left out of every
+            portfolio total for the same reason. */}
+        {prospects.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <span className="kr-label" style={{ display: "block", paddingLeft: 6, marginBottom: 6 }}>
+              Considering · {prospects.length}
+            </span>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {prospects.map((p) => (
+                <li key={p.id}>
+                  <KeyRow property={p} active={p.id === activeId} dimmed={activeId !== null} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div style={{ marginTop: "auto", paddingTop: 20 }}>
           <NavLink
@@ -274,6 +294,7 @@ function KeyRow({
   const doors = facts.unitCount === 1 ? "1 door" : `${facts.unitCount} doors`;
   const state = facts.vacantUnits > 0 ? `${facts.vacantUnits} open` : "full";
 
+  const isProspect = property.stage === "prospect";
   const style: CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -284,7 +305,12 @@ function KeyRow({
     // held; they come back to full on hover.
     opacity: dimmed && !active ? 0.72 : 1,
     background: active ? hero.tint(color, 12) : "transparent",
-    border: `1px solid ${active ? hero.border(color, 0.35) : "transparent"}`,
+    // Dashed for a prospect: the key is drawn but not cut yet.
+    border: active
+      ? `1px solid ${hero.border(color, 0.35)}`
+      : isProspect
+        ? "1px dashed var(--line)"
+        : "1px solid transparent",
     color: "var(--ink)",
   };
 
@@ -312,7 +338,7 @@ function KeyRow({
           className="kr-label"
           style={{ display: "block", fontSize: 10, letterSpacing: "0.08em", marginTop: 2 }}
         >
-          {doors} · {state}
+          {isProspect ? "Prospect" : `${doors} · ${state}`}
         </span>
       </span>
       {property.attentionCount > 0 && <AttentionCount property={property} />}

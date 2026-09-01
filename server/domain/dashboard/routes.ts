@@ -31,6 +31,7 @@ export function registerDashboardRoutes(app: FastifyInstance, _ctx: AppContext):
       city: p.city,
       state: p.state,
       status: p.status,
+      stage: p.stage,
       coverUrl: coverUrlFor(p.coverUploadId),
       quickFacts: p.quickFacts,
       attentionCount: attentionByProperty.get(p.id) ?? 0,
@@ -42,14 +43,14 @@ export function registerDashboardRoutes(app: FastifyInstance, _ctx: AppContext):
         `SELECT COUNT(*) AS units,
                 SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END) AS occupied,
                 SUM(CASE WHEN status = 'vacant' THEN 1 ELSE 0 END) AS vacant
-           FROM units u JOIN properties p ON p.id = u.property_id WHERE p.archived_at IS NULL`,
+           FROM units u JOIN properties p ON p.id = u.property_id WHERE p.archived_at IS NULL AND p.stage = 'owned'`,
       )
       .get() as { units: number; occupied: number | null; vacant: number | null };
 
     const openWorkOrders = db
       .prepare(
         `SELECT COUNT(*) AS n FROM work_orders w JOIN properties p ON p.id = w.property_id
-          WHERE p.archived_at IS NULL AND w.status NOT IN ('done','cancelled')`,
+          WHERE p.archived_at IS NULL AND p.stage = 'owned' AND w.status NOT IN ('done','cancelled')`,
       )
       .get() as { n: number };
 
@@ -57,7 +58,7 @@ export function registerDashboardRoutes(app: FastifyInstance, _ctx: AppContext):
       .prepare(
         `SELECT COALESCE(SUM(l.rent_cents), 0) AS total FROM leases l
            JOIN properties p ON p.id = l.property_id
-          WHERE p.archived_at IS NULL AND l.status = 'active'`,
+          WHERE p.archived_at IS NULL AND p.stage = 'owned' AND l.status = 'active'`,
       )
       .get() as { total: number };
 
@@ -66,7 +67,7 @@ export function registerDashboardRoutes(app: FastifyInstance, _ctx: AppContext):
       .prepare(
         `SELECT COALESCE(SUM(r.amount_received_cents), 0) AS total FROM rent_entries r
            JOIN properties p ON p.id = r.property_id
-          WHERE p.archived_at IS NULL AND r.period = ?`,
+          WHERE p.archived_at IS NULL AND p.stage = 'owned' AND r.period = ?`,
       )
       .get(thisPeriod) as { total: number };
 
@@ -74,7 +75,8 @@ export function registerDashboardRoutes(app: FastifyInstance, _ctx: AppContext):
       properties: cards,
       needsAttention,
       totals: {
-        properties: properties.length,
+        // Owned only, for the same reason as every other total here.
+        properties: properties.filter((p) => p.stage === "owned").length,
         units: unitTotals.units,
         occupied: unitTotals.occupied ?? 0,
         vacant: unitTotals.vacant ?? 0,

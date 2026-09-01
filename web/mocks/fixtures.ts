@@ -105,6 +105,7 @@ function propertyBase(
 ): Omit<PropertyView, "units" | "quickFacts" | "status" | "coverUrl"> {
   return {
     id,
+    stage: "owned",
     heroColor: HERO_COLORS[Math.abs(id.charCodeAt(id.length - 1)) % HERO_COLORS.length]!.value,
     name,
     addressLine1,

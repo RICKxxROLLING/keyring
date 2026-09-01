@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactElement } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PropertyType, PropertyView } from "../../shared/types";
+import type { PropertyStage, PropertyType, PropertyView } from "../../shared/types";
 import { HERO_COLORS } from "../../shared/hero-colors";
 import { apiPost, ApiClientError } from "../lib/api";
 import { qk } from "../lib/query";
@@ -42,6 +42,7 @@ export function NewPropertyPage(): ReactElement {
   // null means "let the server pick the least-used colour", which is the right
   // default — it keeps the ring evenly spread without anyone thinking about it.
   const [heroColor, setHeroColor] = useState<string | null>(null);
+  const [stage, setStage] = useState<PropertyStage>("owned");
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
@@ -53,6 +54,7 @@ export function NewPropertyPage(): ReactElement {
         state: state.trim(),
         postalCode: postalCode.trim(),
         propertyType,
+        stage,
         ...(heroColor ? { heroColor } : {}),
       }),
     onSuccess: (property) => {
@@ -146,6 +148,29 @@ export function NewPropertyPage(): ReactElement {
           </Select>
         </Field>
 
+        {/* A property you are weighing up is not one you hold. Both get a full
+            dossier — the point is to scope and cost the renovation BEFORE you
+            buy — but a prospect stays out of every portfolio total. */}
+        <fieldset style={{ border: 0, padding: 0, margin: "4px 0 0" }}>
+          <legend className="kr-field-label" style={{ padding: 0 }}>
+            Is this yours?
+          </legend>
+          <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+            <StageChoice
+              label="Yes — put it on the ring"
+              hint="Counts towards your units, rent roll and occupancy."
+              selected={stage === "owned"}
+              onSelect={() => setStage("owned")}
+            />
+            <StageChoice
+              label="Not yet — I'm considering it"
+              hint="Plan the projects and the budget now. It stays out of your totals until you buy it, and nothing is re-entered when you do."
+              selected={stage === "prospect"}
+              onSelect={() => setStage("prospect")}
+            />
+          </div>
+        </fieldset>
+
         <fieldset style={{ border: 0, padding: 0, margin: "4px 0 0" }}>
           <legend className="kr-field-label" style={{ padding: 0 }}>
             Key colour
@@ -175,7 +200,7 @@ export function NewPropertyPage(): ReactElement {
 
         <div style={{ display: "flex", gap: 10, marginTop: 26 }}>
           <Button type="submit" disabled={!ready || create.isPending}>
-            {create.isPending ? "Cutting…" : "Cut the key"}
+            {create.isPending ? "Saving…" : stage === "owned" ? "Cut the key" : "Start considering it"}
           </Button>
           <Button type="button" variant="secondary" onClick={() => void navigate("/")}>
             Cancel
@@ -183,6 +208,36 @@ export function NewPropertyPage(): ReactElement {
         </div>
       </form>
     </div>
+  );
+}
+
+function StageChoice(props: {
+  label: string;
+  hint: string;
+  selected: boolean;
+  onSelect: () => void;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={props.onSelect}
+      aria-pressed={props.selected}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        padding: "10px 12px",
+        borderRadius: 11,
+        border: props.selected ? "1px solid var(--ink-2)" : "1px solid var(--line)",
+        background: props.selected ? "var(--panel-2)" : "var(--panel)",
+        color: "var(--ink)",
+      }}
+    >
+      <span style={{ display: "block", fontSize: 13.5, fontWeight: 600 }}>{props.label}</span>
+      <span style={{ display: "block", fontSize: 12.5, color: "var(--ink-3)", marginTop: 2 }}>
+        {props.hint}
+      </span>
+    </button>
   );
 }
 

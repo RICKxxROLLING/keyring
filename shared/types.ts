@@ -59,6 +59,20 @@ export type UnitStatus = "occupied" | "vacant" | "make_ready" | "offline";
 /** Derived, never stored. Drives the dashboard card colour. */
 export type PropertyStatus = "stable" | "attention" | "urgent";
 
+/**
+ * Whether you hold this property or are still deciding.
+ *
+ * "owned" is on the ring. "prospect" is one you are considering: the dossier
+ * works in full so you can plan the renovation and cost it out before buying,
+ * but it is left out of every portfolio total, because counting a building you
+ * do not own would overstate what you have.
+ *
+ * Buying it is a stage change, not a re-entry — the projects, estimates, notes
+ * and photos you built up while deciding come with it.
+ */
+export type PropertyStage = "owned" | "prospect";
+export const PROPERTY_STAGES: readonly PropertyStage[] = ["owned", "prospect"];
+
 export type ProjectStatus =
   | "idea" | "planning" | "quoted" | "approved"
   | "in_progress" | "blocked" | "done" | "cancelled";
@@ -280,6 +294,8 @@ export interface Property {
   insuranceCarrier: string | null;
   insurancePolicyNumber: string | null;
   coverUploadId: Id | null;
+  /** Held, or still being considered. See PropertyStage. */
+  stage: PropertyStage;
   /**
    * The property's hero colour — a CSS colour string, e.g.
    * `oklch(0.665 0.125 42)`.
@@ -832,6 +848,8 @@ export interface PropertyCard {
   city: string;
   state: string;
   status: PropertyStatus;
+  /** Held, or still being considered. The ring shows the two apart. */
+  stage: PropertyStage;
   coverUrl: string | null;
   quickFacts: PropertyQuickFacts;
   attentionCount: number;

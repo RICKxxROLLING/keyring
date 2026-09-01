@@ -9,6 +9,7 @@ import { formatCents } from "../lib/format";
 import { PropertyPresenceBar } from "../components/PresenceBar";
 import { ErrorNotice, Spinner } from "../components/Form";
 import { KeyGlyph, hero } from "../components/KeyGlyph";
+import { ProspectBanner } from "../components/ProspectBanner";
 
 /**
  * One property — the design handoff's screen 2.
@@ -109,10 +110,12 @@ export function DossierPage(): ReactElement {
           <Chip color={color}>
             {qf.unitCount === 1 ? "1 door" : `${qf.unitCount} doors`} · {filled} filled
           </Chip>
-          {property.purchaseDate && (
+          {property.purchaseDate && property.stage === "owned" && (
             <Chip color={color}>Owned since {property.purchaseDate.slice(0, 4)}</Chip>
           )}
         </div>
+
+        {property.stage === "prospect" && <ProspectBanner property={property} />}
 
         {/* Tabs sit flush to the header's bottom edge; the active one matches
             the panel and eats the border so header and body read as one. */}
