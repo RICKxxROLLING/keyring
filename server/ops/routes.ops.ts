@@ -19,6 +19,7 @@ import { publishEntity } from "../seams.js";
 import { buildHealthPayload, buildOpsInfo, mapBackupRunRow } from "./health.js";
 import { performBackup, startBackupRun } from "./backup.js";
 import { verifyArchive } from "./restore.js";
+import { getDemoStatus, loadDemoData, removeDemoData } from "./demo.js";
 import type { BackupRun } from "../../shared/types.js";
 
 const VerifyBodySchema = z.object({ archiveName: z.string().min(1).max(200) }).strict();
@@ -42,6 +43,36 @@ export async function registerOpsRoutes(app: FastifyInstance, ctx: AppContext): 
       r.addHook("preHandler", requireRole("owner"));
 
       r.get("/ops/info", async () => ok(buildOpsInfo()));
+
+      // Demo data on and off. Owner-only like the rest of this scope, and
+      // audited, because removing it deletes rows — see server/ops/demo.ts for
+      // what is and is not in scope (users never are).
+      r.get("/ops/demo", async () => ok(getDemoStatus()));
+
+      r.post("/ops/demo", async (req) => {
+        const result = await loadDemoData();
+        if (result.loaded) {
+          auditFromRequest(req, {
+            action: "create",
+            entityType: "system",
+            entityId: "demo-data",
+            summary: "loaded the demo portfolio",
+          });
+        }
+        return ok({ ...result, status: getDemoStatus() });
+      });
+
+      r.delete("/ops/demo", async (req) => {
+        const removed = removeDemoData();
+        auditFromRequest(req, {
+          action: "delete",
+          entityType: "system",
+          entityId: "demo-data",
+          summary: `removed the demo portfolio (${removed.properties} properties, ${removed.vendors} vendors)`,
+          before: removed as unknown as Record<string, unknown>,
+        });
+        return ok({ removed, status: getDemoStatus() });
+      });
 
       r.get("/ops/backups", async (req) => {
         const q = parseQuery(req, PagingQuerySchema);

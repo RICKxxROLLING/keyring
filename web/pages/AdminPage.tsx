@@ -6,8 +6,9 @@ import { formatDateTime, formatRelativeTime } from "../lib/format";
 import { useSession } from "../lib/session";
 import { Button } from "../components/Button";
 import { EmptyState, Field, Select, Spinner, TextInput } from "../components/Form";
+import { DemoDataPanel } from "../components/DemoDataPanel";
 
-type AdminTab = "users" | "invites" | "audit" | "backups";
+type AdminTab = "users" | "invites" | "audit" | "backups" | "data";
 
 export function AdminPage(): ReactElement {
   const [tab, setTab] = useState<AdminTab>("users");
@@ -16,6 +17,7 @@ export function AdminPage(): ReactElement {
     { id: "invites", label: "Invites" },
     { id: "audit", label: "Audit log" },
     { id: "backups", label: "Backups" },
+    { id: "data", label: "Demo data" },
   ];
 
   return (
@@ -40,6 +42,7 @@ export function AdminPage(): ReactElement {
       {tab === "invites" && <InvitesPanel />}
       {tab === "audit" && <AuditPanel />}
       {tab === "backups" && <BackupsPanel />}
+      {tab === "data" && <DemoDataPanel />}
     </div>
   );
 }

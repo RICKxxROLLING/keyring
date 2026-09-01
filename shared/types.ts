@@ -29,7 +29,11 @@ export type EntityType =
   | "tenant" | "lease" | "rent_entry" | "property_expense"
   | "vendor" | "spec_entry" | "compliance_item"
   | "turnover" | "turnover_item"
-  | "upload" | "notification" | "backup";
+  | "upload" | "notification" | "backup"
+  // Portfolio-wide operations that are not about one row — loading or removing
+  // the demo portfolio, for instance. Audited like anything else; the entityId
+  // names the operation.
+  | "system";
 
 export type AuditAction =
   | "create" | "update" | "delete"
