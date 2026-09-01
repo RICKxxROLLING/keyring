@@ -32,7 +32,13 @@ function apply(choice: ThemeChoice): void {
   else root.setAttribute("data-theme", choice);
 }
 
-export function ThemeToggle(): ReactElement {
+/**
+ * @param compact drop the word and show only the switch. The label is otherwise
+ *   gated on the VIEWPORT being wide, which says nothing about the width of the
+ *   container it lands in — in the rail that meant "EVENING" crushing the
+ *   account name next to it on a perfectly wide screen.
+ */
+export function ThemeToggle({ compact = false }: { compact?: boolean } = {}): ReactElement {
   const [choice, setChoice] = useState<ThemeChoice>(read);
 
   useEffect(() => {
@@ -74,19 +80,21 @@ export function ThemeToggle(): ReactElement {
         alignItems: "center",
         gap: 8,
         minHeight: 32,
-        padding: "0 4px 0 10px",
+        padding: compact ? "0 4px" : "0 4px 0 10px",
         borderRadius: 999,
         border: "1px solid var(--line)",
         background: "var(--panel)",
         color: "var(--ink-3)",
       }}
     >
-      <span
-        className="kr-label hidden sm:inline"
-        style={{ fontSize: 9.5, letterSpacing: "0.16em" }}
-      >
-        {isDark ? "evening" : "daylight"}
-      </span>
+      {!compact && (
+        <span
+          className="kr-label hidden sm:inline"
+          style={{ fontSize: 9.5, letterSpacing: "0.16em" }}
+        >
+          {isDark ? "evening" : "daylight"}
+        </span>
+      )}
       <span
         aria-hidden="true"
         style={{

@@ -103,3 +103,17 @@ export function useSession(): SessionContextValue {
   if (!ctx) throw new Error("useSession must be used within a SessionProvider");
   return ctx;
 }
+
+/**
+ * The session if there is one, null outside a provider — no throw.
+ *
+ * For chrome that only wants to know who you are as a refinement, not as a
+ * precondition: the presence bars use it to leave you out of "who else is
+ * here". Throwing there would take a whole page down over a decoration, and
+ * would force a SessionProvider on any test rendering a component that happens
+ * to contain one. useSession keeps throwing, which is right for everything that
+ * genuinely cannot work without a signed-in user.
+ */
+export function useOptionalSession(): SessionContextValue | null {
+  return useContext(SessionContext);
+}

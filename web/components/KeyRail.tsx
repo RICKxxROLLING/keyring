@@ -29,8 +29,9 @@ import { GlobalPresenceBar } from "./PresenceBar";
  * runs the full height reads as a border, not a ring.
  */
 
-const RAIL_ROW_HEIGHT = 46; // 9px pad + 28px glyph + 9px pad
-const RING_TOP = 8;
+/** How far the wire stops short of the list at each end, so it reads as a ring
+ *  closing past the last key rather than as a border down the side. */
+const RING_INSET = 8;
 
 /**
  * Shared data for both presentations. The rail rides the dashboard payload,
@@ -147,17 +148,22 @@ export function KeyRail(): ReactElement {
         </NavLink>
 
         <div style={{ position: "relative", marginTop: 12 }}>
-          {/* The wire. Height is derived from the key count so it ends just
-              past the last key, as specified. Decorative. */}
+          {/* The wire, sized by the list itself.
+              It used to derive its height from the key count times a hardcoded
+              46px row. The moment a row grew — a name wrapping to two lines —
+              the wire fell short and left the last key or two hanging off the
+              end of it. Anchoring top AND bottom to the list means it cannot
+              disagree with the rows again, whatever they end up containing.
+              Decorative. */}
           {owned.length > 0 && (
             <span
               aria-hidden="true"
               style={{
                 position: "absolute",
                 left: 15,
-                top: RING_TOP,
+                top: RING_INSET,
+                bottom: RING_INSET,
                 width: 17,
-                height: Math.max(40, owned.length * RAIL_ROW_HEIGHT - 18),
                 border: "2px solid var(--metal)",
                 borderRadius: 999,
                 pointerEvents: "none",
@@ -260,7 +266,7 @@ export function KeyRail(): ReactElement {
                     {session.user.displayName}
                   </span>
                 </NavLink>
-                <ThemeToggle />
+                <ThemeToggle compact />
                 <NotificationBell />
               </div>
             )}
@@ -324,22 +330,38 @@ function KeyRow({
           leaving it transparent. */}
       <KeyGlyph color={color} size="rail" holeColor={active ? "transparent" : "var(--bg-2)"} />
       <span style={{ minWidth: 0, flex: 1 }}>
+        {/* Two lines before it clips. A rail whose whole job is telling the
+            keys apart was rendering "Maple Street Duplex" as "Maple Street…",
+            and at one line that was the common case, not the edge case. */}
         <span
           style={{
-            display: "block",
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: 2,
             fontSize: 14,
             fontWeight: active ? 700 : 600,
             lineHeight: 1.25,
             overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            overflowWrap: "anywhere",
           }}
         >
           {property.name}
         </span>
+        {/* The subtitle takes the clipping instead — it is the secondary line,
+            and its wrapping is what pushed rows past the height the wire had
+            assumed. Mono at 0.08em tracking was wide enough that "2 DOORS ·
+            FULL" broke onto two lines in a narrow rail. */}
         <span
           className="kr-label"
-          style={{ display: "block", fontSize: 10, letterSpacing: "0.08em", marginTop: 2 }}
+          style={{
+            display: "block",
+            fontSize: 10,
+            letterSpacing: "0.06em",
+            marginTop: 2,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
         >
           {isProspect ? "Prospect" : `${doors} · ${state}`}
         </span>

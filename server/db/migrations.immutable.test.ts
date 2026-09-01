@@ -25,27 +25,36 @@
 // establishing that no deployment has applied the old version of that file.
 
 import { describe, it, expect } from "vitest";
-import { createHash } from "node:crypto";
+import { migrationChecksum } from "./migrate.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const MIGRATIONS_DIR = join(process.cwd(), "server", "db", "migrations");
 
-/** filename -> sha256 of its UTF-8 contents, as applied to live databases. */
+/**
+ * filename -> sha256 of its contents, as applied to live databases.
+ *
+ * Computed by migrationChecksum, the same function runMigrations uses, so this
+ * test checks the value that actually gates a boot. It hashed raw bytes with
+ * its own copy of the logic until CRLF caught it out: on a Windows working copy
+ * git checks these files out with CRLF, so the frozen values here were Windows
+ * hashes that never matched what the Linux container computes and stores. The
+ * test passed while agreeing with nothing.
+ */
 const FROZEN: ReadonlyArray<readonly [string, string]> = [
-  ["0001_auth_core.sql", "f876d654246c21b9b5b6b48779d432582503a459d80fe920a118560d0e07ddbc"],
-  ["1001_realtime.sql", "ae6d8810764f6e8a0b12e20c5c9b481cdb117f748de5b3fce4261aba97580034"],
-  ["2001_domain.sql", "a81f69e95cd9a8e16549f3612f0d941dae2851927793505fcc0960cbfbc83b05"],
+  ["0001_auth_core.sql", "44f9fdbd5482f765d566070f873a3a485637469f7e0e5ad7ed9a132ea24629ff"],
+  ["1001_realtime.sql", "a076512fc4d8b2a6425655a070d61caa45fdf6bec5b978be48e6e1de0dadff80"],
+  ["2001_domain.sql", "c744565e9b164e5dd4632425baa1f369df1dd48f0fb9c12594a205c15cc49759"],
   ["2002_property_hero_color.sql", "7a91cc181b0501956be569e4f746e468813641c37aba562571c47cf2fb865092"],
   ["2003_rent_reference_expense_recurring.sql", "61f790632e5954daffee758215d20eb52a8b0353cfaa859fb20fa8665fe5b1f1"],
   ["2004_demo_data_flag.sql", "5e86afc3d27509af679b21e0c70fc31ed45330c0913cc7a5c1ebe2b47346277a"],
   ["2005_property_stage.sql", "78a9f086a3475478e93ed0b73ebb431719c4f773017ee43639ac80d954607c42"],
   ["2006_deal_inputs.sql", "617dd653e362d07d54eb64e79bb2b0128892e281bb266a8e5a0976411c7e065f"],
-  ["4001_ops.sql", "2fe7894758d6ea9285c12bf4c96acfd7a3642da2a0b6b5ac7ef04278717342cc"],
+  ["4001_ops.sql", "f6a1766e1b4de5e9b391e43bd79a4242b1b4b8a26776b3d934fcc9c8ac6e5325"],
 ];
 
 function sha256OfMigration(file: string): string {
-  return createHash("sha256").update(readFileSync(join(MIGRATIONS_DIR, file), "utf8")).digest("hex");
+  return migrationChecksum(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
 }
 
 describe("migrations are immutable once applied", () => {

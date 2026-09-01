@@ -12,6 +12,24 @@ function resolveMigrationsDir(): string {
   throw new Error(`Cannot locate migrations directory (tried ${beside} and ${fromCwd})`);
 }
 
+/**
+ * The checksum that decides whether an applied migration has been tampered with.
+ *
+ * Line endings are normalised first, and that is not cosmetic. Git checks these
+ * files out as CRLF on a Windows working copy (`core.autocrlf=true`) and LF in
+ * the Linux container, so hashing the raw bytes gave the SAME migration two
+ * different checksums depending on where it was read. A database migrated on
+ * one and then served by the other would fail the immutability check on boot
+ * and sit in a restart loop — the exact outage this check exists to prevent,
+ * caused by the check itself.
+ *
+ * Safe to change: the container's files are LF, so normalising is a no-op
+ * there and every checksum already stored by a deployment still matches.
+ */
+export function migrationChecksum(sql: string): string {
+  return createHash("sha256").update(sql.replace(/\r\n/g, "\n")).digest("hex");
+}
+
 export function listMigrations(dir = resolveMigrationsDir()): string[] {
   return readdirSync(dir)
     .filter((f) => /^\d{4}_[a-z0-9_]+\.sql$/.test(f))
@@ -44,7 +62,7 @@ export function runMigrations(db: Db, dir = resolveMigrationsDir()): MigrationRe
   const applied: string[] = [];
   for (const file of files) {
     const sql = readFileSync(join(dir, file), "utf8");
-    const checksum = createHash("sha256").update(sql).digest("hex");
+    const checksum = migrationChecksum(sql);
     const seen = done.get(file);
     if (seen) {
       if (seen !== checksum) {
