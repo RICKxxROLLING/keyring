@@ -77,7 +77,19 @@ export function KeyGlyph({
   const g = GEOMETRY[size];
   const hero = color ?? "var(--metal)";
 
-  const wrap: CSSProperties = { position: "relative", width: g.w, height: g.h, flex: "none" };
+  const wrap: CSSProperties = {
+    // inline-block, NOT the default inline: an inline box ignores width and
+    // height, so the glyph collapsed to zero and its absolutely-positioned
+    // bow/shaft/teeth painted over whatever sat next to it. Flex parents hid
+    // the bug by blockifying their children; the property header, which wraps
+    // it in a plain span, did not.
+    display: "inline-block",
+    position: "relative",
+    width: g.w,
+    height: g.h,
+    flex: "none",
+    verticalAlign: "middle",
+  };
   const bow: CSSProperties = {
     position: "absolute",
     left: 0,

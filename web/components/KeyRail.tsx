@@ -4,6 +4,7 @@ import type { CSSProperties, ReactElement } from "react";
 import type { DashboardPayload, PropertyCard } from "../../shared/types";
 import { apiGet } from "../lib/api";
 import { qk } from "../lib/query";
+import { useSession } from "../lib/session";
 import { KeyGlyph, hero } from "./KeyGlyph";
 
 /**
@@ -55,9 +56,8 @@ export function KeyStrip(): ReactElement {
   return (
     <nav
       aria-label="Properties"
-      className="lg:hidden kr-scroll-x"
+      className="kr-key-strip kr-scroll-x"
       style={{
-        display: "flex",
         alignItems: "center",
         gap: 8,
         padding: "10px clamp(12px, 3vw, 28px)",
@@ -99,6 +99,8 @@ export function KeyStrip(): ReactElement {
 
 export function KeyRail(): ReactElement {
   const { properties, activeId } = useRingProperties();
+  const { session } = useSession();
+  const isOwner = session?.user.role === "owner";
 
   return (
     <nav
@@ -111,9 +113,26 @@ export function KeyRail(): ReactElement {
           padding: "22px 16px 16px",
         }}
       >
-        <span className="kr-label" style={{ paddingLeft: 6 }}>
-          On the ring · {properties.length}
-        </span>
+        <NavLink
+          to="/"
+          end
+          aria-label="The keyring — all properties"
+          title="The keyring"
+          className="kr-master-key"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "6px 6px 12px",
+            color: "var(--ink)",
+          }}
+        >
+          {/* The master key holds up the ring: the way back to the portfolio. */}
+          <KeyGlyph color="var(--ink-2)" size="rail" holeColor="var(--bg-2)" />
+          <span className="kr-label" style={{ color: "var(--ink-2)" }}>
+            On the ring · {properties.length}
+          </span>
+        </NavLink>
 
         <div style={{ position: "relative", marginTop: 12 }}>
           {/* The wire. Height is derived from the key count so it ends just
@@ -163,8 +182,9 @@ export function KeyRail(): ReactElement {
             + Cut a new key
           </NavLink>
           <div style={{ display: "grid", gap: 2, marginTop: 14, paddingLeft: 6 }}>
-            <RailLink to="/money">Ledger</RailLink>
-            <RailLink to="/files">Papers</RailLink>
+            <RailLink to="/search">Search</RailLink>
+            <RailLink to="/vendors">Vendors</RailLink>
+            {isOwner && <RailLink to="/admin">Admin</RailLink>}
             <RailLink to="/settings">Settings</RailLink>
           </div>
         </div>

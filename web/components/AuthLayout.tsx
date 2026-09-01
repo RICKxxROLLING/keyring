@@ -64,6 +64,9 @@ export function AuthLayout(props: {
           className="kr-display"
           style={{
             margin: 0,
+            // Explicit, not inherited: the title rendered dark-on-dark because it
+            // relied on inheriting body colour and picked up the light-theme ink.
+            color: "var(--ink)",
             fontSize: "clamp(1.5rem, 1.2rem + 1.2vw, 1.9rem)",
             lineHeight: 1.1,
             letterSpacing: "-0.02em",

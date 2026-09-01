@@ -20,6 +20,7 @@ import { TurnoverTab } from "./pages/dossier/TurnoverTab";
 import { FilesTab } from "./pages/dossier/FilesTab";
 import { TimelineTab } from "./pages/dossier/TimelineTab";
 import { VendorsPage } from "./pages/VendorsPage";
+import { NewPropertyPage } from "./pages/NewPropertyPage";
 import { SearchPage } from "./pages/SearchPage";
 import { InboxPage } from "./pages/InboxPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -43,6 +44,7 @@ export function AppRoutes(): ReactElement {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/vendors" element={<VendorsPage />} />
+        <Route path="/properties/new" element={<NewPropertyPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/settings" element={<SettingsPage />} />

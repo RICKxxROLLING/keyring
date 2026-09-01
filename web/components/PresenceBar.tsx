@@ -17,7 +17,7 @@ export function GlobalPresenceBar(): ReactElement | null {
   const people = useMemo(() => dedupeByUser(presence), [presence]);
   if (people.length === 0) return null;
   return (
-    <div className="hidden items-center gap-2 border-r border-slate-200 pr-3 sm:flex" title="Who's here now">
+    <div className="hidden items-center gap-2 border-r pr-3 sm:flex" style={{ borderColor: "var(--line)" }} title="Who's here now">
       <AvatarStack users={people.map((p) => p.user)} />
     </div>
   );
@@ -28,7 +28,7 @@ export function PropertyPresenceBar(props: { propertyId: string }): ReactElement
   const people = useMemo(() => dedupeByUser(presence), [presence]);
   if (people.length === 0) return null;
   return (
-    <div className="flex items-center gap-2 text-sm text-slate-500">
+    <div className="flex items-center gap-2 text-sm" style={{ color: "var(--ink-3)" }}>
       <AvatarStack users={people.map((p) => p.user)} />
       <span>
         {people.length === 1 ? `${people[0]?.user.displayName} is here too` : `${people.length} people here now`}

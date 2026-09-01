@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Keyring">
+  <title>Keyring</title>
+  <!--
+    Favicon: three keys hanging on a ring, in the hero palette.
+
+    Drawn as an SVG rather than a PNG so it stays crisp at every size and
+    follows the browser's theme: the ring wire uses currentColor, which the
+    media query below flips, so the metal reads correctly on a light or dark
+    tab strip. The key colours are from the hero palette and are deliberately
+    the SAME in both themes, exactly as they are in the app — their lightness
+    is held in a band that works on either ground.
+
+    At 16px only the three coloured bows survive legibly, which is the point:
+    the icon should read as "coloured keys on a ring" even as a smudge.
+  -->
+  <style>
+    :root { color: oklch(0.62 0.012 250); }
+    @media (prefers-color-scheme: dark) { :root { color: oklch(0.72 0.012 250); } }
+  </style>
+
+  <!-- the ring wire -->
+  <path d="M32 7 a 13 13 0 1 0 0.01 0" fill="none" stroke="currentColor" stroke-width="4" />
+
+  <!-- terracotta key -->
+  <g transform="translate(9 30)">
+    <circle cx="9" cy="9" r="7.5" fill="none" stroke="oklch(0.665 0.125 42)" stroke-width="4" />
+    <rect x="15" y="7" width="15" height="4" rx="1.4" fill="oklch(0.665 0.125 42)" />
+    <rect x="22" y="11" width="3.4" height="5" rx="1.2" fill="oklch(0.665 0.125 42)" />
+  </g>
+
+  <!-- olive key -->
+  <g transform="translate(9 42)">
+    <circle cx="9" cy="9" r="7.5" fill="none" stroke="oklch(0.655 0.085 128)" stroke-width="4" />
+    <rect x="15" y="7" width="15" height="4" rx="1.4" fill="oklch(0.655 0.085 128)" />
+    <rect x="22" y="11" width="3.4" height="5" rx="1.2" fill="oklch(0.655 0.085 128)" />
+  </g>
+
+  <!-- ochre key -->
+  <g transform="translate(31 36)">
+    <circle cx="9" cy="9" r="7.5" fill="none" stroke="oklch(0.755 0.110 82)" stroke-width="4" />
+    <rect x="15" y="7" width="15" height="4" rx="1.4" fill="oklch(0.755 0.110 82)" />
+    <rect x="22" y="11" width="3.4" height="5" rx="1.2" fill="oklch(0.755 0.110 82)" />
+  </g>
+</svg>

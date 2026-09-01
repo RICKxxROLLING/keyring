@@ -419,3 +419,16 @@ h1, h2, h3, .kr-display {
   outline: 2px solid var(--ink-3);
   outline-offset: 2px;
 }
+
+/* The mobile key strip. Display lives here rather than in an inline style,
+   because an inline style beats a utility class — `style={{display:'flex'}}`
+   silently overrode `lg:hidden`, so the strip rendered on desktop as well as
+   the rail and you saw the keyring twice. */
+.kr-key-strip {
+  display: flex;
+}
+@media (min-width: 1024px) {
+  .kr-key-strip {
+    display: none;
+  }
+}
