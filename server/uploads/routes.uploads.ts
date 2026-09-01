@@ -9,6 +9,8 @@ import { requireAuth, requireUser } from "../auth/middleware.js";
 import { ApiError, ok, deleted, notFound } from "../lib/errors.js";
 import { newId } from "../lib/ids.js";
 import { nowIso } from "../lib/time.js";
+import { isOcrAvailable, readImageText, MAX_OCR_BYTES } from "./ocr.js";
+import { parseReceipt } from "../../shared/receipt-parse.js";
 import { buildPage, parsePaging } from "../lib/paging.js";
 import { parseBody, parseParams, parseQuery, zId, zOptText, PagingQuerySchema, IdParamSchema } from "../lib/validate.js";
 import { recordMutation, recordDelete, publishAfterCommit } from "../domain/common/crud.js";
@@ -253,6 +255,47 @@ export function registerUploadRoutes(app: FastifyInstance, _ctx: AppContext): vo
       reply.header("X-Content-Type-Options", "nosniff");
     }
     return reply.send(createReadStream(absPath));
+  });
+
+  /**
+   * Read a receipt.
+   *
+   * A POST because it does real work — a subprocess and up to twenty seconds of
+   * CPU — not because it changes anything. It stores nothing: the parsed fields
+   * come back for a person to check and correct before an expense is created
+   * from them. OCR is confidently wrong often enough that writing straight to
+   * the ledger would be indefensible.
+   */
+  app.post("/api/uploads/:id/ocr", { preHandler: [requireAuth] }, async (req) => {
+    const { id } = parseParams(req, IdParamSchema);
+    const row = requireUploadRow(id);
+
+    if (row.kind !== "image") {
+      throw new ApiError("BAD_REQUEST", "Only photos can be scanned. PDFs are stored as they are.");
+    }
+    if (row.sizeBytes > MAX_OCR_BYTES) {
+      throw new ApiError("BAD_REQUEST", "That image is too large to scan.");
+    }
+
+    if (!(await isOcrAvailable())) {
+      // Not an error: the upload worked, and the fields are typed by hand
+      // exactly as they were before scanning existed.
+      return ok({ available: false as const, fields: {}, text: null });
+    }
+
+    const result = await readImageText(absPathFromRel(row.storedPath));
+    if (!result) {
+      return ok({ available: true as const, fields: {}, text: null });
+    }
+
+    req.log.info({ uploadId: id, ms: result.ms, chars: result.text.length }, "receipt scanned");
+    return ok({
+      available: true as const,
+      fields: parseReceipt(result.text),
+      // Returned so a wrong reading can be diagnosed as bad pixels rather than
+      // a bad parser, without going to the server logs.
+      text: result.text,
+    });
   });
 
   app.get("/api/uploads/:id/thumb", { preHandler: [requireAuth] }, async (req, reply) => {

@@ -46,8 +46,14 @@ ENV NODE_ENV=production \
 
 # gosu: drop root -> PUID/PGID in the entrypoint without setuid-shell games.
 # tini: correct PID 1 signal handling (SIGTERM from `docker compose stop`).
+# tesseract-ocr: reads receipts, on this box. A cloud OCR API would be more
+#   accurate and would send every receipt — with its address, vendor and amount
+#   — to a third party, which is the opposite of the point of self-hosting this.
+#   tesseract-ocr-eng is the language data; without it the binary installs but
+#   can read nothing. The app degrades to manual entry when it is absent, so a
+#   dev machine and CI need no equivalent.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gosu tini \
+    && apt-get install -y --no-install-recommends gosu tini tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
