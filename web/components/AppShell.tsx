@@ -8,7 +8,7 @@ import { QuickAddSheet } from "./QuickAdd";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineBanner } from "./OfflineBanner";
 import { KeyRail, KeyStrip } from "./KeyRail";
-import { KeyGlyph } from "./KeyGlyph";
+import { RingMark } from "./RingMark";
 import { Avatar } from "./Avatar";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -80,7 +80,7 @@ export function AppShell(props: { children: ReactNode }): ReactElement {
               aria-label="The keyring — all properties"
               style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--ink)" }}
             >
-              <KeyGlyph color="var(--ink-2)" size="rail" holeColor="var(--bg-2)" />
+              <RingMark size={26} />
               <span
                 style={{
                   fontFamily: "var(--font-display)",

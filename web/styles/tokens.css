@@ -75,6 +75,10 @@
   --ink: oklch(0.31 0.02 250);
   --ink-2: oklch(0.475 0.017 250);
   --ink-3: oklch(0.615 0.014 250);
+  /* The bead in the brand mark. Fixed in both themes like the hero palette:
+     its lightness already sits in a band that works on either ground. */
+  --hero-terracotta: oklch(0.665 0.125 42);
+
   --metal: oklch(0.775 0.01 250);
 
   /* The rail sizes to the names on it. A fixed 268px truncated real property

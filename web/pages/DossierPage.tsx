@@ -32,6 +32,16 @@ const TABS = [
   { to: "files", label: "Papers" },
 ];
 
+/**
+ * The deal tab exists only while you are deciding.
+ *
+ * Once it is yours the question stops being "should I buy this" and becomes
+ * "how is it doing", which the Ledger already answers from real rent and real
+ * expenses rather than from assumptions. Leaving a projection tab on an owned
+ * property would invite reading forecasts as facts.
+ */
+const PROSPECT_TABS = [{ to: "deal", label: "The numbers" }];
+
 export function DossierPage(): ReactElement {
   const { propertyId } = useParams<{ propertyId: string }>();
   usePropertyChannel(propertyId ?? null);
@@ -125,7 +135,7 @@ export function DossierPage(): ReactElement {
           style={{ marginTop: 18, marginBottom: -1 }}
         >
           <div style={{ display: "flex", gap: 4, minWidth: "max-content" }}>
-            {TABS.map((tab) => (
+            {[...TABS, ...(property.stage === "prospect" ? PROSPECT_TABS : [])].map((tab) => (
               <NavLink
                 key={tab.to}
                 to={tab.to}
