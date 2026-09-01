@@ -2,7 +2,7 @@ import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { PropertyType, PropertyView } from "../../shared/types";
 import { HERO_COLORS } from "../../shared/hero-colors";
-import { apiPatch, ApiClientError } from "../lib/api";
+import { apiPatch, apiUpload, ApiClientError } from "../lib/api";
 import { qk } from "../lib/query";
 import { Dialog } from "./Dialog";
 import { Button } from "./Button";
@@ -64,6 +64,32 @@ export function EditPropertyDialog(props: {
     heroColor: p.heroColor,
   });
 
+  /**
+   * The cover photo, carried in this form's state rather than saved on its own.
+   *
+   * The file is uploaded the moment it is chosen — that is what mints an id —
+   * but the property is not touched until Save. Setting the cover with its own
+   * PATCH would bump the property's version and make the version this dialog is
+   * holding stale, so saving the rest of the form would then fail with a
+   * conflict against an edit the same person had just made.
+   */
+  const [cover, setCover] = useState<{ id: string | null; url: string | null }>({
+    id: p.coverUploadId,
+    url: p.coverUrl,
+  });
+
+  const uploadCover = useMutation({
+    mutationFn: async (file: File) => {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("parentType", "property");
+      body.append("parentId", p.id);
+      return apiUpload("/api/uploads", body);
+    },
+    onSuccess: (u) => setCover({ id: u.id, url: u.thumbUrl ?? u.url }),
+    onError: () => setError("Couldn't upload that image."),
+  });
+
   function field<K extends keyof typeof form>(key: K, value: (typeof form)[K]): void {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -101,6 +127,7 @@ export function EditPropertyDialog(props: {
         insurancePolicyNumber: text(form.insurancePolicyNumber),
         notes: text(form.notes),
         heroColor: form.heroColor,
+        coverUploadId: cover.id,
         expectedVersion: p.version,
       }),
     onSuccess: () => {
@@ -144,6 +171,80 @@ export function EditPropertyDialog(props: {
           save.mutate();
         }}
       >
+        {/* First, because it is the thing you see on the card before you read
+            a word of it. The card falls back to a striped plate without one. */}
+        <section style={{ marginBottom: 18 }}>
+          <h3 className="kr-label" style={{ margin: "0 0 8px" }}>
+            Cover photo
+          </h3>
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div
+              aria-hidden={cover.url ? undefined : true}
+              style={{
+                width: 168,
+                height: 104,
+                flex: "none",
+                borderRadius: 12,
+                border: "1px solid var(--line)",
+                overflow: "hidden",
+                background: cover.url
+                  ? `center/cover no-repeat url(${JSON.stringify(cover.url)})`
+                  : "repeating-linear-gradient(115deg, var(--panel-2) 0 9px, var(--line-soft) 9px 10px)",
+              }}
+            />
+            <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
+              <label
+                className="kr-btn-secondary"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "0 14px",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid var(--line)",
+                  background: "var(--panel)",
+                  color: "var(--ink)",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {uploadCover.isPending ? "Uploading…" : cover.url ? "Replace photo" : "Upload a photo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setError(null);
+                      uploadCover.mutate(file);
+                    }
+                    // Let the same file be picked again after a failure.
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {cover.id && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setCover({ id: null, url: null })}
+                >
+                  Remove cover
+                </Button>
+              )}
+              <p className="kr-field-hint" style={{ margin: 0, maxWidth: "34ch" }}>
+                Shown across the top of this property&apos;s card. The photo is filed under
+                Papers too, and any image already there can be made the cover from that tab.
+                Takes effect when you save.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <Section title="What it is">
           <Field label="Name" hint="What you call it, not the legal description.">
             <TextInput value={form.name} onChange={(e) => field("name", e.target.value)} required />
