@@ -11,6 +11,7 @@ import { DossierPage } from "./pages/DossierPage";
 import { OverviewTab } from "./pages/dossier/OverviewTab";
 import { NotesTab } from "./pages/dossier/NotesTab";
 import { MaintenanceTab } from "./pages/dossier/MaintenanceTab";
+import { DealTab } from "./pages/dossier/DealTab";
 import { ProjectsTab } from "./pages/dossier/ProjectsTab";
 import { TenantsTab } from "./pages/dossier/TenantsTab";
 import { MoneyTab } from "./pages/dossier/MoneyTab";
@@ -62,6 +63,7 @@ export function AppRoutes(): ReactElement {
           <Route path="overview" element={<OverviewTab />} />
           <Route path="notes" element={<NotesTab />} />
           <Route path="maintenance" element={<MaintenanceTab />} />
+          <Route path="deal" element={<DealTab />} />
           <Route path="projects" element={<ProjectsTab />} />
           <Route path="tenants" element={<TenantsTab />} />
           <Route path="money" element={<MoneyTab />} />
