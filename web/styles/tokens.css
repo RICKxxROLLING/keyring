@@ -434,6 +434,33 @@ h1, h2, h3, .kr-display {
    because an inline style beats a utility class — `style={{display:'flex'}}`
    silently overrode `lg:hidden`, so the strip rendered on desktop as well as
    the rail and you saw the keyring twice. */
+/* The deal analyser: assumptions in one column, consequences in the other, so
+   changing a number and watching the answer move never makes either column
+   jump. Stacked on a phone with the ANSWERS first — you open it to see where
+   you stand, not to fill in a form. */
+.kr-deal-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+.kr-deal-answers,
+.kr-deal-inputs {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .kr-deal-grid {
+    /* Inputs get a fixed, narrow column; the answers take the rest, because
+       the tables in them are what actually needs the width. */
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 27%, 360px);
+  }
+  .kr-deal-inputs {
+    order: 2;
+  }
+}
+
 .kr-key-strip {
   display: flex;
 }

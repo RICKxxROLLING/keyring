@@ -11,6 +11,7 @@ import {
   defaultDealInputs,
   irr,
   maxPriceForCashFlow,
+  rentNeededForCashFlow,
   type DealInputs,
 } from "./deal-analysis.js";
 
@@ -245,6 +246,43 @@ describe("maxPriceForCashFlow", () => {
   it("returns null when no price works", () => {
     // Rent cannot cover a $10,000/month target at any price.
     expect(maxPriceForCashFlow(roundDeal(), 10_000_00)).toBeNull();
+  });
+});
+
+describe("rentNeededForCashFlow", () => {
+  it("finds the rent that breaks even at the asking price", () => {
+    // Strip the rent out so the answer has to come from the solver.
+    const input = { ...roundDeal(), monthlyRentCents: 0 };
+    const need = rentNeededForCashFlow(input, 0);
+    expect(need).not.toBeNull();
+
+    const at = analyzeDeal({ ...input, monthlyRentCents: need! }).financed.monthlyCashFlowCents;
+    expect(at).toBeGreaterThanOrEqual(-500); // within the $5 rounding
+    expect(at).toBeLessThan(1_000);
+
+    // $100 less a month and it stops working.
+    const under = analyzeDeal({ ...input, monthlyRentCents: need! - 100_00 }).financed
+      .monthlyCashFlowCents;
+    expect(under).toBeLessThan(0);
+  });
+
+  it("accounts for the expenses that scale with rent", () => {
+    const lean = { ...roundDeal(), monthlyRentCents: 0, managementPct: 0, vacancyPct: 0 };
+    const loaded = { ...lean, managementPct: 10, vacancyPct: 8 };
+    // Charging 10% management and losing 8% to vacancy means more rent is
+    // needed to clear the same bar — a flat solve would miss this.
+    expect(rentNeededForCashFlow(loaded, 0)!).toBeGreaterThan(rentNeededForCashFlow(lean, 0)!);
+  });
+
+  it("is lower for an all-cash purchase, which has no mortgage to cover", () => {
+    const input = { ...roundDeal(), monthlyRentCents: 0 };
+    expect(rentNeededForCashFlow(input, 0, "cash")!).toBeLessThan(
+      rentNeededForCashFlow(input, 0, "financed")!,
+    );
+  });
+
+  it("returns null when no rent could ever clear the target", () => {
+    expect(rentNeededForCashFlow(roundDeal(), 10_000_000_00)).toBeNull();
   });
 });
 

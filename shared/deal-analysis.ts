@@ -475,6 +475,41 @@ function dollars(n: number): string {
 }
 
 /**
+ * The monthly rent this property would have to fetch to hit a cash-flow target
+ * at its current asking price.
+ *
+ * The counterpart to maxPriceForCashFlow: that one answers "what can I pay?",
+ * this one answers "what would it have to rent for?". Together they say whether
+ * a deal that does not work is off by a little or by a lot, which the verdict
+ * alone cannot.
+ *
+ * Bisection again, because rent feeds vacancy, maintenance, capex AND
+ * management — the last as a cut of effective gross, not gross — so the closed
+ * form is easy to get subtly wrong when any of those percentages change.
+ */
+export function rentNeededForCashFlow(
+  input: DealInputs,
+  targetMonthlyCents: number,
+  scenario: DealScenario = "financed",
+): number | null {
+  const at = (monthlyRentCents: number): number =>
+    analyzeDeal({ ...input, monthlyRentCents }, scenario)[scenario].monthlyCashFlowCents;
+
+  let low = 0;
+  let high = 1_000_000_00;
+  if (at(high) < targetMonthlyCents) return null;
+
+  for (let i = 0; i < 60; i += 1) {
+    const mid = (low + high) / 2;
+    if (at(mid) >= targetMonthlyCents) high = mid;
+    else low = mid;
+  }
+  // To the nearest $5: rent is quoted in round numbers, and a figure like
+  // $5,064.73 would imply a precision this model does not have.
+  return Math.round(high / 500) * 500;
+}
+
+/**
  * The highest price at which the deal still clears a monthly cash-flow target.
  *
  * Found by bisection on price rather than algebraically, because price feeds
