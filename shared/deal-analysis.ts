@@ -157,6 +157,81 @@ export interface DealAnalysis {
   scenario: DealScenario;
 }
 
+export interface ClosingCostItem {
+  label: string;
+  cents: number;
+  /** What the number is, so it can be argued with rather than just accepted. */
+  basis: string;
+}
+
+/**
+ * Buyer-side closing costs, itemised — deliberately NOT a flat percentage.
+ *
+ * The original used 4% of price, which is a reasonable single number and a
+ * terrible explanation: you cannot tell whether it is too high for your lender
+ * or too low for your title company. Naming the parts means each can be checked
+ * against a real quote and the total can be overridden with confidence.
+ *
+ * NO AGENT COMMISSION. On a purchase the buyer's agent is paid from the
+ * seller's proceeds in the ordinary case, so putting it in the buyer's cash-to-
+ * close overstates what you need by tens of thousands. If you have separately
+ * agreed to pay your own agent, add it to the field.
+ *
+ * Nothing here is a quote. The percentages are the middle of the usual range;
+ * the flat fees are typical US figures. Real numbers come from a Loan Estimate
+ * and a title company, and both arrive well before closing.
+ */
+export function estimateClosingCosts(
+  input: Pick<
+    DealInputs,
+    | "priceCents"
+    | "downPayment"
+    | "downPaymentMode"
+    | "financeCosts"
+    | "rehabCents"
+    | "taxRatePct"
+    | "insuranceAnnualCents"
+    | "baseHazardCents"
+    | "windPerSqftCents"
+    | "floodAnnualCents"
+    | "sqft"
+  >,
+  scenario: DealScenario = "financed",
+): { totalCents: number; items: ClosingCostItem[] } {
+  const price = input.priceCents;
+
+  // The loan the origination fee is charged on. Approximated from price and the
+  // down payment rather than taken from the full model, because that model
+  // takes closing costs as an input — deriving one from the other would be
+  // circular.
+  const down =
+    input.downPaymentMode === "percent" ? (price * input.downPayment) / 100 : input.downPayment;
+  const loan = scenario === "cash" ? 0 : Math.max(0, price - down);
+
+  const annualTax = (price * input.taxRatePct) / 100;
+  const annualInsurance =
+    input.insuranceAnnualCents ??
+    input.baseHazardCents + input.sqft * input.windPerSqftCents + input.floodAnnualCents;
+
+  const items: ClosingCostItem[] = [];
+  const add = (label: string, cents: number, basis: string): void => {
+    if (cents > 0) items.push({ label, cents: Math.round(cents), basis });
+  };
+
+  if (loan > 0) {
+    add("Lender fees", loan * 0.0075, "0.75% of the loan — origination and underwriting");
+    add("Appraisal", 700_00, "typical single-family appraisal");
+  }
+  add("Inspection", 500_00, "general home inspection");
+  add("Title & settlement", price * 0.006, "0.6% of price — search, insurance, closing fee");
+  add("Recording & misc", 300_00, "deed recording and courier fees");
+  // Escrow is money you get the use of later, but it is still cash you bring to
+  // the table, so it belongs in cash-to-close.
+  add("Prepaid escrow", (annualTax + annualInsurance) / 4, "3 months of taxes and insurance");
+
+  return { totalCents: items.reduce((sum, i) => sum + i.cents, 0), items };
+}
+
 /** Sensible starting point for a new analysis. Coastal defaults match the original. */
 export function defaultDealInputs(priceCents = 0): DealInputs {
   return {

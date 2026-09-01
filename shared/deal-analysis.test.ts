@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   analyzeDeal,
   defaultDealInputs,
+  estimateClosingCosts,
   irr,
   maxPriceForCashFlow,
   rentNeededForCashFlow,
@@ -246,6 +247,66 @@ describe("maxPriceForCashFlow", () => {
   it("returns null when no price works", () => {
     // Rent cannot cover a $10,000/month target at any price.
     expect(maxPriceForCashFlow(roundDeal(), 10_000_00)).toBeNull();
+  });
+});
+
+describe("estimateClosingCosts", () => {
+  it("itemises rather than returning one opaque percentage", () => {
+    const { items, totalCents } = estimateClosingCosts(roundDeal());
+    expect(items.length).toBeGreaterThan(3);
+    expect(items.every((i) => i.label && i.basis && i.cents > 0)).toBe(true);
+    expect(totalCents).toBe(items.reduce((s, i) => s + i.cents, 0));
+  });
+
+  it("never includes an agent commission", () => {
+    const { items, totalCents } = estimateClosingCosts(roundDeal());
+    // The buyer's agent is paid from the seller's proceeds in the ordinary
+    // case; including it would overstate cash-to-close by tens of thousands.
+    expect(items.some((i) => /commission|agent|realtor|broker/i.test(i.label))).toBe(false);
+    // 3% of 300k would be 9,000 on its own — the whole estimate is under that.
+    expect(totalCents).toBeLessThan(9_000_00);
+  });
+
+  it("lands in the usual range for a financed purchase", () => {
+    const { totalCents } = estimateClosingCosts(roundDeal());
+    const pct = (totalCents / 300_000_00) * 100;
+    expect(pct).toBeGreaterThan(1);
+    expect(pct).toBeLessThan(3.5);
+  });
+
+  it("drops the lender fees and appraisal for an all-cash purchase", () => {
+    const financed = estimateClosingCosts(roundDeal(), "financed");
+    const cash = estimateClosingCosts(roundDeal(), "cash");
+    expect(financed.items.some((i) => /lender/i.test(i.label))).toBe(true);
+    expect(cash.items.some((i) => /lender|appraisal/i.test(i.label))).toBe(false);
+    expect(cash.totalCents).toBeLessThan(financed.totalCents);
+  });
+
+  it("scales the escrow with the local tax and insurance, not just the price", () => {
+    const cheap = estimateClosingCosts({ ...roundDeal(), taxRatePct: 0.26 });
+    const dear = estimateClosingCosts({ ...roundDeal(), taxRatePct: 1.5 });
+    expect(dear.totalCents).toBeGreaterThan(cheap.totalCents);
+  });
+
+  it("builds escrow from the coastal figures when insurance is not a flat number", () => {
+    const coastal = estimateClosingCosts({
+      ...roundDeal(),
+      insuranceAnnualCents: null,
+      baseHazardCents: 1_800_00,
+      windPerSqftCents: 130,
+      floodAnnualCents: 4_500_00,
+      sqft: 2_000,
+    });
+    const flat = estimateClosingCosts({ ...roundDeal(), insuranceAnnualCents: 1_200_00 });
+    // Coastal insurance is ~8,900/yr against 1,200 — a quarter of that gap has
+    // to show up in the prepaid escrow.
+    expect(coastal.totalCents).toBeGreaterThan(flat.totalCents + 1_500_00);
+  });
+
+  it("returns something sane for a zero-price deal", () => {
+    const { totalCents } = estimateClosingCosts(defaultDealInputs(0));
+    expect(Number.isFinite(totalCents)).toBe(true);
+    expect(totalCents).toBeGreaterThanOrEqual(0);
   });
 });
 

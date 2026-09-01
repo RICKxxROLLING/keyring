@@ -8,6 +8,7 @@ import { Field, Select, Spinner, TextInput } from "../../components/Form";
 import { hero } from "../../components/KeyGlyph";
 import {
   analyzeDeal,
+  estimateClosingCosts,
   FLOOD_ZONE_ANNUAL_CENTS,
   maxPriceForCashFlow,
   rentNeededForCashFlow,
@@ -15,6 +16,7 @@ import {
   type DealInputs,
   type DealScenario,
 } from "../../../shared/deal-analysis";
+import { ratesForZip } from "../../../shared/local-rates";
 
 interface DealPayload {
   inputs: DealInputs;
@@ -98,6 +100,36 @@ export function DealTab(): ReactElement {
 
   const coastal = inputs.insuranceAnnualCents === null;
   const windCents = inputs.sqft * inputs.windPerSqftCents;
+  const closing = estimateClosingCosts(inputs, scenario);
+
+  // Local figures for this property's own ZIP, if there are any. Offered, never
+  // applied behind your back — these drive the tax, and therefore the verdict.
+  const local = ratesForZip(dossier.property.postalCode);
+  const propertySqft = dossier.property.sqft ?? 0;
+  const localApplied =
+    local !== null &&
+    inputs.taxRatePct === local.taxRatePct &&
+    inputs.windPerSqftCents === local.windPerSqftCents &&
+    inputs.baseHazardCents === local.baseHazardCents &&
+    inputs.floodAnnualCents === (FLOOD_ZONE_ANNUAL_CENTS[local.floodZone] ?? -1) &&
+    (propertySqft === 0 || inputs.sqft === propertySqft);
+
+  function applyLocal(): void {
+    if (!local) return;
+    setInputs((prev) =>
+      prev
+        ? {
+            ...prev,
+            taxRatePct: local.taxRatePct,
+            insuranceAnnualCents: null,
+            windPerSqftCents: local.windPerSqftCents,
+            baseHazardCents: local.baseHazardCents,
+            floodAnnualCents: FLOOD_ZONE_ANNUAL_CENTS[local.floodZone] ?? prev.floodAnnualCents,
+            sqft: propertySqft || prev.sqft,
+          }
+        : prev,
+    );
+  }
 
   return (
     <div>
@@ -350,7 +382,73 @@ export function DealTab(): ReactElement {
         <div className="kr-deal-inputs">
           <Panel title="Purchase">
             <Money label="Purchase price" value={inputs.priceCents} onChange={(v) => set("priceCents", v)} />
-            <Money label="Closing costs" value={inputs.closingCostsCents} onChange={(v) => set("closingCostsCents", v)} />
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Money
+                label="Closing costs"
+                value={inputs.closingCostsCents}
+                onChange={(v) => set("closingCostsCents", v)}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  marginTop: 6,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => set("closingCostsCents", closing.totalCents)}
+                  disabled={inputs.closingCostsCents === closing.totalCents}
+                  className="kr-label"
+                  style={{
+                    minHeight: 0,
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    fontSize: 9,
+                    border: "1px solid var(--line)",
+                    background:
+                      inputs.closingCostsCents === closing.totalCents
+                        ? "var(--panel-2)"
+                        : hero.tint(color, 14),
+                    color: "var(--ink-2)",
+                  }}
+                >
+                  {inputs.closingCostsCents === closing.totalCents
+                    ? `✓ estimated ${formatCents(closing.totalCents)}`
+                    : `Estimate: ${formatCents(closing.totalCents)}`}
+                </button>
+              </div>
+              {/* Itemised, because "4% of price" tells you nothing about
+                  whether it is too high for your lender or too low for your
+                  title company. No agent commission: on a purchase that comes
+                  out of the seller's proceeds. */}
+              <details style={{ marginTop: 6 }}>
+                <summary
+                  className="kr-label"
+                  style={{ cursor: "pointer", fontSize: 9, color: "var(--ink-3)" }}
+                >
+                  What's in the estimate
+                </summary>
+                <div style={{ marginTop: 6 }}>
+                  {closing.items.map((i) => (
+                    <div key={i.label} style={{ padding: "3px 0" }}>
+                      <Derived label={i.label} value={formatCents(i.cents)} />
+                      <span style={{ display: "block", fontSize: 11, color: "var(--ink-3)" }}>
+                        {i.basis}
+                      </span>
+                    </div>
+                  ))}
+                  <Note>
+                    No agent commission — on a purchase your agent is paid from the seller&apos;s
+                    proceeds. Add it here only if you have agreed to pay your own. These are
+                    typical figures, not a quote; your Loan Estimate and title company will have
+                    the real ones well before closing.
+                  </Note>
+                </div>
+              </details>
+            </div>
             <Money label="Upfront repairs" value={inputs.rehabCents} onChange={(v) => set("rehabCents", v)} />
             <Field label="After-repair value basis">
               <Select
@@ -470,6 +568,46 @@ export function DealTab(): ReactElement {
           </Panel>
 
           <Panel title="Tax & insurance">
+            {/* Offered from the property's ZIP, never applied silently: the tax
+                rate drives NOI, the cap rate and the price this page tells you
+                to pay. Outside the ZIPs there are real figures for, nothing is
+                offered at all — see shared/local-rates.ts. */}
+            {local && (
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  padding: "10px 12px",
+                  borderRadius: 11,
+                  border: `1px solid ${local.confidence === "partial" ? "var(--warn)" : "var(--line)"}`,
+                  background:
+                    local.confidence === "partial" ? "var(--warn-fill)" : "var(--panel-2)",
+                }}
+              >
+                <span className="kr-label" style={{ display: "block", fontSize: 9 }}>
+                  {local.label}
+                </span>
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: 12.5,
+                    color: "var(--ink-2)",
+                    margin: "3px 0 8px",
+                  }}
+                >
+                  {local.note}
+                </span>
+                <Button
+                  variant="secondary"
+                  onClick={applyLocal}
+                  disabled={localApplied}
+                  type="button"
+                >
+                  {localApplied
+                    ? "✓ Using these figures"
+                    : `Use ${local.taxRatePct.toFixed(4)}% and the coastal insurance${propertySqft ? ` + ${propertySqft.toLocaleString()} sq ft` : ""}`}
+                </Button>
+              </div>
+            )}
             <Pct label="Property tax rate" value={inputs.taxRatePct} onChange={(v) => set("taxRatePct", v)} />
             <Derived label="Property tax / yr" value={formatCents(r.taxCents)} />
             <Field label="Insurance basis">
