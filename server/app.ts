@@ -8,7 +8,7 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { loadEnv } from "./config/env.js";
-import { initDb } from "./db/index.js";
+import { closeDb, initDb } from "./db/index.js";
 import { runMigrations } from "./db/migrate.js";
 import { ApiError, errorBody, installErrorHandler } from "./lib/errors.js";
 import { newId } from "./lib/ids.js";
@@ -129,6 +129,14 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   if (opts.startJobs !== false) startJobs(app.log, env.APP_TIMEZONE);
   app.addHook("onClose", async () => {
     stopJobs();
+    // Close the database too, which checkpoints the WAL back into the .db file.
+    //
+    // Without this, SIGTERM stopped the process with the write-ahead log still
+    // holding recent writes — safe, because SQLite recovers from the WAL on the
+    // next open, but it means the .db file on its own is NOT a complete copy of
+    // the database. Anyone stopping the container and copying that one file as
+    // a backup would silently take an incomplete one.
+    closeDb();
   });
 
   return app;
