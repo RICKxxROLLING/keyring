@@ -30,8 +30,20 @@ describe("ratesForZip", () => {
     expect(r.note).toMatch(/no town rate to add/i);
   });
 
+  it("knows Nags Head in full, beach nourishment included", () => {
+    const r = ratesForZip("27959")!;
+    expect(r.confidence).toBe("town");
+    // County 0.2632 + town 0.232 (0.212 town-wide + 0.02 nourishment).
+    expect(r.taxRatePct).toBeCloseTo(0.4952, 4);
+    // A district levy can still apply per parcel, and the note has to say so —
+    // "town" here means the town rate is known, not that nothing else exists.
+    expect(r.note).toMatch(/service district/i);
+  });
+
   it("flags a ZIP where a town rate exists but is not known", () => {
-    const r = ratesForZip("27959")!; // Nags Head
+    // 27949 spans Kitty Hawk, Southern Shores and Duck at different rates, so
+    // the ZIP alone cannot resolve it.
+    const r = ratesForZip("27949")!;
     expect(r.confidence).toBe("partial");
     expect(r.taxRatePct).toBeCloseTo(0.2632, 4);
     // The whole point: it says out loud that it is understating the tax.

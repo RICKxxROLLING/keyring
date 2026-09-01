@@ -38,7 +38,7 @@ export interface LocalRates {
   note: string;
 }
 
-/** Dare County's own rate, FY2025-26. The base every entry below builds on. */
+/** Dare County's own rate, unchanged for FY2026-27. The base every entry builds on. */
 const DARE_COUNTY_PCT = 0.2632;
 
 /** Outer Banks coastal insurance assumptions, shared across the county. */
@@ -78,8 +78,24 @@ const TABLE: Record<string, LocalRates> = {
   "27953": unincorporated("Manns Harbor & East Lake", "AE"),
   "27978": unincorporated("Stumpy Point", "AE"),
 
+  "27959": {
+    label: "Nags Head, Dare County",
+    confidence: "town",
+    // Town-wide 0.2120 + 0.0200 dedicated to beach nourishment = 0.2320,
+    // unchanged in the FY2026-27 budget passed 3 June 2026.
+    taxRatePct: DARE_COUNTY_PCT + 0.232,
+    ...COASTAL,
+    floodZone: "AE",
+    note:
+      `Dare County ${DARE_COUNTY_PCT}% + town 0.232% (0.212% town-wide plus 0.02% for beach ` +
+      `nourishment), so about 49.5¢ per $100. Oceanfront and near-oceanfront parcels may also ` +
+      `sit in one of the town's six beach-nourishment service districts, each with its own levy ` +
+      `on top — check the parcel before trusting this total. ${CONFIRM_QUOTE}`,
+  },
+
   // ---- county rate only, and a town rate exists that is not here ------------
-  "27959": partial("Nags Head", "AE"),
+  // 27949 covers Kitty Hawk, Southern Shores and Duck, which levy different
+  // rates, so the ZIP alone cannot say which applies.
   "27949": partial("Kitty Hawk, Southern Shores or Duck", "AE"),
 };
 
