@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { PropertyStage, PropertyType, PropertyView } from "../../shared/types";
 import { HERO_COLORS } from "../../shared/hero-colors";
+import { parseListing, filledFields } from "../../shared/listing-parse";
 import { apiPost, ApiClientError } from "../lib/api";
 import { qk } from "../lib/query";
 import { Button } from "../components/Button";
@@ -45,6 +46,37 @@ export function NewPropertyPage(): ReactElement {
   const [stage, setStage] = useState<PropertyStage>("owned");
   const [error, setError] = useState<string | null>(null);
 
+  // Paste-and-parse. See shared/listing-parse.ts for why this is a paste box
+  // rather than a URL field.
+  const [pasted, setPasted] = useState("");
+  const [pasteResult, setPasteResult] = useState<string | null>(null);
+  const [yearBuilt, setYearBuilt] = useState<number | null>(null);
+  const [sqft, setSqft] = useState<number | null>(null);
+  const [notes, setNotes] = useState("");
+
+  function applyListing() {
+    const parsed = parseListing(pasted);
+    const found = filledFields(parsed);
+    if (found.length === 0) {
+      setPasteResult("Couldn't find anything to fill in. Type it in below instead.");
+      return;
+    }
+    // Only ever fills BLANK fields. Anything already typed is yours and the
+    // parser's guess does not get to overwrite it.
+    if (parsed.addressLine1 && !addressLine1) setAddressLine1(parsed.addressLine1);
+    if (parsed.city && !city) setCity(parsed.city);
+    if (parsed.state && !state) setState(parsed.state);
+    if (parsed.postalCode && !postalCode) setPostalCode(parsed.postalCode);
+    if (parsed.propertyType) setPropertyType(parsed.propertyType);
+    if (parsed.yearBuilt) setYearBuilt(parsed.yearBuilt);
+    if (parsed.sqft) setSqft(parsed.sqft);
+    if (parsed.description && !notes) setNotes(parsed.description);
+    if (parsed.addressLine1 && !name) setName(parsed.addressLine1);
+    setPasteResult(
+      `Filled in ${found.length} field${found.length === 1 ? "" : "s"}. Check them before saving.`,
+    );
+  }
+
   const create = useMutation({
     mutationFn: () =>
       apiPost<PropertyView>("/api/properties", {
@@ -55,6 +87,9 @@ export function NewPropertyPage(): ReactElement {
         postalCode: postalCode.trim(),
         propertyType,
         stage,
+        ...(yearBuilt ? { yearBuilt } : {}),
+        ...(sqft ? { sqft } : {}),
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
         ...(heroColor ? { heroColor } : {}),
       }),
     onSuccess: (property) => {
@@ -90,6 +125,32 @@ export function NewPropertyPage(): ReactElement {
           <ErrorNotice message={error} />
         </div>
       )}
+
+      <details className="kr-card" style={{ marginBottom: 22, padding: "12px 14px", border: "1px solid var(--line)", borderRadius: 13, background: "var(--panel)" }}>
+        <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>
+          Paste a listing to fill this in
+        </summary>
+        <p style={{ margin: "8px 0 10px", fontSize: 12.5, color: "var(--ink-3)" }}>
+          Copy the whole listing page from Zillow, Redfin, Realtor.com or an agent&apos;s email
+          and paste it here. Photos are added on the property&apos;s Papers tab once it exists.
+        </p>
+        <textarea
+          className="kr-input"
+          rows={6}
+          value={pasted}
+          onChange={(e) => setPasted(e.target.value)}
+          placeholder="123 Maple St, Springfield, OH 45501&#10;$249,900&#10;3 bd 2 ba 1,548 sqft&#10;Built in 1965"
+          style={{ width: "100%", resize: "vertical", fontFamily: "inherit" }}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+          <Button type="button" variant="secondary" onClick={applyListing} disabled={!pasted.trim()}>
+            Fill in what you can
+          </Button>
+          {pasteResult && (
+            <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>{pasteResult}</span>
+          )}
+        </div>
+      </details>
 
       <form onSubmit={submit}>
         <Field label="Name" hint="What you call it — “Alder Street”, not the legal description.">
@@ -151,6 +212,39 @@ export function NewPropertyPage(): ReactElement {
         {/* A property you are weighing up is not one you hold. Both get a full
             dossier — the point is to scope and cost the renovation BEFORE you
             buy — but a prospect stays out of every portfolio total. */}
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))" }}>
+          <Field label="Year built" hint="Optional.">
+            <TextInput
+              inputMode="numeric"
+              value={yearBuilt === null ? "" : String(yearBuilt)}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setYearBuilt(e.target.value.trim() && Number.isFinite(n) ? Math.round(n) : null);
+              }}
+            />
+          </Field>
+          <Field label="Square feet" hint="Optional.">
+            <TextInput
+              inputMode="numeric"
+              value={sqft === null ? "" : String(sqft)}
+              onChange={(e) => {
+                const n = Number(e.target.value.replace(/,/g, ""));
+                setSqft(e.target.value.trim() && Number.isFinite(n) ? Math.round(n) : null);
+              }}
+            />
+          </Field>
+        </div>
+
+        <Field label="Description" hint="Filled from a pasted listing, if you used one.">
+          <textarea
+            className="kr-input"
+            rows={4}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            style={{ width: "100%", resize: "vertical", fontFamily: "inherit" }}
+          />
+        </Field>
+
         <fieldset style={{ border: 0, padding: 0, margin: "4px 0 0" }}>
           <legend className="kr-field-label" style={{ padding: 0 }}>
             Is this yours?

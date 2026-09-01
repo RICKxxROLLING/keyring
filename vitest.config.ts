@@ -10,7 +10,10 @@ export default defineConfig({
         test: {
           name: "server",
           environment: "node",
-          include: ["server/**/*.test.ts"],
+          // shared/ runs here rather than in a third project: it is plain,
+          // dependency-free TypeScript used by both sides, and node is the
+          // cheaper environment to prove it in.
+          include: ["server/**/*.test.ts", "shared/**/*.test.ts"],
           setupFiles: [],
           testTimeout: 20000,
         },
