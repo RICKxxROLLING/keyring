@@ -87,14 +87,14 @@ export function DemoDataPanel(): ReactElement {
 
       {s && !s.present && (
         <>
-          <Button onClick={() => load.mutate()} disabled={load.isPending || s.realProperties > 0}>
+          <Button onClick={() => load.mutate()} disabled={load.isPending}>
             {load.isPending ? "Loading…" : "Load demo data"}
           </Button>
           {s.realProperties > 0 && (
             <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--ink-3)" }}>
-              You already have {s.realProperties} propert{s.realProperties === 1 ? "y" : "ies"} of
-              your own. The demo only loads into an empty portfolio, so it can never be mixed in
-              with your real records.
+              Your {s.realProperties} own propert{s.realProperties === 1 ? "y" : "ies"} stay exactly
+              as they are. Demo keys carry a <strong>Demo</strong> tag everywhere they appear, and
+              removing the demo only ever touches them.
             </p>
           )}
         </>

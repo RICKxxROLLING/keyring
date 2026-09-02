@@ -3,6 +3,7 @@ import { useState, type ReactElement } from "react";
 import type { PropertyCard as PropertyCardData } from "../../shared/types";
 import { formatCents } from "../lib/format";
 import { KeyGlyph, hero } from "./KeyGlyph";
+import { DemoBadge } from "./DemoBadge";
 
 /**
  * A key hanging on the ring: hero band, photo, name, occupancy, and the one
@@ -94,6 +95,7 @@ export function PropertyCard({ property }: { property: PropertyCardData }): Reac
           >
             {property.name}
           </span>
+          {property.isDemo && <DemoBadge />}
         </div>
         <p className="kr-label" style={{ margin: "6px 0 0", fontSize: 9.5 }}>
           {property.addressLine1} · {property.state}

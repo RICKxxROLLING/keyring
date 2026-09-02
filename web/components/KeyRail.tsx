@@ -7,6 +7,7 @@ import { qk } from "../lib/query";
 import { useSession } from "../lib/session";
 import { KeyGlyph, hero } from "./KeyGlyph";
 import { RingMark } from "./RingMark";
+import { DemoBadge } from "./DemoBadge";
 import { Avatar } from "./Avatar";
 import { ThemeToggle } from "./ThemeToggle";
 import { NotificationBell } from "./NotificationBell";
@@ -98,6 +99,7 @@ export function KeyStrip(): ReactElement {
           >
             <KeyGlyph color={p.heroColor} size="card" holeColor="var(--bg-2)" />
             {p.name}
+            {p.isDemo && <DemoBadge size="small" />}
             {p.attentionCount > 0 && <AttentionCount property={p} />}
           </NavLink>
         );
@@ -364,6 +366,12 @@ function KeyRow({
           }}
         >
           {isProspect ? "Prospect" : `${doors} · ${state}`}
+        {property.isDemo && (
+          <>
+            {" "}
+            <DemoBadge size="small" />
+          </>
+        )}
         </span>
       </span>
       {property.attentionCount > 0 && <AttentionCount property={property} />}

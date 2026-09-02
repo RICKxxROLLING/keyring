@@ -69,6 +69,7 @@ function propertyCard(p: PropertyView): PropertyCard {
   return {
     id: p.id,
     stage: p.stage,
+    isDemo: p.isDemo,
     heroColor: p.heroColor,
     name: p.name,
     addressLine1: p.addressLine1,
@@ -365,6 +366,7 @@ const aggregateHandlers = [
     const created: PropertyView = {
       id: fx.genId("prp"),
       stage: body["stage"] === "prospect" ? "prospect" : "owned",
+      isDemo: false,
       heroColor: "oklch(0.665 0.125 42)",
       name: String(body["name"] ?? "New property"),
       addressLine1: String(body["addressLine1"] ?? ""),

@@ -168,10 +168,10 @@ describe("demo data toggle", () => {
     expect(anon.statusCode).toBe(401);
   });
 
-  it("POST is a no-op when the portfolio already has properties", async () => {
+  it("loads alongside real properties, leaving them alone", async () => {
     testApp = await createTestApp();
     const owner = createTestUser({ role: "owner" });
-    insertRealProperty(owner.id, "Already here");
+    const realId = insertRealProperty(owner.id, "Already here");
 
     const res = await testApp.app.inject({
       method: "POST",
@@ -179,8 +179,50 @@ describe("demo data toggle", () => {
       headers: bodyless(owner.headers),
     });
     expect(res.statusCode).toBe(200);
-    const body = unwrap<{ loaded: boolean }>(res);
-    expect(body.loaded).toBe(false);
-    expect(getDemoStatus().properties).toBe(0);
+    expect(unwrap<{ loaded: boolean }>(res).loaded).toBe(true);
+
+    const status = getDemoStatus();
+    expect(status.properties).toBe(5);
+    // The real one is untouched and still counted as yours.
+    expect(status.realProperties).toBe(1);
+    expect(
+      getDb().prepare(`SELECT name FROM properties WHERE id = ?`).get(realId),
+    ).toEqual({ name: "Already here" });
+  });
+
+  it("flags every seeded property as demo, and nothing else", async () => {
+    testApp = await createTestApp();
+    const owner = createTestUser({ role: "owner" });
+    insertRealProperty(owner.id, "Mine");
+    await loadDemoData();
+
+    // The flag is what the UI badges and what removal keys off, so a seeded
+    // row missing it would be indistinguishable from real data AND survive
+    // "remove demo data" — the two failures that matter most here.
+    const unflagged = getDb()
+      .prepare(`SELECT COUNT(*) AS n FROM properties WHERE is_demo = 0`)
+      .get() as { n: number };
+    expect(unflagged.n).toBe(1);
+
+    const flagged = getDb()
+      .prepare(`SELECT COUNT(*) AS n FROM properties WHERE is_demo = 1`)
+      .get() as { n: number };
+    expect(flagged.n).toBe(5);
+  });
+
+  it("refuses a second load while the demo is already present", async () => {
+    testApp = await createTestApp();
+    const owner = createTestUser({ role: "owner" });
+    await loadDemoData();
+
+    const res = await testApp.app.inject({
+      method: "POST",
+      url: "/api/ops/demo",
+      headers: bodyless(owner.headers),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(unwrap<{ loaded: boolean }>(res).loaded).toBe(false);
+    // Still five, not ten.
+    expect(getDemoStatus().properties).toBe(5);
   });
 });

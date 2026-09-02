@@ -106,6 +106,7 @@ function propertyBase(
   return {
     id,
     stage: "owned",
+    isDemo: false,
     heroColor: HERO_COLORS[Math.abs(id.charCodeAt(id.length - 1)) % HERO_COLORS.length]!.value,
     name,
     addressLine1,

@@ -297,6 +297,14 @@ export interface Property {
   /** Held, or still being considered. See PropertyStage. */
   stage: PropertyStage;
   /**
+   * Seeded by the demo loader rather than entered by anyone.
+   *
+   * Surfaced so the UI can mark it everywhere it appears. Demo data can now be
+   * loaded alongside real properties, so "which of these is pretend" has to be
+   * answerable at a glance rather than from memory.
+   */
+  isDemo: boolean;
+  /**
    * The property's hero colour — a CSS colour string, e.g.
    * `oklch(0.665 0.125 42)`.
    *
@@ -850,6 +858,8 @@ export interface PropertyCard {
   status: PropertyStatus;
   /** Held, or still being considered. The ring shows the two apart. */
   stage: PropertyStage;
+  /** Seeded demo data. Marked on the card so it is never mistaken for real. */
+  isDemo: boolean;
   coverUrl: string | null;
   quickFacts: PropertyQuickFacts;
   attentionCount: number;

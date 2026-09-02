@@ -32,6 +32,7 @@ export function registerDashboardRoutes(app: FastifyInstance, _ctx: AppContext):
       state: p.state,
       status: p.status,
       stage: p.stage,
+      isDemo: p.isDemo,
       coverUrl: coverUrlFor(p.coverUploadId),
       quickFacts: p.quickFacts,
       attentionCount: attentionByProperty.get(p.id) ?? 0,

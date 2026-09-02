@@ -1,6 +1,7 @@
 // server/domain/properties/repo.ts
 import { getDb } from "../../db/index.js";
 import { mapRow, mapRows } from "../common/rowmap.js";
+import { toBool } from "../../lib/rowmap.js";
 import { todayLocal, daysBetween } from "../../lib/time.js";
 import { getEnv } from "../../config/env.js";
 import { computeAttention } from "../common/attention.js";
@@ -13,19 +14,32 @@ import type {
   Unit,
 } from "../../../shared/types.js";
 
+/**
+ * A property row as the API describes it.
+ *
+ * mapRow only renames columns, so is_demo arrives as SQLite's 0 or 1 while the
+ * type says boolean — a lie that survives typechecking and reaches the client
+ * as a number. Coerced here, at the one place every property row is read, so no
+ * caller has to remember.
+ */
+function mapProperty(row: Record<string, unknown>): Property {
+  const mapped = mapRow<Property>(row);
+  return { ...mapped, isDemo: toBool(row.is_demo) };
+}
+
 export function getPropertyRow(id: string): Property {
   const row = getDb().prepare(`SELECT * FROM properties WHERE id = ?`).get(id) as
     | Record<string, unknown>
     | undefined;
   if (!row) throw notFound("Property");
-  return mapRow<Property>(row);
+  return mapProperty(row);
 }
 
 export function getPropertyRowOrNull(id: string): Property | null {
   const row = getDb().prepare(`SELECT * FROM properties WHERE id = ?`).get(id) as
     | Record<string, unknown>
     | undefined;
-  return row ? mapRow<Property>(row) : null;
+  return row ? mapProperty(row) : null;
 }
 
 export function listUnits(propertyId: string): Unit[] {
@@ -170,5 +184,5 @@ export function listProperties(includeArchived: boolean): PropertyView[] {
         : `SELECT * FROM properties WHERE archived_at IS NULL ORDER BY sort_order, name`,
     )
     .all() as Record<string, unknown>[];
-  return mapRows<Property>(rows).map(toPropertyView);
+  return rows.map(mapProperty).map(toPropertyView);
 }

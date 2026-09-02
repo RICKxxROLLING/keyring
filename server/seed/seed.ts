@@ -41,14 +41,24 @@ export async function seedDemoData(opts: { standalone?: boolean } = {}): Promise
   const db = opts.standalone ? initDb(env.DB_PATH) : getDb();
   if (opts.standalone) runMigrations(db);
 
-  const existing = db.prepare(`SELECT COUNT(*) AS n FROM properties`).get() as { n: number };
+  // Only demo data blocks a reseed, not real properties.
+  //
+  // This used to refuse whenever ANY property existed, which meant you could
+  // never look at the demo again once you had entered something of your own.
+  // Adding it alongside is safe because every seeded row is flagged is_demo and
+  // the removal path only ever touches those — see server/ops/demo.ts — and the
+  // UI marks demo properties everywhere they appear, so the two cannot be
+  // confused on screen either.
+  const existing = db.prepare(`SELECT COUNT(*) AS n FROM properties WHERE is_demo = 1`).get() as {
+    n: number;
+  };
   if (existing.n > 0) {
     return {
       seeded: false,
       properties: 0,
       units: 0,
       vendors: 0,
-      message: "Database already has properties; refusing to reseed (idempotent no-op).",
+      message: "The demo portfolio is already loaded.",
     };
   }
 

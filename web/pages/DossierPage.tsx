@@ -11,6 +11,7 @@ import { PropertyPresenceBar } from "../components/PresenceBar";
 import { ErrorNotice, Spinner } from "../components/Form";
 import { KeyGlyph, hero } from "../components/KeyGlyph";
 import { ProspectBanner } from "../components/ProspectBanner";
+import { DemoBadge } from "../components/DemoBadge";
 import { EditPropertyDialog } from "../components/EditPropertyDialog";
 import { Button } from "../components/Button";
 
@@ -125,6 +126,7 @@ export function DossierPage(): ReactElement {
 
         {/* Chips: the facts you say out loud when describing the building. */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "16px 0 0" }}>
+          {property.isDemo && <DemoBadge />}
           <Chip color={color}>{propertyTypeLabel(property.propertyType)}</Chip>
           <Chip color={color}>
             {qf.unitCount === 1 ? "1 door" : `${qf.unitCount} doors`} · {filled} filled
