@@ -1,16 +1,35 @@
 // web/lib/qrcode.ts — minimal, dependency-free QR code encoder (owner T4).
 // No QR package is in the frozen dependency list (package.json, §C3.1), so TOTP enrollment
-// renders its own code. Supports byte-mode text up to 78 bytes (versions 1-4, EC level L),
-// which comfortably covers an `otpauth://` URL. Longer input returns null so the caller can
+// renders its own code. Supports byte-mode text up to 134 bytes (versions 1-6, EC level L).
+//
+// It stopped at version 4 (78 bytes) on the stated grounds that this "comfortably covers an
+// otpauth:// URL". It does not — a real enrollment URL is 100-140 bytes — so the QR NEVER
+// rendered for anyone and every enrollment silently fell back to typing the secret by hand.
+//
+// Version 6 is where blocks arrive: its codewords split into two Reed-Solomon blocks that must
+// be interleaved (§8.6). Versions 1-5 are a single block, which is why the original could treat
+// the codeword stream as one run. Stopping at 6 is deliberate — version 7 additionally requires
+// the 18-bit version-information blocks, which nothing here needs.
+// Longer input returns null so the caller can
 // fall back to the copyable secret + URL (still a complete enrollment path without a QR).
 //
 // Implementation follows the public ISO/IEC 18004 algorithm (finder/alignment/timing patterns,
 // GF(256) Reed-Solomon error correction, BCH(15,5) format info, standard mask-penalty scoring).
 
-const BYTE_CAPACITY: Record<number, number> = { 1: 17, 2: 32, 3: 53, 4: 78 };
-const EC_CODEWORDS: Record<number, number> = { 1: 7, 2: 10, 3: 15, 4: 20 };
-const TOTAL_CODEWORDS: Record<number, number> = { 1: 26, 2: 44, 3: 70, 4: 100 };
-const ALIGNMENT_POSITIONS: Record<number, number[]> = { 1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26] };
+const BYTE_CAPACITY: Record<number, number> = { 1: 17, 2: 32, 3: 53, 4: 78, 5: 106, 6: 134 };
+/** Error-correction codewords PER BLOCK, not per symbol — the two differ from version 6 on. */
+const EC_PER_BLOCK: Record<number, number> = { 1: 7, 2: 10, 3: 15, 4: 20, 5: 26, 6: 18 };
+/** Reed-Solomon blocks the data is split across. Equal-sized at EC level L through version 6. */
+const EC_BLOCKS: Record<number, number> = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 2 };
+const TOTAL_CODEWORDS: Record<number, number> = { 1: 26, 2: 44, 3: 70, 4: 100, 5: 134, 6: 172 };
+const ALIGNMENT_POSITIONS: Record<number, number[]> = {
+  1: [],
+  2: [6, 18],
+  3: [6, 22],
+  4: [6, 26],
+  5: [6, 30],
+  6: [6, 34],
+};
 const EC_LEVEL_L_BITS = 0b01;
 
 /* --------------------------------------------------------------- GF(256) */
@@ -75,7 +94,7 @@ class BitBuffer {
 }
 
 function chooseVersion(byteLength: number): number | null {
-  for (const v of [1, 2, 3, 4]) {
+  for (const v of [1, 2, 3, 4, 5, 6]) {
     if (byteLength <= (BYTE_CAPACITY[v] as number)) return v;
   }
   return null;
@@ -83,7 +102,9 @@ function chooseVersion(byteLength: number): number | null {
 
 function buildCodewords(text: string, version: number): number[] {
   const bytes = Array.from(new TextEncoder().encode(text));
-  const dataCodewords = (TOTAL_CODEWORDS[version] as number) - (EC_CODEWORDS[version] as number);
+  const blocks = EC_BLOCKS[version] as number;
+  const ecPerBlock = EC_PER_BLOCK[version] as number;
+  const dataCodewords = (TOTAL_CODEWORDS[version] as number) - ecPerBlock * blocks;
   const bb = new BitBuffer();
   bb.push(0b0100, 4); // byte mode
   bb.push(bytes.length, 8); // count indicator (8 bits for versions 1-9)
@@ -109,8 +130,26 @@ function buildCodewords(text: string, version: number): number[] {
     dataBytes.push(byte);
   }
 
-  const ec = rsEncode(dataBytes, EC_CODEWORDS[version] as number);
-  return [...dataBytes, ...ec];
+  // Split, encode each block, then interleave (ISO/IEC 18004 §8.6): data codeword i of every
+  // block in turn, then EC codeword i of every block in turn. With a single block that is
+  // exactly the old concatenation, so versions 1-5 are byte-for-byte unaffected.
+  const perBlock = dataCodewords / blocks;
+  const dataBlocks: number[][] = [];
+  const ecBlocks: number[][] = [];
+  for (let b = 0; b < blocks; b++) {
+    const slice = dataBytes.slice(b * perBlock, (b + 1) * perBlock);
+    dataBlocks.push(slice);
+    ecBlocks.push(rsEncode(slice, ecPerBlock));
+  }
+
+  const out: number[] = [];
+  for (let i = 0; i < perBlock; i++) {
+    for (const block of dataBlocks) out.push(block[i] as number);
+  }
+  for (let i = 0; i < ecPerBlock; i++) {
+    for (const block of ecBlocks) out.push(block[i] as number);
+  }
+  return out;
 }
 
 /* ----------------------------------------------------------------- matrix */
@@ -182,7 +221,13 @@ function buildMatrix(version: number, codewords: number[]): boolean[][] {
   let bitIndex = 0;
   let upward = true;
   for (let colPair = size - 1; colPair >= 1; colPair -= 2) {
-    const col = colPair === 6 ? 5 : colPair; // never place in the timing column
+    // Step over the vertical timing column by moving the WALK, not just this
+    // one pair. Computing a shifted `col` locally left colPair on its original
+    // even sequence, so after the pair at 6 became (5,4) the next iterations
+    // were (4,3) and (2,1): columns 3 and 4 were written twice, column 0 never
+    // at all, and every codeword from there on landed in the wrong module.
+    if (colPair === 6) colPair = 5;
+    const col = colPair;
     for (let step = 0; step < size; step++) {
       const row = upward ? size - 1 - step : step;
       for (const c of [col, col - 1]) {
@@ -284,19 +329,24 @@ function buildMatrix(version: number, codewords: number[]): boolean[][] {
   const bits = ((data << 10) | rem) ^ 0x5412;
   const bit = (i: number) => ((bits >>> i) & 1) === 1;
 
-  for (let i = 0; i <= 5; i++) chosen.grid[8]![i] = bit(i);
-  chosen.grid[8]![7] = bit(6);
+  // Placement is [row][col]. This was transposed: bits 0-5 were written along
+  // ROW 8 and bits 9-14 down COLUMN 8, which is the mirror of the spec. The
+  // symbol still looked like a QR code — the data and the mask were correct —
+  // but a scanner reads the format info first, got the wrong mask number, and
+  // unmasked everything with the wrong pattern. Nothing decoded, ever.
+  for (let i = 0; i <= 5; i++) chosen.grid[i]![8] = bit(i);
+  chosen.grid[7]![8] = bit(6);
   chosen.grid[8]![8] = bit(7);
-  chosen.grid[7]![8] = bit(8);
-  for (let i = 9; i <= 14; i++) chosen.grid[14 - i]![8] = bit(i);
-  for (let i = 0; i <= 7; i++) chosen.grid[size - 1 - i]![8] = bit(i);
-  for (let i = 8; i <= 14; i++) chosen.grid[8]![size - 15 + i] = bit(i);
+  chosen.grid[8]![7] = bit(8);
+  for (let i = 9; i <= 14; i++) chosen.grid[8]![14 - i] = bit(i);
+  for (let i = 0; i <= 7; i++) chosen.grid[8]![size - 1 - i] = bit(i);
+  for (let i = 8; i <= 14; i++) chosen.grid[size - 15 + i]![8] = bit(i);
   chosen.grid[size - 8]![8] = true; // dark module
 
   return chosen.grid;
 }
 
-/** Encodes `text` as a QR code SVG string, or null if it exceeds this encoder's byte-mode capacity (78 bytes). */
+/** Encodes `text` as a QR code SVG string, or null if it exceeds this encoder's byte-mode capacity (134 bytes). */
 export function encodeQrSvg(text: string, moduleSize = 5, margin = 4): string | null {
   const byteLength = new TextEncoder().encode(text).length;
   const version = chooseVersion(byteLength);
