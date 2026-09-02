@@ -189,12 +189,184 @@ h1, h2, h3, .kr-display {
   text-wrap: balance;
 }
 
+/* ------------------------------------------------------------- motion --- */
+/*
+ * Everything below animates. The rule that switches it all off lives FIRST so
+ * it is impossible to add a keyframe further down and forget it exists.
+ *
+ * `animation-iteration-count: 1` matters as much as the durations: without it
+ * a looping animation set to 0.01ms becomes a seizure risk rather than a
+ * disabled animation. scroll-behavior is here for the same reason — a smooth
+ * scroll is motion the person asked not to see.
+ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Somebody else changed this row.
+ *
+ * Three people work in here at once and, until now, a work order someone else
+ * re-assigned simply had different words in it the next time you looked. The
+ * WebSocket frame already carries the actor, so the row washes in THAT
+ * person's avatar colour and fades out over 1.4s — slow enough to catch if you
+ * glance up a second later, gone before it nags.
+ *
+ * An inset box-shadow rather than a background: it inherits the element's
+ * border radius, composites on the GPU, and — the reason it is not a
+ * background — leaves whatever background the row already had alone. Nothing
+ * here moves anything, so a row cannot shift under a cursor mid-click.
+ */
+@keyframes kr-pulse {
+  from {
+    box-shadow: inset 0 0 0 9999px color-mix(in oklab, var(--kr-pulse) 20%, transparent);
+  }
+  to {
+    box-shadow: inset 0 0 0 9999px transparent;
+  }
+}
+.kr-pulse {
+  animation: kr-pulse 1400ms ease-out 1;
+}
+
+/*
+ * A bar that grows from nothing on arrival, and slides when its value changes.
+ *
+ * scaleX for the entrance and width for the change, deliberately: a keyframe
+ * cannot know the target width, and a width transition cannot start from a
+ * width that was never rendered. Together they cover both.
+ */
+@keyframes kr-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.kr-bar-fill {
+  transform-origin: left center;
+  animation: kr-grow-x 460ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1), background 200ms ease;
+}
+
+/*
+ * The dialog arriving.
+ *
+ * Mobile is a bottom sheet (the markup pins it to the bottom edge and rounds
+ * only its top corners), so it comes up from the edge it is attached to.
+ * Desktop is centred, so it settles rather than travels. The backdrop fades on
+ * its own shorter curve — one surface arriving, not two.
+ *
+ * Entry only. Animating the exit means keeping a closed dialog mounted until
+ * its animation ends, which is real state for the smaller half of the effect;
+ * the close reads fine as instant because the thing behind it is already
+ * familiar.
+ */
+@keyframes kr-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes kr-sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes kr-dialog-settle {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+.kr-dialog-backdrop {
+  animation: kr-fade-in 160ms ease-out 1;
+}
+.kr-dialog-panel {
+  animation: kr-sheet-up 260ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+/* 640px is Tailwind's sm:, where the markup itself switches from sheet to
+   centred card. The two have to change at the same width or the sheet slides
+   up in the middle of the screen. */
+@media (min-width: 640px) {
+  .kr-dialog-panel {
+    animation: kr-dialog-settle 190ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+  }
+}
+
+/*
+ * Keys arriving on the ring, one after another.
+ *
+ * Staggered because they hang on a wire: all five appearing at once reads as a
+ * list drawing, and the point of the rail is that it is not one. Capped at six
+ * steps so a long ring does not spend a second assembling.
+ */
+@keyframes kr-key-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.kr-key-in {
+  animation: kr-key-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--kr-stagger, 0) * 45ms);
+}
+
+/*
+ * Cutting a key.
+ *
+ * The glyph is built from four positioned primitives rather than an imported
+ * SVG, which is what makes this possible at all: the bow, the shaft and the
+ * two teeth animate separately, in the order a key is actually cut. Bow first
+ * (the blank), then the shaft extends out of it, then the teeth drop in.
+ *
+ * It runs once, on an action taken a handful of times a year.
+ */
+@keyframes kr-cut-bow {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes kr-cut-shaft {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes kr-cut-tooth {
+  from { opacity: 0; transform: translateY(-4px) scaleY(0.3); }
+  to { opacity: 1; transform: none; }
+}
+.kr-cut-bow {
+  animation: kr-cut-bow 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.kr-cut-shaft {
+  transform-origin: left center;
+  animation: kr-cut-shaft 220ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
+}
+.kr-cut-tooth-1 {
+  transform-origin: center top;
+  animation: kr-cut-tooth 200ms cubic-bezier(0.22, 1, 0.36, 1) 360ms both;
+}
+.kr-cut-tooth-2 {
+  transform-origin: center top;
+  animation: kr-cut-tooth 200ms cubic-bezier(0.22, 1, 0.36, 1) 440ms both;
+}
+
+/*
+ * The expanding row's body.
+ *
+ * The height itself is set inline, measured — see ExpandableRow for why the
+ * CSS-only routes (grid-template-rows, max-height) are not used. All this rule
+ * does is clip the overflow while it moves and carry the curve.
+ */
+.kr-expand-region {
+  overflow: hidden;
+  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 
 /* ------------------------------------------------------- keyring rail --- */
 

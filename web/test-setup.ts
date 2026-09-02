@@ -37,3 +37,17 @@ if (typeof window !== "undefined" && !window.matchMedia) {
     dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia;
 }
+
+// jsdom does not implement ResizeObserver. ExpandableRow measures its panel
+// with one to animate the height; without a stub the observer branch is simply
+// skipped, which is a different code path from the one that ships. A no-op
+// observer keeps the component on its real path — jsdom reports every height
+// as 0 either way, so nothing here depends on the measurement itself.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  class NoopResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = NoopResizeObserver;
+}

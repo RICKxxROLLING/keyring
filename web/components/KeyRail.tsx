@@ -174,9 +174,9 @@ export function KeyRail(): ReactElement {
           )}
 
           <ul style={{ position: "relative", listStyle: "none", margin: 0, padding: 0 }}>
-            {owned.map((p) => (
+            {owned.map((p, i) => (
               <li key={p.id}>
-                <KeyRow property={p} active={p.id === activeId} dimmed={activeId !== null} />
+                <KeyRow property={p} active={p.id === activeId} dimmed={activeId !== null} index={i} />
               </li>
             ))}
           </ul>
@@ -191,9 +191,14 @@ export function KeyRail(): ReactElement {
               Considering · {prospects.length}
             </span>
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {prospects.map((p) => (
+              {prospects.map((p, i) => (
                 <li key={p.id}>
-                  <KeyRow property={p} active={p.id === activeId} dimmed={activeId !== null} />
+                  <KeyRow
+                    property={p}
+                    active={p.id === activeId}
+                    dimmed={activeId !== null}
+                    index={owned.length + i}
+                  />
                 </li>
               ))}
             </ul>
@@ -295,10 +300,13 @@ function KeyRow({
   property,
   active,
   dimmed,
+  index,
 }: {
   property: PropertyCard;
   active: boolean;
   dimmed: boolean;
+  /** Position on the ring, which sets the stagger. */
+  index: number;
 }): ReactElement {
   const { heroColor: color } = property;
   const facts = property.quickFacts;
@@ -307,6 +315,12 @@ function KeyRow({
 
   const isProspect = property.stage === "prospect";
   const style: CSSProperties = {
+    // Keys arrive one after another rather than all at once — they hang on a
+    // wire, and a list that draws itself in a single frame does not read as
+    // one. Capped at six steps so a long ring is not still assembling a
+    // second later. The rail stays mounted across navigation, so this runs on
+    // load and never again.
+    ["--kr-stagger" as string]: String(Math.min(index, 6)),
     display: "flex",
     alignItems: "center",
     gap: 10,
@@ -326,7 +340,7 @@ function KeyRow({
   };
 
   return (
-    <NavLink to={`/p/${property.id}`} className="kr-key-row" style={style}>
+    <NavLink to={`/p/${property.id}`} className="kr-key-row kr-key-in" style={style}>
       {/* holeColor is the RAIL background so the ring wire shows through the
           bow — the whole reason the glyph paints its hole rather than
           leaving it transparent. */}

@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactElement } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { PropertyStage, PropertyType, PropertyView } from "../../shared/types";
@@ -77,6 +77,17 @@ export function NewPropertyPage(): ReactElement {
     );
   }
 
+  /**
+   * The key being cut, held for as long as the animation runs.
+   *
+   * The one deliberately delayed navigation in the app. This screen is called
+   * "Cut a new key" and the glyph is drawable, so finishing shows the key being
+   * cut before the dossier opens. It costs 780ms on an action taken a handful
+   * of times a year, and it is skipped outright when the person has asked for
+   * reduced motion.
+   */
+  const [cut, setCut] = useState<PropertyView | null>(null);
+
   const create = useMutation({
     mutationFn: () =>
       apiPost<PropertyView>("/api/properties", {
@@ -95,12 +106,28 @@ export function NewPropertyPage(): ReactElement {
     onSuccess: (property) => {
       void queryClient.invalidateQueries({ queryKey: qk.dashboard });
       void queryClient.invalidateQueries({ queryKey: qk.properties });
-      void navigate(`/p/${property.id}`, { replace: true });
+      if (prefersReducedMotion()) {
+        void navigate(`/p/${property.id}`, { replace: true });
+        return;
+      }
+      setCut(property);
     },
     onError: (err) => {
       setError(err instanceof ApiClientError ? err.message : "Couldn't add the property.");
     },
   });
+
+  // Cleared on unmount so a fast navigation away cannot land on a dead route.
+  const cutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!cut) return;
+    cutTimer.current = setTimeout(() => {
+      void navigate(`/p/${cut.id}`, { replace: true });
+    }, 780);
+    return () => {
+      if (cutTimer.current) clearTimeout(cutTimer.current);
+    };
+  }, [cut, navigate]);
 
   const ready =
     name.trim() && addressLine1.trim() && city.trim() && state.trim() && postalCode.trim();
@@ -110,6 +137,8 @@ export function NewPropertyPage(): ReactElement {
     setError(null);
     create.mutate();
   }
+
+  if (cut) return <KeyCut property={cut} />;
 
   return (
     <div style={{ paddingTop: 28, maxWidth: 620 }}>
@@ -333,6 +362,47 @@ function StageChoice(props: {
       </span>
     </button>
   );
+}
+
+/**
+ * The moment the key exists.
+ *
+ * Deliberately almost nothing: the key drawing itself and the name it was cut
+ * for. Anything else here would be a screen to read rather than a moment to
+ * watch, and the dossier is already on its way.
+ */
+function KeyCut({ property }: { property: PropertyView }): ReactElement {
+  return (
+    <div
+      role="status"
+      style={{
+        display: "grid",
+        placeItems: "center",
+        gap: 16,
+        minHeight: "50vh",
+        textAlign: "center",
+      }}
+    >
+      <KeyGlyph color={property.heroColor} size="hero" cutting />
+      <div>
+        <p className="kr-display" style={{ margin: 0, fontSize: 22 }}>
+          {property.name}
+        </p>
+        <p className="kr-label" style={{ margin: "8px 0 0" }}>
+          {property.stage === "prospect" ? "One to consider" : "On the ring"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * jsdom has no matchMedia unless a test stubs it, and an older browser may not
+ * know the query — either way the honest default is "no preference stated",
+ * which is what `false` means here.
+ */
+function prefersReducedMotion(): boolean {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 }
 
 function ColorChoice(props: {

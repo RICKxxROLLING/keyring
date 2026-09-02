@@ -66,6 +66,15 @@ export interface KeyGlyphProps {
   holeColor?: string;
   /** Decorative by default — the property name is always adjacent. */
   title?: string;
+  /**
+   * Draw the key rather than showing it: bow, then shaft, then the two teeth,
+   * in the order a key is actually cut.
+   *
+   * Possible only because the glyph is four positioned primitives rather than
+   * an imported SVG — the parts can carry their own animations. Used once, on
+   * the screen that says "Cut a new key". See the kr-cut-* keyframes.
+   */
+  cutting?: boolean;
 }
 
 export function KeyGlyph({
@@ -73,7 +82,9 @@ export function KeyGlyph({
   size = "rail",
   holeColor = "var(--panel)",
   title,
+  cutting = false,
 }: KeyGlyphProps): ReactElement {
+  const cut = (part: string): string | undefined => (cutting ? part : undefined);
   const g = GEOMETRY[size];
   const hero = color ?? "var(--metal)";
 
@@ -118,10 +129,19 @@ export function KeyGlyph({
       aria-label={title}
       aria-hidden={title ? undefined : true}
     >
-      <span style={bow} />
-      <span style={bar(g.shaftW, g.shaftH, g.shaftLeft, g.shaftTop)} />
-      <span style={bar(g.tooth1.w, g.tooth1.h, g.tooth1.left, g.tooth1.top)} />
-      <span style={bar(g.tooth2.w, g.tooth2.h, g.tooth2.left, g.tooth2.top)} />
+      <span className={cut("kr-cut-bow")} style={bow} />
+      <span
+        className={cut("kr-cut-shaft")}
+        style={bar(g.shaftW, g.shaftH, g.shaftLeft, g.shaftTop)}
+      />
+      <span
+        className={cut("kr-cut-tooth-1")}
+        style={bar(g.tooth1.w, g.tooth1.h, g.tooth1.left, g.tooth1.top)}
+      />
+      <span
+        className={cut("kr-cut-tooth-2")}
+        style={bar(g.tooth2.w, g.tooth2.h, g.tooth2.left, g.tooth2.top)}
+      />
     </span>
   );
 }

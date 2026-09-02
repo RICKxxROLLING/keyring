@@ -255,6 +255,8 @@ export function MoneyTab(): ReactElement {
                 <ExpandableRow
                   color={dossier.property.heroColor}
                   label={`Expense: ${e.description}`}
+                  entityType="property_expense"
+                  entityId={e.id}
                   summary={
                     <span
                       style={{

@@ -188,10 +188,7 @@ input[type="radio"] {
   top: 0.5rem;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
-}
+/* The reduced-motion rule lives in styles/tokens.css, next to the motion it
+   governs. There were two of them, here and there, with different durations
+   and only one setting animation-iteration-count — so which one won depended
+   on source order rather than on anyone's decision. */

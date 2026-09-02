@@ -241,6 +241,8 @@ export function TenantsTab(): ReactElement {
                 <ExpandableRow
                   color={dossier.property.heroColor}
                   label={`Lease for ${l.unitLabel}`}
+                  entityType="lease"
+                  entityId={l.id}
                   summary={
                     <span
                       style={{

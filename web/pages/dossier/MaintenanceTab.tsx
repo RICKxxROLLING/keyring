@@ -181,6 +181,8 @@ export function MaintenanceTab(): ReactElement {
               <ExpandableRow
                 color={dossier.property.heroColor}
                 label={`Recurring: ${tpl.title}`}
+                entityType="pm_template"
+                entityId={tpl.id}
                 summary={
                   <span
                     style={{

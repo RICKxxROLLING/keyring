@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import type { CommentSentiment, PropertyCommentView } from "../../../shared/types";
@@ -11,6 +11,7 @@ import { Avatar } from "../../components/Avatar";
 import { Button } from "../../components/Button";
 import { EmptyState, TextArea } from "../../components/Form";
 import { hero } from "../../components/KeyGlyph";
+import { pulseProps, useChangePulse } from "../../lib/change-pulse";
 
 /**
  * What everyone thinks of the place.
@@ -220,6 +221,9 @@ function Message({
 }): ReactElement {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.body);
+  // Someone else editing a message you are reading is exactly the case this
+  // exists for — the words change under you and nothing else says so.
+  const wash = pulseProps(useChangePulse("property_comment", message.id));
 
   const save = useMutation({
     mutationFn: () =>
@@ -256,15 +260,19 @@ function Message({
 
   return (
     <article
-      style={{
-        display: "flex",
-        gap: 12,
-        padding: "12px 14px",
-        borderRadius: 14,
-        border: "1px solid var(--line)",
-        borderLeft: `4px solid ${edge}`,
-        background: highlighted ? hero.tint(color, 10) : "var(--panel)",
-      }}
+      className={wash.className}
+      style={
+        {
+          display: "flex",
+          gap: 12,
+          padding: "12px 14px",
+          borderRadius: 14,
+          border: "1px solid var(--line)",
+          borderLeft: `4px solid ${edge}`,
+          background: highlighted ? hero.tint(color, 10) : "var(--panel)",
+          ...wash.style,
+        } as CSSProperties
+      }
     >
       {message.author && <Avatar user={message.author} size={30} />}
       <div style={{ minWidth: 0, flex: 1 }}>

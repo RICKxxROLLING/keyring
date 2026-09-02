@@ -25,7 +25,7 @@ export function Dialog(props: {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4"
+      className="kr-dialog-backdrop fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4"
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) props.onClose();
@@ -36,7 +36,9 @@ export function Dialog(props: {
         role="dialog"
         aria-modal="true"
         aria-label={props.title}
-        className={`max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl sm:p-6 ${
+        // Slides up from the bottom edge on mobile, where the markup below
+        // makes it a sheet; settles in place on desktop, where it is centred.
+        className={`kr-dialog-panel max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl sm:p-6 ${
           props.wide ? "sm:max-w-2xl" : "sm:max-w-md"
         }`}
       >

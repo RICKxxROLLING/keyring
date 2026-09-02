@@ -229,7 +229,10 @@ function SpendBar({
           overflow: "hidden",
         }}
       >
+        {/* kr-bar-fill grows it from nothing on arrival and slides it when the
+            figure changes — see the motion section in styles/tokens.css. */}
         <span
+          className="kr-bar-fill"
           style={{
             display: "block",
             height: "100%",

@@ -187,6 +187,8 @@ export function RenovationTab(): ReactElement {
                 color={color}
                 defaultOpen={openProject === p.id}
                 label={`Project: ${p.title}`}
+                entityType="project"
+                entityId={p.id}
                 summary={<ProjectSummary project={p} />}
               >
                 <ProjectDetail project={p} onChanged={invalidate} />

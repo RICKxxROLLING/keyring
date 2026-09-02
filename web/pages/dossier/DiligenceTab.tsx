@@ -236,6 +236,8 @@ export function DiligenceTab(): ReactElement {
                       color={color}
                       defaultOpen={highlighted === item.id}
                       label={`Checklist item: ${item.label}`}
+                      entityType="diligence_item"
+                      entityId={item.id}
                       summary={<ItemSummary item={item} />}
                     >
                       <ItemDetail item={item} onChanged={invalidate} />
