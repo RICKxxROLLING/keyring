@@ -14,6 +14,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { DossierPage } from "../DossierPage";
+import { OverviewTab } from "./OverviewTab";
 import { RenovationTab } from "./RenovationTab";
 import { DiscussionTab } from "./DiscussionTab";
 import { DiligenceTab } from "./DiligenceTab";
@@ -29,6 +30,7 @@ function renderTab(path: string, propertyId = PROSPECT) {
       <MemoryRouter initialEntries={[`/p/${propertyId}/${path}`]}>
         <Routes>
           <Route path="/p/:propertyId" element={<DossierPage />}>
+            <Route path="overview" element={<OverviewTab />} />
             <Route path="projects" element={<RenovationTab />} />
             <Route path="discussion" element={<DiscussionTab />} />
             <Route path="diligence" element={<DiligenceTab />} />
@@ -212,5 +214,79 @@ describe("the tabs a prospect does not get", () => {
     renderTab("tenants", "prp_00000001");
     await screen.findByRole("heading", { name: "Maple Street Duplex" });
     expect(screen.queryByText(/hidden from this property's tabs/)).not.toBeInTheDocument();
+  });
+});
+
+describe("Overview, on a property you have not bought", () => {
+  it("leads with the decision instead of a list of empty rooms", async () => {
+    renderTab("overview");
+    await loaded();
+
+    // The owned layout opens with the doors and who is behind them, and a
+    // "Needs a hand" feed computed from work orders, leases and compliance —
+    // none of which a house you do not own has.
+    expect(screen.queryByRole("heading", { name: /door/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Needs a hand" })).not.toBeInTheDocument();
+
+    for (const panel of ["Getting it rentable", "What the checks say", "What we think"]) {
+      expect(await screen.findByRole("heading", { name: panel })).toBeInTheDocument();
+    }
+  });
+
+  it("shows the answers, not a second copy of the counts above it", async () => {
+    renderTab("overview");
+    await loaded();
+
+    // The stat strip already carries the counts. What is worth a summary panel
+    // is what was actually found, said and quoted.
+    expect(await screen.findByText(/Permit is for 3 bedrooms/)).toBeInTheDocument();
+    expect(screen.getByText(/Sound views from the upper deck/)).toBeInTheDocument();
+    expect(screen.getByText(/Kitchen and both baths/)).toBeInTheDocument();
+    // The budget, not the spend: an earlier test in this file logs a cost
+    // against the same project, and asserting the running total would make
+    // this pass or fail on test order.
+    expect(screen.getByText(/of \$42,000\.00/)).toBeInTheDocument();
+  });
+
+  it("leaves out checklist items that have not come back", async () => {
+    renderTab("overview");
+    await loaded();
+
+    // "Short-term rental rules" is still at not-asked with no finding. Listing
+    // every open question would make this the checklist, not a summary of it.
+    await screen.findByRole("heading", { name: "What the checks say" });
+    expect(screen.queryByText(/Short-term rental rules/)).not.toBeInTheDocument();
+    expect(screen.getByText(/still open ·/)).toBeInTheDocument();
+  });
+
+  it("flags a chase that has gone past its date", async () => {
+    renderTab("overview");
+    await loaded();
+
+    const waiting = (await screen.findByText("Waiting on")).closest("div")!;
+    // Two items carry future dates; neither is overdue in the fixture, so the
+    // section exists without the warning. The date itself is the useful part.
+    expect(within(waiting).getByText(/Past building permits/)).toBeInTheDocument();
+  });
+
+  it("points each panel at the tab it summarises", async () => {
+    renderTab("overview");
+    await loaded();
+
+    // Relative links from /p/:id/overview.
+    const links = await screen.findAllByRole("link");
+    const hrefs = links.map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain(`/p/${PROSPECT}/projects`);
+    expect(hrefs).toContain(`/p/${PROSPECT}/diligence`);
+    expect(hrefs).toContain(`/p/${PROSPECT}/discussion`);
+  });
+
+  it("still opens with the doors on a property you own", async () => {
+    renderTab("overview", "prp_00000001");
+    await screen.findByRole("heading", { name: "Maple Street Duplex" });
+
+    expect(await screen.findByRole("heading", { name: /Two doors/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Needs a hand" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "What we think" })).not.toBeInTheDocument();
   });
 });

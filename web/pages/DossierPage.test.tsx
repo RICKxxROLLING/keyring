@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { DossierPage } from "./DossierPage";
@@ -99,11 +99,20 @@ describe("DossierPage", () => {
       renderDossier("prp_00000006");
       await screen.findByRole("heading", { name: "Wrightsville Cottage" });
 
-      // Renovation, Diligence and Discussion are already tabs here. Listing
-      // them again below would be a menu of things already on screen.
-      expect(screen.queryByRole("link", { name: /^Projects\b/ })).not.toBeInTheDocument();
-      expect(screen.getAllByRole("link", { name: /^Discussion\b/ })).toHaveLength(1);
-      expect(screen.getByRole("link", { name: /^Notes\b/ })).toBeInTheDocument();
+      // Renovation, Diligence and Discussion are already tabs here, and the
+      // Overview panels link to them a second time on purpose. What must not
+      // happen is the module grid ALSO listing them — that grid exists for the
+      // modules with nowhere else to be.
+      const grid = screen.getByRole("heading", { name: "Also on this key" }).parentElement!;
+      const inGrid = within(grid)
+        .getAllByRole("link")
+        .map((a) => a.textContent ?? "");
+      expect(inGrid.some((t) => t.startsWith("Notes"))).toBe(true);
+      for (const already of ["Projects", "Discussion", "Diligence"]) {
+        expect(inGrid.some((t) => t.startsWith(already)), `${already} repeated in the grid`).toBe(
+          false,
+        );
+      }
     });
   });
 });

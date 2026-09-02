@@ -1,11 +1,13 @@
 import { Link } from "react-router-dom";
 import type { ReactElement } from "react";
+import type { PropertyDossier } from "../../../shared/types";
 import { useDossier } from "../../lib/dossier-context";
 import { formatCents, formatDate } from "../../lib/format";
 import { AttentionFeed } from "../../components/AttentionFeed";
 import { ModuleLinks } from "../../components/ModuleLinks";
 import { EmptyState } from "../../components/Form";
 import { hero } from "../../components/KeyGlyph";
+import { ProspectOverview } from "./ProspectOverview";
 
 /**
  * Overview — the design's screen 2 body.
@@ -13,12 +15,28 @@ import { hero } from "../../components/KeyGlyph";
  * Left: the doors (the thing you actually came to look at). Right: the
  * particulars and whatever is currently open. Everything that lost its tab in
  * the five-tab bar is reachable from the module grid at the bottom.
+ *
+ * A property you have not bought gets a different body entirely. Leading with
+ * the doors and who is behind them means leading with a list of empty rooms,
+ * and "Needs a hand" is computed from work orders, leases and compliance —
+ * none of which a prospect has. What it does have is a decision in progress,
+ * so ProspectOverview summarises the three tabs that hold it.
  */
 export function OverviewTab(): ReactElement {
   const dossier = useDossier();
   const color = dossier.property.heroColor;
   const units = dossier.property.units;
   const filled = units.filter((u) => u.status === "occupied").length;
+
+  if (dossier.property.stage === "prospect") {
+    return (
+      <div>
+        <ProspectOverview dossier={dossier} />
+        <PinnedNotes dossier={dossier} />
+        <ModuleLinks dossier={dossier} />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -141,32 +159,57 @@ export function OverviewTab(): ReactElement {
           </div>
           <AttentionFeed items={dossier.attention} />
 
-          {dossier.notes.filter((n) => n.pinned).length > 0 && (
-            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line-soft)" }}>
-              <h3 className="kr-label" style={{ marginBottom: 8 }}>
-                Pinned
-              </h3>
-              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
-                {dossier.notes
-                  .filter((n) => n.pinned)
-                  .slice(0, 4)
-                  .map((n) => (
-                    <li key={n.id}>
-                      <Link
-                        to={`../notes?note=${n.id}`}
-                        style={{ fontSize: 13.5, color: "var(--ink-2)" }}
-                      >
-                        {n.title || n.body.slice(0, 60)}
-                      </Link>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          )}
+          <PinnedNotes dossier={dossier} inline />
         </section>
       </div>
 
       <ModuleLinks dossier={dossier} />
+    </div>
+  );
+}
+
+/**
+ * Pinned notes, which matter on both kinds of property.
+ *
+ * `inline` is for the owned layout, where this sits inside the "Needs a hand"
+ * panel and borrows its background; standalone it needs its own.
+ */
+function PinnedNotes({
+  dossier,
+  inline,
+}: {
+  dossier: PropertyDossier;
+  inline?: boolean;
+}): ReactElement | null {
+  const pinned = dossier.notes.filter((n) => n.pinned);
+  if (pinned.length === 0) return null;
+
+  return (
+    <div
+      style={
+        inline
+          ? { marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--line-soft)" }
+          : {
+              marginTop: 22,
+              padding: "16px 18px",
+              background: "var(--panel-2)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+            }
+      }
+    >
+      <h3 className="kr-label" style={{ marginBottom: 8 }}>
+        Pinned
+      </h3>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
+        {pinned.slice(0, 4).map((n) => (
+          <li key={n.id}>
+            <Link to={`../notes?note=${n.id}`} style={{ fontSize: 13.5, color: "var(--ink-2)" }}>
+              {n.title || n.body.slice(0, 60)}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
