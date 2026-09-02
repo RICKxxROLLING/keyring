@@ -550,34 +550,53 @@ export async function seedDemoData(opts: { standalone?: boolean } = {}): Promise
         url: `/p/${p.id}/projects?project=${projectId}`,
         updatedAt: at0,
       });
-      const lines: { kind: "budget" | "expense"; label: string; amount: number }[] = [
-        { kind: "budget", label: "Paint and materials", amount: Math.round(budget * 0.4) },
-        { kind: "budget", label: "Labor", amount: Math.round(budget * 0.6) },
+      // Budget lines: the plan, which is nobody's money yet.
+      const lines = [
+        { label: "Paint and materials", amount: Math.round(budget * 0.4) },
+        { label: "Labor", amount: Math.round(budget * 0.6) },
       ];
-      if (idx === 0) {
-        lines.push({ kind: "expense", label: "Materials purchase", amount: Math.round(budget * 0.42) });
-      }
       lines.forEach((line) => {
         const id = newId("pln");
         db.prepare(
           `INSERT INTO project_lines (id, project_id, kind, label, category, amount_cents,
              incurred_on, vendor_id, note, created_at, updated_at, created_by, updated_by, version)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, 1)`,
+           VALUES (?, ?, 'budget', ?, NULL, ?, NULL, NULL, NULL, ?, ?, ?, ?, 1)`,
+        ).run(id, projectId, line.label, line.amount, at0, at0, uid, uid);
+      });
+
+      // What was actually spent is a LEDGER row tagged to the project, not a
+      // second cost store on the project itself. One payment, one row, seen by
+      // both the renovation tab and the money page — see projects/repo.ts.
+      if (idx === 0) {
+        const spendId = newId("exp");
+        db.prepare(
+          `INSERT INTO property_expenses (id, property_id, unit_id, category, description,
+             amount_cents, incurred_on, vendor_id, work_order_id, project_id, note, created_at,
+             updated_at, created_by, updated_by, version)
+           VALUES (?, ?, NULL, 'capex', ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, 1)`,
         ).run(
-          id,
+          spendId,
+          p.id,
+          "Materials purchase",
+          Math.round(budget * 0.42),
+          addDays(today, -5),
+          vendorFor("General"),
           projectId,
-          line.kind,
-          line.label,
-          line.kind === "expense" ? "capex" : null,
-          line.amount,
-          line.kind === "expense" ? addDays(today, -5) : null,
-          line.kind === "expense" ? vendorFor("General") : null,
           at0,
           at0,
           uid,
           uid,
         );
-      });
+        indexEntity({
+          entityType: "property_expense",
+          entityId: spendId,
+          propertyId: p.id,
+          title: "Materials purchase",
+          body: `capex ${addDays(today, -5)}`,
+          url: `/p/${p.id}/money?expense=${spendId}`,
+          updatedAt: at0,
+        });
+      }
     });
   });
 

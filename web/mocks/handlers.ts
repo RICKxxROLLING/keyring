@@ -7,6 +7,7 @@ import type {
   AttentionItem,
   ComplianceItemView,
   DashboardPayload,
+  DiligenceItemView,
   ErrorCode,
   Invite,
   LeaseView,
@@ -15,6 +16,7 @@ import type {
   Page,
   PmTemplate,
   PropertyCard,
+  PropertyCommentView,
   PropertyDossier,
   PropertyExpense,
   PropertyView,
@@ -36,6 +38,7 @@ import type {
   WorkOrderView,
 } from "../../shared/types";
 import * as fx from "./fixtures";
+import { DILIGENCE_TEMPLATE } from "../../shared/diligence-checklist";
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -85,12 +88,17 @@ function propertyCard(p: PropertyView): PropertyCard {
 function dossierFor(propertyId: string): PropertyDossier | null {
   const property = fx.properties.find((p) => p.id === propertyId);
   if (!property) return null;
+  // A cost logged on the renovation tab is a ledger row; re-derive so the
+  // project reflects it, exactly as the server's join would.
+  fx.syncProjectTotals();
   return {
     property,
     notes: fx.notes.filter((n) => n.propertyId === propertyId),
     workOrders: fx.workOrders.filter((w) => w.propertyId === propertyId),
     pmTemplates: fx.pmTemplates.filter((t) => t.propertyId === propertyId),
     projects: fx.projects.filter((p) => p.propertyId === propertyId),
+    discussion: fx.propertyComments.filter((c) => c.propertyId === propertyId),
+    diligence: fx.diligenceItems.filter((d) => d.propertyId === propertyId),
     tenants: fx.tenants.filter((t) => t.propertyId === propertyId),
     leases: fx.leases.filter((l) => l.propertyId === propertyId),
     rentEntries: fx.rentEntries.filter((r) => r.propertyId === propertyId),
@@ -668,7 +676,10 @@ const workOrderHandlers = [
 /* --------------------------------------------------------------- projects */
 
 const projectHandlers = [
-  http.get("/api/properties/:propertyId/projects", ({ params }) => ok(page<ProjectView>(fx.projects.filter((p) => p.propertyId === params.propertyId)))),
+  http.get("/api/properties/:propertyId/projects", ({ params }) => {
+    fx.syncProjectTotals();
+    return ok(page<ProjectView>(fx.projects.filter((p) => p.propertyId === params.propertyId)));
+  }),
 
   http.post("/api/properties/:propertyId/projects", async ({ params, request }) => {
     const body = (await request.json()) as Record<string, unknown>;
@@ -686,6 +697,7 @@ const projectHandlers = [
       actualStart: null,
       actualEnd: null,
       budgetCents: (body["budgetCents"] as number | null) ?? null,
+      ledgerCosts: [],
       createdAt: now,
       updatedAt: now,
       createdBy: fx.CURRENT_USER_ID,
@@ -703,6 +715,7 @@ const projectHandlers = [
   }),
 
   http.get("/api/projects/:id", ({ params }) => {
+    fx.syncProjectTotals();
     const p = fx.projects.find((x) => x.id === params.id);
     if (!p) return err("NOT_FOUND", "Project not found.", 404);
     return ok(p);
@@ -781,6 +794,151 @@ const projectHandlers = [
 ];
 
 /* ---------------------------------------------------------- tenants/leases */
+
+/* ---------------------------------------------------- discussion & diligence */
+
+const discussionHandlers = [
+  http.get("/api/properties/:propertyId/discussion", ({ params }) =>
+    ok(page<PropertyCommentView>(fx.propertyComments.filter((c) => c.propertyId === params.propertyId), 500)),
+  ),
+
+  http.post("/api/properties/:propertyId/discussion", async ({ params, request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const now = new Date().toISOString();
+    const comment: PropertyCommentView = {
+      id: fx.genId("pcm"),
+      propertyId: params.propertyId as string,
+      body: String(body["body"] ?? ""),
+      sentiment: (body["sentiment"] as PropertyCommentView["sentiment"]) ?? null,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: fx.CURRENT_USER_ID,
+      updatedBy: fx.CURRENT_USER_ID,
+      version: 1,
+      author: fx.userRef(fx.CURRENT_USER_ID),
+      lastEditor: fx.userRef(fx.CURRENT_USER_ID),
+      edited: false,
+    };
+    // push, not unshift: a thread reads oldest first.
+    fx.propertyComments.push(comment);
+    return ok(comment, 201);
+  }),
+
+  http.patch("/api/property-comments/:id", async ({ params, request }) => {
+    const c = fx.propertyComments.find((x) => x.id === params.id);
+    if (!c) return err("NOT_FOUND", "Comment not found.", 404);
+    if (c.createdBy !== fx.CURRENT_USER_ID) return err("FORBIDDEN", "You can only edit your own messages.", 403);
+    const body = (await request.json()) as Record<string, unknown>;
+    if (!checkVersion(c, body)) return err("VERSION_CONFLICT", "This message was changed while you were editing.", 409, { current: c });
+    const { expectedVersion: _ignored, ...patch } = body;
+    Object.assign(c, patch, {
+      version: c.version + 1,
+      updatedAt: new Date().toISOString(),
+      lastEditor: fx.userRef(fx.CURRENT_USER_ID),
+      edited: true,
+    });
+    return ok(c);
+  }),
+
+  http.delete("/api/property-comments/:id", ({ params }) => {
+    const idx = fx.propertyComments.findIndex((c) => c.id === params.id);
+    if (idx === -1) return err("NOT_FOUND", "Comment not found.", 404);
+    fx.propertyComments.splice(idx, 1);
+    return ok({ id: params.id as string, deleted: true });
+  }),
+];
+
+const diligenceHandlers = [
+  http.get("/api/properties/:propertyId/diligence", ({ params }) =>
+    ok(page<DiligenceItemView>(fx.diligenceItems.filter((d) => d.propertyId === params.propertyId), 200)),
+  ),
+
+  http.post("/api/properties/:propertyId/diligence", async ({ params, request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const propertyId = params.propertyId as string;
+    const item = newDiligenceItem(propertyId, {
+      label: String(body["label"] ?? "Untitled"),
+      category: (body["category"] as DiligenceItemView["category"]) ?? "other",
+      status: (body["status"] as DiligenceItemView["status"]) ?? "todo",
+      detail: (body["detail"] as string | null) ?? null,
+      finding: (body["finding"] as string | null) ?? null,
+    });
+    fx.diligenceItems.push(item);
+    return ok(item, 201);
+  }),
+
+  http.post("/api/properties/:propertyId/diligence/checklist", ({ params }) => {
+    const propertyId = params.propertyId as string;
+    const existing = new Set(
+      fx.diligenceItems
+        .filter((d) => d.propertyId === propertyId)
+        .map((d) => d.label.trim().toLowerCase()),
+    );
+    const added: DiligenceItemView[] = [];
+    for (const t of DILIGENCE_TEMPLATE) {
+      if (existing.has(t.label.trim().toLowerCase())) continue;
+      const item = newDiligenceItem(propertyId, {
+        label: t.label,
+        category: t.category,
+        status: "todo",
+        detail: t.detail,
+        finding: null,
+      });
+      fx.diligenceItems.push(item);
+      added.push(item);
+    }
+    return ok({ added, skipped: DILIGENCE_TEMPLATE.length - added.length }, 201);
+  }),
+
+  http.patch("/api/diligence-items/:id", async ({ params, request }) => {
+    const item = fx.diligenceItems.find((d) => d.id === params.id);
+    if (!item) return err("NOT_FOUND", "Checklist item not found.", 404);
+    const body = (await request.json()) as Record<string, unknown>;
+    if (!checkVersion(item, body)) return err("VERSION_CONFLICT", "This item was changed by someone else.", 409, { current: item });
+    const { expectedVersion: _ignored, ...patch } = body;
+    Object.assign(item, patch, { version: item.version + 1, updatedAt: new Date().toISOString() });
+    // The server resolves the document from uploadId, so the mock does too —
+    // otherwise attaching a file appears to do nothing.
+    item.document = item.uploadId
+      ? (fx.uploads.find((u) => u.id === item.uploadId) ?? null)
+      : null;
+    return ok(item);
+  }),
+
+  http.delete("/api/diligence-items/:id", ({ params }) => {
+    const idx = fx.diligenceItems.findIndex((d) => d.id === params.id);
+    if (idx === -1) return err("NOT_FOUND", "Checklist item not found.", 404);
+    fx.diligenceItems.splice(idx, 1);
+    return ok({ id: params.id as string, deleted: true });
+  }),
+];
+
+function newDiligenceItem(
+  propertyId: string,
+  fields: Pick<DiligenceItemView, "label" | "category" | "status" | "detail" | "finding">,
+): DiligenceItemView {
+  const now = new Date().toISOString();
+  const order = fx.diligenceItems.filter((d) => d.propertyId === propertyId).length;
+  return {
+    id: fx.genId("dil"),
+    propertyId,
+    ...fields,
+    sourceUrl: null,
+    dueDate: null,
+    assigneeId: null,
+    uploadId: null,
+    sortOrder: order,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: fx.CURRENT_USER_ID,
+    updatedBy: fx.CURRENT_USER_ID,
+    version: 1,
+    assignee: null,
+    document: null,
+  };
+}
+
+/* ------------------------------------------------------------------ tenants */
 
 const tenantHandlers = [
   http.get("/api/properties/:propertyId/tenants", ({ params }) => ok(page<Tenant>(fx.tenants.filter((t) => t.propertyId === params.propertyId)))),
@@ -1410,6 +1568,8 @@ export const handlers = [
   ...noteHandlers,
   ...workOrderHandlers,
   ...projectHandlers,
+  ...discussionHandlers,
+  ...diligenceHandlers,
   ...tenantHandlers,
   ...moneyHandlers,
   ...vendorHandlers,

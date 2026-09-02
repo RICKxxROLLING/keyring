@@ -12,7 +12,9 @@ import { OverviewTab } from "./pages/dossier/OverviewTab";
 import { NotesTab } from "./pages/dossier/NotesTab";
 import { MaintenanceTab } from "./pages/dossier/MaintenanceTab";
 import { DealTab } from "./pages/dossier/DealTab";
-import { ProjectsTab } from "./pages/dossier/ProjectsTab";
+import { RenovationTab } from "./pages/dossier/RenovationTab";
+import { DiscussionTab } from "./pages/dossier/DiscussionTab";
+import { DiligenceTab } from "./pages/dossier/DiligenceTab";
 import { TenantsTab } from "./pages/dossier/TenantsTab";
 import { MoneyTab } from "./pages/dossier/MoneyTab";
 import { SpecsTab } from "./pages/dossier/SpecsTab";
@@ -64,7 +66,11 @@ export function AppRoutes(): ReactElement {
           <Route path="notes" element={<NotesTab />} />
           <Route path="maintenance" element={<MaintenanceTab />} />
           <Route path="deal" element={<DealTab />} />
-          <Route path="projects" element={<ProjectsTab />} />
+          {/* Still "projects": server-generated URLs point here, and the tab
+              is only LABELLED Renovation on a property you do not own yet. */}
+          <Route path="projects" element={<RenovationTab />} />
+          <Route path="discussion" element={<DiscussionTab />} />
+          <Route path="diligence" element={<DiligenceTab />} />
           <Route path="tenants" element={<TenantsTab />} />
           <Route path="money" element={<MoneyTab />} />
           <Route path="specs" element={<SpecsTab />} />

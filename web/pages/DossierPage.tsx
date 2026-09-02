@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import type { PropertyDossier } from "../../shared/types";
+import { summarizeDiligence } from "../../shared/diligence-checklist";
 import { apiGet } from "../lib/api";
 import { qk } from "../lib/query";
 import { usePropertyChannel } from "../lib/realtime";
@@ -22,13 +23,14 @@ import { Button } from "../components/Button";
  * border, tinted chips, and the active tab sitting flush against the header's
  * edge so the two read as one surface.
  *
- * TABS. The design shows five; the app has eleven modules. The five are the
- * ones with a designed home, and the rest are reachable from Overview rather
- * than being deleted — a tab bar with eleven items is the thing the design was
- * deliberately avoiding, but losing a feature to make a bar look calm is worse.
- * Every route still exists and still works if linked or bookmarked.
+ * TABS. The design shows five; the app has more modules than that. The five are
+ * the ones with a designed home, and the rest are reachable from Overview
+ * rather than being deleted — a tab bar with a dozen items is the thing the
+ * design was deliberately avoiding, but losing a feature to make a bar look
+ * calm is worse. Every route still exists and still works if linked or
+ * bookmarked.
  */
-const TABS = [
+const OWNED_TABS = [
   { to: "overview", label: "Overview" },
   { to: "tenants", label: "Tenants" },
   { to: "money", label: "Ledger" },
@@ -37,14 +39,34 @@ const TABS = [
 ];
 
 /**
- * The deal tab exists only while you are deciding.
+ * A property you are considering gets a different bar, not the same bar with
+ * two extra items.
  *
- * Once it is yours the question stops being "should I buy this" and becomes
- * "how is it doing", which the Ledger already answers from real rent and real
- * expenses rather than from assumptions. Leaving a projection tab on an owned
- * property would invite reading forecasts as facts.
+ * Tenants and Maintenance are gone because a house you do not own has neither,
+ * and a tab that is empty by definition trains you to stop reading the bar. In
+ * their place are the three things a decision actually consists of: what it
+ * would cost to get it rentable, what you still have to verify, and what the
+ * people looking at it think.
+ *
+ * Both routes still exist. Someone who bookmarked a prospect's Tenants tab, or
+ * who is carrying an inherited lease, still gets the page — see NotForProspect
+ * in the tabs themselves.
+ *
+ * The numbers runs the other way: it is here and nowhere else. Once the house
+ * is yours the question stops being "should I buy this" and becomes "how is it
+ * doing", which the Ledger answers from real rent and real expenses rather than
+ * from assumptions. Leaving a projection tab on an owned property would invite
+ * reading forecasts as facts.
  */
-const PROSPECT_TABS = [{ to: "deal", label: "The numbers" }];
+const PROSPECT_TABS = [
+  { to: "overview", label: "Overview" },
+  { to: "deal", label: "The numbers" },
+  { to: "projects", label: "Renovation" },
+  { to: "diligence", label: "Diligence" },
+  { to: "discussion", label: "Discussion" },
+  { to: "money", label: "Ledger" },
+  { to: "files", label: "Papers" },
+];
 
 export function DossierPage(): ReactElement {
   const { propertyId } = useParams<{ propertyId: string }>();
@@ -152,7 +174,7 @@ export function DossierPage(): ReactElement {
           style={{ marginTop: 18, marginBottom: -1 }}
         >
           <div style={{ display: "flex", gap: 4, minWidth: "max-content" }}>
-            {[...TABS, ...(property.stage === "prospect" ? PROSPECT_TABS : [])].map((tab) => (
+            {(property.stage === "prospect" ? PROSPECT_TABS : OWNED_TABS).map((tab) => (
               <NavLink
                 key={tab.to}
                 to={tab.to}
@@ -197,24 +219,33 @@ export function DossierPage(): ReactElement {
             minWidth: "max-content",
           }}
         >
-          <Stat label="Rent roll" value={`${formatCents(qf.monthlyRentCents)}`} suffix="/mo" />
-          <Stat
-            label="Collected this month"
-            value={
-              qf.ytdRentReceivedCents >= qf.monthlyRentCents
-                ? "All in"
-                : formatCents(qf.ytdRentReceivedCents)
-            }
-            valueColor={
-              qf.ytdRentReceivedCents >= qf.monthlyRentCents ? "var(--ok)" : undefined
-            }
-          />
-          <Stat label="Doors filled" value={`${filled} of ${qf.unitCount}`} />
-          <Stat
-            label="Open requests"
-            value={String(qf.openWorkOrders)}
-            valueColor={qf.openWorkOrders > 0 ? hero.solid(color) : undefined}
-          />
+          {/* A prospect has no rent roll, no doors filled and no open requests,
+              so showing four zeroes would be four lies with a confident face.
+              These are the numbers that are actually moving while you decide. */}
+          {property.stage === "prospect" ? (
+            <ProspectStats dossier={dossier.data} color={color} />
+          ) : (
+            <>
+              <Stat label="Rent roll" value={`${formatCents(qf.monthlyRentCents)}`} suffix="/mo" />
+              <Stat
+                label="Collected this month"
+                value={
+                  qf.ytdRentReceivedCents >= qf.monthlyRentCents
+                    ? "All in"
+                    : formatCents(qf.ytdRentReceivedCents)
+                }
+                valueColor={
+                  qf.ytdRentReceivedCents >= qf.monthlyRentCents ? "var(--ok)" : undefined
+                }
+              />
+              <Stat label="Doors filled" value={`${filled} of ${qf.unitCount}`} />
+              <Stat
+                label="Open requests"
+                value={String(qf.openWorkOrders)}
+                valueColor={qf.openWorkOrders > 0 ? hero.solid(color) : undefined}
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -279,4 +310,50 @@ function Stat({
 
 function propertyTypeLabel(t: string): string {
   return t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * The four numbers that move while you are deciding.
+ *
+ * Renovation is budget-and-spent rather than one figure because the gap is the
+ * story: a plan with nothing spent against it is a guess, and a plan already
+ * over is the thing you needed to notice. Diligence and the thread are counts
+ * of what is still open, not of what exists — a checklist that says "19 items"
+ * tells you nothing you did not already know.
+ */
+function ProspectStats({
+  dossier,
+  color,
+}: {
+  dossier: PropertyDossier;
+  color: string | null;
+}): ReactElement {
+  const budget = dossier.projects.reduce((sum, p) => sum + p.budgetTotalCents, 0);
+  const spent = dossier.projects.reduce((sum, p) => sum + p.actualTotalCents, 0);
+  const diligence = summarizeDiligence(dossier.diligence);
+  const likes = dossier.discussion.filter((c) => c.sentiment === "like").length;
+  const concerns = dossier.discussion.filter((c) => c.sentiment === "dislike").length;
+
+  return (
+    <>
+      <Stat label="Renovation budget" value={formatCents(budget)} />
+      <Stat
+        label="Spent so far"
+        value={formatCents(spent)}
+        valueColor={budget > 0 && spent > budget ? "var(--crit)" : undefined}
+      />
+      <Stat
+        label="Still to verify"
+        value={
+          diligence.total === 0 ? "—" : `${diligence.outstanding} of ${diligence.total}`
+        }
+        valueColor={diligence.blocked > 0 ? "var(--warn)" : undefined}
+      />
+      <Stat
+        label="Likes / concerns"
+        value={`${likes} / ${concerns}`}
+        valueColor={concerns > likes ? "var(--warn)" : hero.solid(color)}
+      />
+    </>
+  );
 }

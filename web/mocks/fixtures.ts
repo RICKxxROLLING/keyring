@@ -5,6 +5,7 @@ import type {
   AttentionItem,
   AuditEntry,
   ComplianceItemView,
+  DiligenceItemView,
   Id,
   Invite,
   LeaseView,
@@ -12,6 +13,7 @@ import type {
   NoteView,
   PmTemplate,
   ProjectView,
+  PropertyCommentView,
   PropertyExpense,
   PropertyView,
   RentEntry,
@@ -249,6 +251,41 @@ export const properties: PropertyView[] = [
     status: "stable",
     coverUrl: null,
   },
+  {
+    // The one being considered. Everything about the prospect UI — the tab set,
+    // the stat strip, renovation, diligence, the thread — needs a property in
+    // this stage to render against, and a portfolio of five owned houses never
+    // exercised any of it.
+    ...propertyBase("prp_00000006", "Wrightsville Cottage", "812 W Soundside Rd", "Nags Head", "NC"),
+    stage: "prospect",
+    postalCode: "27959",
+    yearBuilt: 1994,
+    sqft: 1620,
+    purchaseDate: null,
+    purchasePriceCents: null,
+    mortgageLender: null,
+    mortgagePaymentCents: null,
+    insuranceCarrier: null,
+    insurancePolicyNumber: null,
+    units: [],
+    quickFacts: {
+      unitCount: 1,
+      occupiedUnits: 0,
+      vacantUnits: 1,
+      monthlyRentCents: 0,
+      openWorkOrders: 0,
+      urgentWorkOrders: 0,
+      overdueWorkOrders: 0,
+      activeProjects: 2,
+      nextLeaseExpiry: null,
+      nextComplianceDue: null,
+      ytdExpenseCents: 0,
+      ytdRentReceivedCents: 0,
+      lastActivityAt: iso(-1),
+    },
+    status: "stable",
+    coverUrl: null,
+  },
 ];
 
 export const units: Unit[] = [
@@ -356,12 +393,13 @@ export const projects: ProjectView[] = [
     id: "prj_00000001", propertyId: "prp_00000001", title: "Exterior paint refresh", description: "Full exterior repaint, both units.", status: "in_progress", priority: "normal", ownerId: CURRENT_USER_ID, targetStart: date(-30), targetEnd: date(20), actualStart: date(-25), actualEnd: null, budgetCents: 600000,
     createdAt: iso(-60), updatedAt: iso(-1), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 4,
     owner: userRef(CURRENT_USER_ID),
+    // Budget lines only. What was actually spent is a ledger row tagged to the
+    // project — one number, in one place, counted by the money page too.
     lines: [
       { id: "pln_00000001", projectId: "prj_00000001", kind: "budget", label: "Paint + materials", category: null, amountCents: 350000, incurredOn: null, vendorId: null, note: null, createdAt: iso(-60), updatedAt: iso(-60), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
       { id: "pln_00000002", projectId: "prj_00000001", kind: "budget", label: "Labor", category: null, amountCents: 250000, incurredOn: null, vendorId: null, note: null, createdAt: iso(-60), updatedAt: iso(-60), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
-      { id: "pln_00000003", projectId: "prj_00000001", kind: "expense", label: "Scaffolding rental", category: "repair", amountCents: 210000, incurredOn: date(-20), vendorId: null, note: null, createdAt: iso(-20), updatedAt: iso(-20), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
-      { id: "pln_00000004", projectId: "prj_00000001", kind: "expense", label: "Paint (2 coats, both units)", category: "repair", amountCents: 480000, incurredOn: date(-3), vendorId: null, note: "Went over — extra prep coat needed.", createdAt: iso(-3), updatedAt: iso(-3), createdBy: "usr_00000002", updatedBy: "usr_00000002", version: 1 },
     ],
+    ledgerCosts: [],
     budgetTotalCents: 600000,
     actualTotalCents: 690000,
     varianceCents: -90000,
@@ -372,9 +410,39 @@ export const projects: ProjectView[] = [
     createdAt: iso(-10), updatedAt: iso(-10), createdBy: "usr_00000003", updatedBy: "usr_00000003", version: 1,
     owner: userRef("usr_00000003"),
     lines: [],
+    ledgerCosts: [],
     budgetTotalCents: 900000,
     actualTotalCents: 0,
     varianceCents: 900000,
+    attachments: [],
+  },
+  {
+    // On the prospect: the work that has to happen before it can be rented.
+    id: "prj_00000003", propertyId: "prp_00000006", title: "Kitchen and both baths", description: "Cabinets, counters, and a full re-fit of the hall bath. The primary just needs a vanity.", status: "quoted", priority: "high", ownerId: CURRENT_USER_ID, targetStart: null, targetEnd: null, actualStart: null, actualEnd: null, budgetCents: 4200000,
+    createdAt: iso(-9), updatedAt: iso(-2), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 3,
+    owner: userRef(CURRENT_USER_ID),
+    lines: [
+      { id: "pln_00000005", projectId: "prj_00000003", kind: "budget", label: "Cabinets + counters", category: "capex", amountCents: 2600000, incurredOn: null, vendorId: null, note: "Quoted, not ordered.", createdAt: iso(-9), updatedAt: iso(-9), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
+      { id: "pln_00000006", projectId: "prj_00000003", kind: "budget", label: "Hall bath re-fit", category: "capex", amountCents: 1200000, incurredOn: null, vendorId: null, note: null, createdAt: iso(-9), updatedAt: iso(-9), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
+      { id: "pln_00000007", projectId: "prj_00000003", kind: "budget", label: "Primary vanity", category: "capex", amountCents: 400000, incurredOn: null, vendorId: null, note: null, createdAt: iso(-9), updatedAt: iso(-9), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
+    ],
+    ledgerCosts: [],
+    budgetTotalCents: 4200000,
+    actualTotalCents: 0,
+    varianceCents: 4200000,
+    attachments: [],
+  },
+  {
+    id: "prj_00000004", propertyId: "prp_00000006", title: "Deck, stairs and rails", description: "Rear deck boards are soft in three places. Rails are not to code.", status: "idea", priority: "normal", ownerId: null, targetStart: null, targetEnd: null, actualStart: null, actualEnd: null, budgetCents: null,
+    createdAt: iso(-6), updatedAt: iso(-6), createdBy: "usr_00000002", updatedBy: "usr_00000002", version: 1,
+    owner: null,
+    lines: [
+      { id: "pln_00000008", projectId: "prj_00000004", kind: "budget", label: "Materials, rough estimate", category: "capex", amountCents: 850000, incurredOn: null, vendorId: null, note: "Guess. Nobody has quoted it.", createdAt: iso(-6), updatedAt: iso(-6), createdBy: "usr_00000002", updatedBy: "usr_00000002", version: 1 },
+    ],
+    ledgerCosts: [],
+    budgetTotalCents: 850000,
+    actualTotalCents: 0,
+    varianceCents: 850000,
     attachments: [],
   },
 ];
@@ -412,6 +480,118 @@ export const expenses: PropertyExpense[] = [
   { id: "exp_00000001", propertyId: "prp_00000001", unitId: null, category: "repair", description: "Faucet parts", amountCents: 4200, incurredOn: date(-3), vendorId: "ven_00000001", workOrderId: "wo_00000001", projectId: null, isRecurring: false, recurrenceNote: null, note: null, createdAt: iso(-3), updatedAt: iso(-3), createdBy: "usr_00000002", updatedBy: "usr_00000002", version: 1 },
   { id: "exp_00000002", propertyId: "prp_00000001", unitId: null, category: "capex", description: "Exterior paint (materials + labor)", amountCents: 690000, incurredOn: date(-3), vendorId: null, workOrderId: null, projectId: "prj_00000001", isRecurring: false, recurrenceNote: null, note: null, createdAt: iso(-3), updatedAt: iso(-3), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
   { id: "exp_00000003", propertyId: "prp_00000004", unitId: null, category: "utility", description: "Common area electric", amountCents: 18000, incurredOn: date(-15), vendorId: null, workOrderId: null, projectId: null, isRecurring: false, recurrenceNote: null, note: null, createdAt: iso(-15), updatedAt: iso(-15), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
+  // Money spent on the prospect before owning it — an inspection and a survey.
+  // Both are tagged to the deck project because that is what prompted them.
+  { id: "exp_00000004", propertyId: "prp_00000006", unitId: null, category: "legal", description: "Structural inspection — deck and pilings", amountCents: 65000, incurredOn: date(-5), vendorId: null, workOrderId: null, projectId: "prj_00000004", isRecurring: false, recurrenceNote: null, note: "Engineer's letter attached in Papers.", createdAt: iso(-5), updatedAt: iso(-5), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
+  { id: "exp_00000005", propertyId: "prp_00000006", unitId: null, category: "other", description: "Survey", amountCents: 55000, incurredOn: date(-4), vendorId: null, workOrderId: null, projectId: null, isRecurring: false, recurrenceNote: null, note: null, createdAt: iso(-4), updatedAt: iso(-4), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1 },
+];
+
+/**
+ * A project's actual cost IS its ledger rows. The server derives this join, so
+ * the mock derives it too, and re-derives it whenever a handler is about to
+ * hand a project out. Hand-written totals drift from the rows they claim to
+ * sum, and a mock that shows a figure the real app never would is worse than
+ * no mock: it makes a broken UI look right in every test.
+ */
+export function syncProjectTotals(): void {
+  for (const project of projects) {
+    project.ledgerCosts = expenses.filter((e) => e.projectId === project.id);
+    const fromLines = project.lines
+      .filter((l) => l.kind === "expense")
+      .reduce((sum, l) => sum + l.amountCents, 0);
+    project.actualTotalCents =
+      fromLines + project.ledgerCosts.reduce((sum, e) => sum + e.amountCents, 0);
+    project.varianceCents = project.budgetTotalCents - project.actualTotalCents;
+  }
+}
+syncProjectTotals();
+
+/* ------------------------------------------------- discussion & diligence */
+
+export const propertyComments: PropertyCommentView[] = [
+  { id: "pcm_00000001", propertyId: "prp_00000006", body: "Walked it this morning. Sound views from the upper deck are the whole pitch — you can see the water from the kitchen too.", sentiment: "like", createdAt: iso(-8), updatedAt: iso(-8), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1, author: userRef(CURRENT_USER_ID), lastEditor: userRef(CURRENT_USER_ID), edited: false },
+  { id: "pcm_00000002", propertyId: "prp_00000006", body: "Ground floor is enclosed and it is not obvious anyone permitted it. That is either a bonus room or a problem, and I do not know which yet.", sentiment: "dislike", createdAt: iso(-8, 15), updatedAt: iso(-8, 15), createdBy: "usr_00000002", updatedBy: "usr_00000002", version: 1, author: userRef("usr_00000002"), lastEditor: userRef("usr_00000002"), edited: false },
+  { id: "pcm_00000003", propertyId: "prp_00000006", body: "Added it to the checklist. Town will have the permit history if there is any.", sentiment: null, createdAt: iso(-7), updatedAt: iso(-7), createdBy: CURRENT_USER_ID, updatedBy: CURRENT_USER_ID, version: 1, author: userRef(CURRENT_USER_ID), lastEditor: userRef(CURRENT_USER_ID), edited: false },
+  { id: "pcm_00000004", propertyId: "prp_00000006", body: "Kitchen is original. Budgeting 42k for kitchen and both baths, which is the number the whole deal turns on.", sentiment: "dislike", createdAt: iso(-6), updatedAt: iso(-5), createdBy: "usr_00000003", updatedBy: "usr_00000003", version: 2, author: userRef("usr_00000003"), lastEditor: userRef("usr_00000003"), edited: true },
+  { id: "pcm_00000005", propertyId: "prp_00000006", body: "Quiet end of the road, and the lot next door is town-owned so nothing goes up beside it.", sentiment: "like", createdAt: iso(-3), updatedAt: iso(-3), createdBy: "usr_00000002", updatedBy: "usr_00000002", version: 1, author: userRef("usr_00000002"), lastEditor: userRef("usr_00000002"), edited: false },
+];
+
+function diligence(
+  id: Id,
+  label: string,
+  category: DiligenceItemView["category"],
+  status: DiligenceItemView["status"],
+  sortOrder: number,
+  extra: Partial<DiligenceItemView> = {},
+): DiligenceItemView {
+  return {
+    id,
+    propertyId: "prp_00000006",
+    label,
+    category,
+    status,
+    detail: null,
+    finding: null,
+    sourceUrl: null,
+    dueDate: null,
+    assigneeId: null,
+    uploadId: null,
+    sortOrder,
+    createdAt: iso(-7),
+    updatedAt: iso(-7),
+    createdBy: CURRENT_USER_ID,
+    updatedBy: CURRENT_USER_ID,
+    version: 1,
+    assignee: null,
+    document: null,
+    ...extra,
+  };
+}
+
+export const diligenceItems: DiligenceItemView[] = [
+  diligence("dil_00000001", "Septic permit — and the bedroom count on it", "permits", "received", 0, {
+    detail: "Ask the county environmental health office for the improvement permit and the operation permit.",
+    finding: "Permit is for 3 bedrooms. Listing says 4. Waiting on the town to say which one governs occupancy.",
+    assigneeId: CURRENT_USER_ID,
+    assignee: userRef(CURRENT_USER_ID),
+    dueDate: date(4),
+  }),
+  diligence("dil_00000002", "Past building permits and certificates of occupancy", "permits", "requested", 1, {
+    detail: "Pull the permit history from the town. The enclosed ground floor is the one to check.",
+    assigneeId: "usr_00000002",
+    assignee: userRef("usr_00000002"),
+    dueDate: date(2),
+  }),
+  diligence("dil_00000003", "Short-term rental rules for this address", "permits", "todo", 2, {
+    detail: "Registration, occupancy limits, parking minimums. Occupancy is often tied back to the septic permit.",
+  }),
+  diligence("dil_00000004", "Elevation certificate", "land", "verified", 3, {
+    detail: "Ask the seller first; the town or the surveyor may have one.",
+    finding: "Finished floor 12.4ft against a BFE of 9ft. Good — the flood quote came back reasonable because of it.",
+  }),
+  diligence("dil_00000005", "FEMA flood zone and base flood elevation", "land", "verified", 4, {
+    finding: "Zone AE, BFE 9ft. Map dated 2020.",
+  }),
+  diligence("dil_00000006", "Survey — boundaries, setbacks, encroachments", "land", "received", 5, {
+    detail: "Ask for the most recent survey.",
+    finding: "Neighbour's shed is about 2ft over the line at the rear. Needs a decision before closing.",
+  }),
+  diligence("dil_00000007", "Structural and termite inspection", "structure", "verified", 6, {
+    finding: "Pilings sound. Deck framing is not — three soft boards and rails below height. See the deck project.",
+  }),
+  diligence("dil_00000008", "Insurance quotes — wind and hail, and flood", "financial", "requested", 7, {
+    detail: "Real quotes, not estimates. Wind and hail is a separate policy here.",
+    assigneeId: "usr_00000003",
+    assignee: userRef("usr_00000003"),
+    dueDate: date(6),
+  }),
+  diligence("dil_00000009", "Rental history, if it has been rented", "financial", "blocked", 8, {
+    detail: "Two or three years of gross by season, management fee, cleaning and linen.",
+    finding: "Seller says it has never been rented. Nothing to produce, so this is a modelling exercise now.",
+  }),
+  diligence("dil_00000010", "HOA or POA documents and dues", "legal", "not_applicable", 9, {
+    finding: "No association.",
+  }),
 ];
 
 export const specs: SpecEntryView[] = [

@@ -11,6 +11,7 @@ import { EmptyState, Field, Select, TextInput } from "../../components/Form";
 import { StatusPill } from "../../components/StatusPill";
 import { ExpandableRow, DetailGrid } from "../../components/ExpandableRow";
 import { AttachmentList } from "../../components/AttachmentList";
+import { NotForProspect } from "../../components/NotForProspect";
 
 export function TenantsTab(): ReactElement {
   const dossier = useDossier();
@@ -92,6 +93,7 @@ export function TenantsTab(): ReactElement {
 
   return (
     <div>
+      <NotForProspect what="Who lives here" />
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-900">Tenants</h2>
         <Button onClick={() => setShowTenant((v) => !v)}>+ Tenant</Button>

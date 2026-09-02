@@ -50,6 +50,7 @@ const FROZEN: ReadonlyArray<readonly [string, string]> = [
   ["2004_demo_data_flag.sql", "5e86afc3d27509af679b21e0c70fc31ed45330c0913cc7a5c1ebe2b47346277a"],
   ["2005_property_stage.sql", "78a9f086a3475478e93ed0b73ebb431719c4f773017ee43639ac80d954607c42"],
   ["2006_deal_inputs.sql", "617dd653e362d07d54eb64e79bb2b0128892e281bb266a8e5a0976411c7e065f"],
+  ["2007_prospect_workspace.sql", "42d07a357d94c1bd8f58a683f30b68c4a1a3e7a1bbf9ad5ee533dcc59c0a4b75"],
   ["4001_ops.sql", "f6a1766e1b4de5e9b391e43bd79a4242b1b4b8a26776b3d934fcc9c8ac6e5325"],
 ];
 

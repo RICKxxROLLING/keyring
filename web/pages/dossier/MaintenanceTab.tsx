@@ -12,6 +12,7 @@ import { EmptyState, Field, Select, TextInput } from "../../components/Form";
 import { StatusPill } from "../../components/StatusPill";
 import { ExpandableRow } from "../../components/ExpandableRow";
 import { WorkOrderDetail } from "../../components/WorkOrderDetail";
+import { NotForProspect } from "../../components/NotForProspect";
 
 const FREQUENCIES: PmFrequency[] = ["monthly", "quarterly", "semiannual", "annual", "custom_days"];
 
@@ -96,6 +97,7 @@ export function MaintenanceTab(): ReactElement {
 
   return (
     <div>
+      <NotForProspect what="The maintenance queue" />
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-900">Work orders</h2>
         <Button onClick={() => setShowNewWo((v) => !v)}>+ Work order</Button>

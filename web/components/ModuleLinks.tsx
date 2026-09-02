@@ -16,9 +16,19 @@ export function ModuleLinks({ dossier }: { dossier: PropertyDossier }): ReactEle
   const color = dossier.property.heroColor;
   const base = `/p/${propertyId ?? dossier.property.id}`;
 
+  const prospect = dossier.property.stage === "prospect";
+
+  // On a prospect, Renovation, Diligence and Discussion are in the tab bar, so
+  // repeating them here would be a menu of things already on screen.
   const modules = [
     { to: "notes", label: "Notes", count: dossier.notes.length },
-    { to: "projects", label: "Projects", count: dossier.projects.length },
+    ...(prospect
+      ? []
+      : [
+          { to: "projects", label: "Projects", count: dossier.projects.length },
+          { to: "discussion", label: "Discussion", count: dossier.discussion.length },
+          { to: "diligence", label: "Diligence", count: dossier.diligence.length },
+        ]),
     { to: "specs", label: "The particulars", count: dossier.specs.length },
     { to: "compliance", label: "Compliance", count: dossier.compliance.length },
     { to: "turnover", label: "Turnover", count: dossier.turnovers.length },

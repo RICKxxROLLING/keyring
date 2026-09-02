@@ -13,6 +13,8 @@ import { getPropertyRow, toPropertyView } from "../properties/repo.js";
 import { listNotes } from "../notes/repo.js";
 import { listWorkOrders } from "../workorders/repo.js";
 import { listProjects } from "../projects/repo.js";
+import { listDiscussion } from "../discussion/repo.js";
+import { listDiligence } from "../diligence/repo.js";
 import { listTenants, listLeases } from "../tenants/repo.js";
 import { listSpecs } from "../specs/repo.js";
 import { listCompliance } from "../compliance/repo.js";
@@ -58,6 +60,8 @@ export function registerDossierRoutes(app: FastifyInstance, _ctx: AppContext): v
       workOrders: listWorkOrders({ propertyId }),
       pmTemplates,
       projects: listProjects(propertyId),
+      discussion: listDiscussion(propertyId),
+      diligence: listDiligence(propertyId),
       tenants: listTenants(propertyId),
       leases: listLeases(propertyId),
       rentEntries,

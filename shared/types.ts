@@ -26,6 +26,7 @@ export type EntityType =
   | "property" | "unit" | "note"
   | "work_order" | "work_order_comment" | "pm_template"
   | "project" | "project_line"
+  | "property_comment" | "diligence_item"
   | "tenant" | "lease" | "rent_entry" | "property_expense"
   | "vendor" | "spec_entry" | "compliance_item"
   | "turnover" | "turnover_item"
@@ -519,10 +520,110 @@ export interface ProjectView extends Project {
   owner: UserRef | null;
   lines: ProjectLine[];
   budgetTotalCents: Cents;
+  /**
+   * Everything actually spent: ledger expenses tagged to this project, plus
+   * any legacy `expense` lines. New spend goes to the ledger — see
+   * `ledgerCosts` — so a renovation shows up in the property's money rather
+   * than only inside the project.
+   */
   actualTotalCents: Cents;
+  /**
+   * The ledger rows tagged to this project, newest first. This is where a
+   * renovation's real cost lives: one row, in one place, counted by the money
+   * page and the project alike.
+   */
+  ledgerCosts: PropertyExpense[];
   /** budgetTotalCents - actualTotalCents. Negative means over budget. */
   varianceCents: Cents;
   attachments: Upload[];
+}
+
+/* -------------------------------------------------- discussion & diligence */
+
+/**
+ * A plus or a minus on the property. Most messages are neither, so this is
+ * nullable rather than a three-valued enum with a "neutral" nobody picks.
+ */
+export type CommentSentiment = "like" | "dislike";
+
+export interface PropertyComment {
+  id: Id;
+  propertyId: Id;
+  body: string;
+  sentiment: CommentSentiment | null;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+  createdBy: Id;
+  updatedBy: Id;
+  version: number;
+}
+
+export interface PropertyCommentView extends PropertyComment {
+  author: UserRef | null;
+  lastEditor: UserRef | null;
+  /** True once the body has actually been changed, not merely re-saved. */
+  edited: boolean;
+}
+
+/**
+ * Where a diligence errand has got to.
+ *
+ * `received` and `verified` are deliberately distinct: the county sending you
+ * the septic permit and you reading it and finding the bedroom count acceptable
+ * are different events, and only the second one lets you buy with confidence.
+ */
+export type DiligenceStatus =
+  | "todo"
+  | "requested"
+  | "received"
+  | "verified"
+  | "blocked"
+  | "not_applicable";
+
+export type DiligenceCategory =
+  | "permits"
+  | "land"
+  | "structure"
+  | "financial"
+  | "legal"
+  | "other";
+
+export interface DiligenceItem {
+  id: Id;
+  propertyId: Id;
+  label: string;
+  category: DiligenceCategory;
+  status: DiligenceStatus;
+  /** What to ask for, and who from. Set when the item is created. */
+  detail: string | null;
+  /** What it said once it arrived. Written after the fact, never overwrites detail. */
+  finding: string | null;
+  sourceUrl: string | null;
+  dueDate: ISODate | null;
+  assigneeId: Id | null;
+  /** The document itself, filed against the property so it also shows in Papers. */
+  uploadId: Id | null;
+  sortOrder: number;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+  createdBy: Id;
+  updatedBy: Id;
+  version: number;
+}
+
+export interface DiligenceItemView extends DiligenceItem {
+  assignee: UserRef | null;
+  /** Resolved from uploadId; null if the file was deleted. */
+  document: Upload | null;
+}
+
+/** What the checklist looks like as a whole — the header line on the tab. */
+export interface DiligenceSummary {
+  total: number;
+  /** Items still needing action: everything but verified and not_applicable. */
+  outstanding: number;
+  verified: number;
+  blocked: number;
 }
 
 /* ----------------------------------------------------------- tenants/leases */
@@ -890,6 +991,9 @@ export interface PropertyDossier {
   workOrders: WorkOrderView[];
   pmTemplates: PmTemplate[];
   projects: ProjectView[];
+  /** The property thread, oldest first — see PropertyComment. */
+  discussion: PropertyCommentView[];
+  diligence: DiligenceItemView[];
   tenants: Tenant[];
   leases: LeaseView[];
   rentEntries: RentEntry[];
