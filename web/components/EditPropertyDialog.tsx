@@ -8,6 +8,7 @@ import { Dialog } from "./Dialog";
 import { Button } from "./Button";
 import { ErrorNotice, Field, Select, TextInput } from "./Form";
 import { KeyGlyph } from "./KeyGlyph";
+import { MoneyInput, NumericInput } from "./NumericInput";
 
 const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "single_family", label: "Single family" },
@@ -294,20 +295,28 @@ export function EditPropertyDialog(props: {
 
         <Section title="The building">
           <Field label="Year built">
-            <TextInput
-              inputMode="numeric"
-              value={form.yearBuilt}
-              onChange={(e) => field("yearBuilt", e.target.value)}
+            <NumericInput
+              value={form.yearBuilt === "" ? 0 : Number(form.yearBuilt)}
+              onChange={(v) => field("yearBuilt", v ? String(Math.round(v)) : "")}
+              maxFractionDigits={0}
             />
           </Field>
           <Field label="Square feet">
-            <TextInput inputMode="numeric" value={form.sqft} onChange={(e) => field("sqft", e.target.value)} />
+            <NumericInput
+              value={form.sqft === "" ? 0 : Number(form.sqft)}
+              onChange={(v) => field("sqft", v ? String(Math.round(v)) : "")}
+              group
+              maxFractionDigits={0}
+              min={0}
+            />
           </Field>
           <Field label="Lot square feet">
-            <TextInput
-              inputMode="numeric"
-              value={form.lotSqft}
-              onChange={(e) => field("lotSqft", e.target.value)}
+            <NumericInput
+              value={form.lotSqft === "" ? 0 : Number(form.lotSqft)}
+              onChange={(v) => field("lotSqft", v ? String(Math.round(v)) : "")}
+              group
+              maxFractionDigits={0}
+              min={0}
             />
           </Field>
         </Section>
@@ -321,10 +330,9 @@ export function EditPropertyDialog(props: {
             />
           </Field>
           <Field label="Purchase price ($)">
-            <TextInput
-              inputMode="decimal"
-              value={form.purchasePrice}
-              onChange={(e) => field("purchasePrice", e.target.value)}
+            <MoneyInput
+              valueCents={form.purchasePrice === "" ? 0 : Math.round(Number(form.purchasePrice) * 100)}
+              onChange={(c) => field("purchasePrice", c ? String(c / 100) : "")}
             />
           </Field>
           <Field label="Mortgage lender">
@@ -334,10 +342,9 @@ export function EditPropertyDialog(props: {
             />
           </Field>
           <Field label="Mortgage payment ($/mo)">
-            <TextInput
-              inputMode="decimal"
-              value={form.mortgagePayment}
-              onChange={(e) => field("mortgagePayment", e.target.value)}
+            <MoneyInput
+              valueCents={form.mortgagePayment === "" ? 0 : Math.round(Number(form.mortgagePayment) * 100)}
+              onChange={(c) => field("mortgagePayment", c ? String(c / 100) : "")}
             />
           </Field>
           <Field label="Insurance carrier">

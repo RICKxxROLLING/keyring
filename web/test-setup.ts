@@ -1,5 +1,6 @@
 // web/test-setup.ts — vitest "web" project setupFile (owner T4). See design §C3.3.
 import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import * as React from "react";
 import { server } from "./mocks/server";
@@ -16,6 +17,12 @@ import { server } from "./mocks/server";
 beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
+
+// Unmount between tests. Without this every render stays in the document, so
+// the second test in a file that renders the same component gets "found
+// multiple elements with the role textbox" — a failure that says nothing about
+// the component and everything about the harness.
+afterEach(cleanup);
 
 // jsdom does not implement matchMedia; several components probe it defensively.
 if (typeof window !== "undefined" && !window.matchMedia) {

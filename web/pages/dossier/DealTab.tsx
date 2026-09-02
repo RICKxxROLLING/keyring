@@ -4,8 +4,9 @@ import { apiGet, apiPut } from "../../lib/api";
 import { useDossier } from "../../lib/dossier-context";
 import { formatCents } from "../../lib/format";
 import { Button } from "../../components/Button";
-import { Field, Select, Spinner, TextInput } from "../../components/Form";
+import { Field, Select, Spinner } from "../../components/Form";
 import { hero } from "../../components/KeyGlyph";
+import { MoneyInput, NumericInput } from "../../components/NumericInput";
 import {
   analyzeDeal,
   estimateClosingCosts,
@@ -477,19 +478,19 @@ export function DealTab(): ReactElement {
           <Panel title="Financing">
             <Field label={inputs.downPaymentMode === "percent" ? "Down payment (%)" : "Down payment ($)"}>
               <div style={{ display: "flex", gap: 8 }}>
-                <TextInput
-                  inputMode="decimal"
-                  value={
-                    inputs.downPaymentMode === "percent"
-                      ? String(inputs.downPayment)
-                      : String(inputs.downPayment / 100)
-                  }
-                  onChange={(e) => {
-                    const n = Number(e.target.value.replace(/[$,]/g, ""));
-                    if (!Number.isFinite(n)) return;
-                    set("downPayment", inputs.downPaymentMode === "percent" ? n : Math.round(n * 100));
-                  }}
-                />
+                {inputs.downPaymentMode === "percent" ? (
+                  <NumericInput
+                    value={inputs.downPayment}
+                    onChange={(v) => set("downPayment", v)}
+                    maxFractionDigits={3}
+                    min={0}
+                  />
+                ) : (
+                  <MoneyInput
+                    valueCents={inputs.downPayment}
+                    onChange={(v) => set("downPayment", v)}
+                  />
+                )}
                 <div style={{ display: "flex", flex: "none" }}>
                   {(["percent", "amount"] as const).map((m) => (
                     <button
@@ -530,13 +531,11 @@ export function DealTab(): ReactElement {
             </Field>
             <Pct label="Interest rate (APR)" value={inputs.interestRatePct} onChange={(v) => set("interestRatePct", v)} />
             <Field label="Loan term (years)">
-              <TextInput
-                inputMode="numeric"
-                value={String(inputs.termYears)}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n) && n > 0) set("termYears", Math.round(n));
-                }}
+              <NumericInput
+                value={inputs.termYears}
+                onChange={(v) => set("termYears", Math.round(v))}
+                maxFractionDigits={0}
+                min={1}
               />
             </Field>
             <Field label="Closing + repairs" hint="Roll into the loan, or pay in cash?">
@@ -622,13 +621,12 @@ export function DealTab(): ReactElement {
             {coastal ? (
               <>
                 <Field label="Heated living area (sq ft)" hint="Wind is priced per square foot.">
-                  <TextInput
-                    inputMode="numeric"
-                    value={String(inputs.sqft)}
-                    onChange={(e) => {
-                      const n = Number(e.target.value.replace(/,/g, ""));
-                      if (Number.isFinite(n) && n >= 0) set("sqft", Math.round(n));
-                    }}
+                  <NumericInput
+                    value={inputs.sqft}
+                    onChange={(v) => set("sqft", Math.round(v))}
+                    group
+                    maxFractionDigits={0}
+                    min={0}
                   />
                 </Field>
                 <Money label="Base landlord policy / yr" value={inputs.baseHazardCents} onChange={(v) => set("baseHazardCents", v)} />
@@ -841,14 +839,7 @@ function Note(props: { children: ReactNode }): ReactElement {
 function Money(props: { label: string; value: number; onChange: (cents: number) => void }): ReactElement {
   return (
     <Field label={props.label}>
-      <TextInput
-        inputMode="decimal"
-        value={String(props.value / 100)}
-        onChange={(e) => {
-          const n = Number(e.target.value.replace(/[$,]/g, ""));
-          if (Number.isFinite(n) && n >= 0) props.onChange(Math.round(n * 100));
-        }}
-      />
+      <MoneyInput valueCents={props.value} onChange={props.onChange} />
     </Field>
   );
 }
@@ -856,14 +847,9 @@ function Money(props: { label: string; value: number; onChange: (cents: number) 
 function Pct(props: { label: string; value: number; onChange: (pct: number) => void }): ReactElement {
   return (
     <Field label={`${props.label} (%)`}>
-      <TextInput
-        inputMode="decimal"
-        value={String(props.value)}
-        onChange={(e) => {
-          const n = Number(e.target.value.replace(/%/g, ""));
-          if (Number.isFinite(n)) props.onChange(n);
-        }}
-      />
+      {/* Four decimals: a Dare County rate is 0.5432%, and rounding it to two
+          moves the annual tax by hundreds of dollars. */}
+      <NumericInput value={props.value} onChange={props.onChange} maxFractionDigits={4} />
     </Field>
   );
 }
