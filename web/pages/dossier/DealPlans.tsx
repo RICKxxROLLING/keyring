@@ -203,6 +203,10 @@ type Kind = "money" | "pct" | "count" | "sqft" | "bool" | "text";
  * the comparison cannot show you.
  */
 const FIELDS: Record<keyof DealInputs, { label: string; kind: Kind }> = {
+  bedrooms: { label: "Bedrooms", kind: "count" },
+  bathrooms: { label: "Bathrooms", kind: "count" },
+  utilitiesAuto: { label: "Estimate utilities", kind: "bool" },
+  utilityPayer: { label: "Who pays utilities", kind: "text" },
   priceCents: { label: "Purchase price", kind: "money" },
   closingCostsCents: { label: "Closing costs", kind: "money" },
   rehabCents: { label: "Upfront repairs", kind: "money" },
@@ -238,6 +242,9 @@ const FIELDS: Record<keyof DealInputs, { label: string; kind: Kind }> = {
 function show(key: keyof DealInputs, value: unknown, inputs: DealInputs): string {
   const { kind } = FIELDS[key];
   if (value === null) return key === "arvCents" ? "derived" : key === "insuranceAnnualCents" ? "coastal build-up" : "—";
+  if (key === "utilityPayer") {
+    return value === "owner_all" ? "owner pays all" : value === "tenant_all" ? "tenant pays all" : "tenant pays electric";
+  }
   if (key === "downPayment") {
     return inputs.downPaymentMode === "percent" ? `${String(value)}%` : formatCents(value as number);
   }

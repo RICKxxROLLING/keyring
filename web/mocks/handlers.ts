@@ -46,6 +46,7 @@ import {
   type DealScenario,
 } from "../../shared/deal-analysis";
 import { applyOverrides, type DealOverrides } from "../../shared/deal-compare";
+import { resolveUtilities } from "../../shared/utility-estimate";
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -959,7 +960,11 @@ const variantStore = new Map<string, { label: string; overrides: DealOverrides; 
 function variantFor(propertyId: string, inputs: DealInputs, scenario: DealScenario) {
   const v = variantStore.get(propertyId);
   if (!v) return null;
-  return { ...v, analysis: analyzeDeal(applyOverrides(inputs, v.overrides), scenario) };
+  const zip = fx.properties.find((p) => p.id === propertyId)?.postalCode ?? null;
+  return {
+    ...v,
+    analysis: analyzeDeal(resolveUtilities(applyOverrides(inputs, v.overrides), zip), scenario),
+  };
 }
 
 function dealFor(propertyId: string) {
@@ -980,7 +985,7 @@ function dealFor(propertyId: string) {
     scenario,
     version,
     saved: version > 0,
-    analysis: analyzeDeal(inputs, scenario),
+    analysis: analyzeDeal(resolveUtilities(inputs, property?.postalCode ?? null), scenario),
     variant: variantFor(propertyId, inputs, scenario),
   };
 }

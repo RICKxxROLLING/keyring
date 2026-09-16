@@ -139,3 +139,56 @@ describe("plan B on the numbers tab", () => {
     expect(c.queryByText("Purchase price")).not.toBeInTheDocument();
   });
 });
+
+describe("layout and utilities on the numbers tab", () => {
+  it("estimates utilities from the house, and lets a tenant's bills drop out", async () => {
+    const user = userEvent.setup();
+    renderDeal("prp_00000002");
+    const table = await screen.findByRole("table", { name: "Estimated utilities" });
+    // Every bill is listed, whoever pays it.
+    for (const bill of ["Electric", "Water", "Trash", "Internet"]) {
+      expect(within(table).getByText(bill)).toBeInTheDocument();
+    }
+    const ownerTotal = () =>
+      within(table).getByText("Owner pays / mo").nextElementSibling!.textContent;
+    const longTerm = ownerTotal();
+
+    await user.selectOptions(screen.getByLabelText(/^Who pays the bills/), "owner_all");
+    // Owner now carries electric and internet too.
+    expect(ownerTotal()).not.toBe(longTerm);
+  });
+
+  it("switching to a typed figure starts from the estimate, not from zero", async () => {
+    const user = userEvent.setup();
+    renderDeal("prp_00000003");
+    const table = await screen.findByRole("table", { name: "Estimated utilities" });
+    const estimate = within(table).getByText("Owner pays / mo").nextElementSibling!.textContent!;
+
+    await user.click(screen.getByRole("button", { name: "Enter my own" }));
+    const typed = screen.getByLabelText(/^Utilities \/ other \/ mo/) as HTMLInputElement;
+    // "$1,234.56" on the table; the input shows the same dollars, unprefixed.
+    expect(typed.value.replace(/,/g, "")).toBe(estimate.replace(/[$,]/g, "").replace(/\.00$/, ""));
+  });
+
+  it("an extra bedroom on plan B shows as a change, and raises B's bills", async () => {
+    const user = userEvent.setup();
+    renderDeal("prp_00000005");
+    await screen.findByRole("table", { name: "Estimated utilities" });
+    await user.selectOptions(screen.getByLabelText(/^Who pays the bills/), "owner_all");
+    const aBills = within(screen.getByRole("table", { name: "Estimated utilities" }))
+      .getByText("Owner pays / mo").nextElementSibling!.textContent;
+
+    await startPlanB(user);
+    const beds = screen.getByLabelText(/^Bedrooms/) as HTMLInputElement;
+    const next = String(Number(beds.value) + 1);
+    await user.clear(beds);
+    await user.type(beds, next);
+    await user.tab();
+
+    expect(within(comparison()).getByText("Bedrooms")).toBeInTheDocument();
+    const bBills = within(screen.getByRole("table", { name: "Estimated utilities" }))
+      .getByText("Owner pays / mo").nextElementSibling!.textContent;
+    const dollars = (t: string | null) => Number((t ?? "").replace(/[$,]/g, ""));
+    expect(dollars(bBills)).toBeGreaterThan(dollars(aBills));
+  });
+});

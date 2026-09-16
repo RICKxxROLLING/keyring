@@ -16,6 +16,7 @@ import { requirePropertyExists } from "../common/access.js";
 import { recordMutation, publishAfterCommit } from "../common/crud.js";
 import { analyzeDeal, defaultDealInputs, type DealInputs, type DealScenario } from "../../../shared/deal-analysis.js";
 import { applyOverrides, type DealOverrides } from "../../../shared/deal-compare.js";
+import { resolveUtilities } from "../../../shared/utility-estimate.js";
 import type { AppContext } from "../../context.js";
 
 /** Every stored column, camelCased. The analysis inputs plus the row's identity. */
@@ -41,6 +42,11 @@ const DealInputSchema = z
     interestRatePct: z.number().min(0).max(100),
     termYears: z.number().int().min(1).max(50),
     financeCosts: z.boolean(),
+    bedrooms: z.number().int().min(0).max(50),
+    // Halves only: 2.5 is a real bathroom count, 2.37 is a typo.
+    bathrooms: z.number().min(0).max(50).multipleOf(0.5),
+    utilitiesAuto: z.boolean(),
+    utilityPayer: z.enum(["tenant_utilities", "owner_all", "tenant_all"]),
     monthlyRentCents: cents,
     monthlyOtherIncomeCents: cents,
     vacancyPct: pct,
@@ -78,6 +84,10 @@ const COLUMNS = [
   ["interest_rate_pct", "interestRatePct"],
   ["term_years", "termYears"],
   ["finance_costs", "financeCosts"],
+  ["bedrooms", "bedrooms"],
+  ["bathrooms", "bathrooms"],
+  ["utilities_auto", "utilitiesAuto"],
+  ["utility_payer", "utilityPayer"],
   ["monthly_rent_cents", "monthlyRentCents"],
   ["monthly_other_income_cents", "monthlyOtherIncomeCents"],
   ["vacancy_pct", "vacancyPct"],
@@ -160,7 +170,22 @@ function variantPayload(
 ): (VariantRow & { analysis: ReturnType<typeof analyzeDeal> }) | null {
   const v = readVariant(propertyId);
   if (!v) return null;
-  return { ...v, analysis: analyzeDeal(applyOverrides(inputs, v.overrides), scenario) };
+  return {
+    ...v,
+    // B's own bedrooms size B's own utilities — resolved after the overrides.
+    analysis: analyzeDeal(
+      resolveUtilities(applyOverrides(inputs, v.overrides), postalCodeOf(propertyId)),
+      scenario,
+    ),
+  };
+}
+
+/** The ZIP the utility estimate prices against. A fact of the house, not an input. */
+function postalCodeOf(propertyId: string): string | null {
+  const row = getDb().prepare(`SELECT postal_code FROM properties WHERE id = ?`).get(propertyId) as
+    | { postal_code: string | null }
+    | undefined;
+  return row?.postal_code ?? null;
 }
 
 function readRow(propertyId: string): DealRow | null {
@@ -168,9 +193,13 @@ function readRow(propertyId: string): DealRow | null {
     .prepare(`SELECT * FROM property_deal_inputs WHERE property_id = ?`)
     .get(propertyId) as Record<string, unknown> | undefined;
   if (!row) return null;
-  const mapped = mapRow<DealRow & { financeCosts: unknown }>(row);
+  const mapped = mapRow<DealRow & { financeCosts: unknown; utilitiesAuto: unknown }>(row);
   // SQLite has no boolean; the column is 0/1.
-  return { ...mapped, financeCosts: Boolean(mapped.financeCosts) };
+  return {
+    ...mapped,
+    financeCosts: Boolean(mapped.financeCosts),
+    utilitiesAuto: Boolean(mapped.utilitiesAuto),
+  };
 }
 
 /**
@@ -190,6 +219,18 @@ function inputsFor(propertyId: string): { inputs: DealInputs; scenario: DealScen
     .prepare(`SELECT purchase_price_cents, sqft FROM properties WHERE id = ?`)
     .get(propertyId) as { purchase_price_cents: number | null; sqft: number | null } | undefined;
   const defaults = defaultDealInputs(property?.purchase_price_cents ?? 0);
+  // The layout the property already records, when it records one. Units with
+  // no bedroom count leave the typical default in place rather than zeroing it.
+  const layout = getDb()
+    .prepare(
+      `SELECT SUM(bedrooms) AS beds, SUM(bathrooms) AS baths, COUNT(bedrooms) AS counted
+         FROM units WHERE property_id = ?`,
+    )
+    .get(propertyId) as { beds: number | null; baths: number | null; counted: number };
+  if (layout.counted > 0) {
+    defaults.bedrooms = layout.beds ?? defaults.bedrooms;
+    defaults.bathrooms = Math.round((layout.baths ?? defaults.bathrooms) * 2) / 2;
+  }
   return {
     inputs: { ...defaults, sqft: property?.sqft ?? 0 },
     scenario: "financed",
@@ -211,7 +252,7 @@ export function registerDealRoutes(app: FastifyInstance, _ctx: AppContext): void
       version,
       /** version 0 means nothing has been saved for this property yet. */
       saved: version > 0,
-      analysis: analyzeDeal(inputs, scenario),
+      analysis: analyzeDeal(resolveUtilities(inputs, postalCodeOf(propertyId)), scenario),
       variant: variantPayload(propertyId, inputs, scenario),
     });
   });
@@ -327,7 +368,13 @@ export function registerDealRoutes(app: FastifyInstance, _ctx: AppContext): void
       if (existing && expectedVersion !== undefined && existing.version !== expectedVersion) {
         throw versionConflict(
           "This deal analysis changed while you were editing it.",
-          { ...existing, analysis: analyzeDeal(existing, existing.scenario) },
+          {
+            ...existing,
+            analysis: analyzeDeal(
+              resolveUtilities(existing, postalCodeOf(propertyId)),
+              existing.scenario,
+            ),
+          },
         );
       }
 
@@ -383,7 +430,7 @@ export function registerDealRoutes(app: FastifyInstance, _ctx: AppContext): void
       scenario: savedScenario,
       version,
       saved: true,
-      analysis: analyzeDeal(savedInputs, savedScenario),
+      analysis: analyzeDeal(resolveUtilities(savedInputs, postalCodeOf(propertyId)), savedScenario),
       // B follows A, so saving A changes B's numbers too.
       variant: variantPayload(propertyId, savedInputs, savedScenario),
     });

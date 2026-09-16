@@ -36,6 +36,16 @@ const DEPRECIATION_YEARS = 27.5;
 const PROJECTION_YEARS = 10;
 
 export interface DealInputs {
+  // ---- the house
+  /**
+   * The layout being analysed. Not arithmetic on their own — rent is still
+   * what you enter — but they size the utility estimate, and they are the
+   * thing a plan B most often changes ("add a bedroom").
+   */
+  bedrooms: number;
+  /** Halves allowed: 2.5 means two full baths and a half. */
+  bathrooms: number;
+
   // ---- purchase
   priceCents: number;
   closingCostsCents: number;
@@ -75,7 +85,16 @@ export interface DealInputs {
   sqft: number;
 
   monthlyHoaCents: number;
+  /**
+   * Owner-paid utilities per month. When utilitiesAuto is on this is
+   * recomputed from the house and the ZIP before analysis — see
+   * shared/utility-estimate.ts — and whatever is stored here is ignored.
+   */
   monthlyUtilitiesCents: number;
+  /** Estimate utilities from bedrooms, bathrooms, size and local rates. */
+  utilitiesAuto: boolean;
+  /** Which bills the owner carries. Only used by the estimate. */
+  utilityPayer: "tenant_utilities" | "owner_all" | "tenant_all";
   /** Percent of gross scheduled income. */
   maintenancePct: number;
   capexPct: number;
@@ -241,6 +260,10 @@ export function estimateClosingCosts(
 /** Sensible starting point for a new analysis. Coastal defaults match the original. */
 export function defaultDealInputs(priceCents = 0): DealInputs {
   return {
+    // A typical Outer Banks single-family layout, used only until the
+    // property's own units say otherwise.
+    bedrooms: 3,
+    bathrooms: 2,
     priceCents,
     closingCostsCents: Math.round(priceCents * 0.04),
     rehabCents: Math.round(priceCents * 0.01),
@@ -262,6 +285,10 @@ export function defaultDealInputs(priceCents = 0): DealInputs {
     sqft: 0,
     monthlyHoaCents: 0,
     monthlyUtilitiesCents: 0,
+    // New analyses estimate utilities; saved ones keep the figure they had.
+    utilitiesAuto: true,
+    // The usual long-term let: electric and internet in the tenant's name.
+    utilityPayer: "tenant_utilities",
     maintenancePct: 5,
     capexPct: 5,
     managementPct: 10,

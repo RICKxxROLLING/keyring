@@ -20,6 +20,8 @@ import {
 import { ratesForZip } from "../../../shared/local-rates";
 import { applyOverrides, diffInputs, type DealOverrides } from "../../../shared/deal-compare";
 import { PlanComparison, PlanSwitch, type PlanB } from "./DealPlans";
+import { UtilityEstimator } from "./UtilityEstimator";
+import { resolveUtilities } from "../../../shared/utility-estimate";
 
 interface DealPayload {
   inputs: DealInputs;
@@ -157,14 +159,21 @@ export function DealTab(): ReactElement {
     patch({ [key]: value } as Partial<DealInputs>);
   }
 
-  const analysis = analyzeDeal(inputs, scenario);
+  const postalCode = dossier.property.postalCode;
+  /**
+   * `inputs` is what the form shows and edits; `priced` is what the arithmetic
+   * runs on — the same, except that an estimated utilities figure has been
+   * worked out for this plan's own layout.
+   */
+  const priced = resolveUtilities(inputs, postalCode);
+  const analysis = analyzeDeal(priced, scenario);
   const r = scenario === "financed" ? analysis.financed : analysis.cash;
   const other = scenario === "financed" ? analysis.cash : analysis.financed;
 
-  const breakEven = maxPriceForCashFlow(inputs, 0, scenario);
-  const plus100 = maxPriceForCashFlow(inputs, 100_00, scenario);
-  const plus200 = maxPriceForCashFlow(inputs, 200_00, scenario);
-  const rentNeeded = rentNeededForCashFlow(inputs, 0, scenario);
+  const breakEven = maxPriceForCashFlow(priced, 0, scenario);
+  const plus100 = maxPriceForCashFlow(priced, 100_00, scenario);
+  const plus200 = maxPriceForCashFlow(priced, 200_00, scenario);
+  const rentNeeded = rentNeededForCashFlow(priced, 0, scenario);
 
   const tone =
     analysis.verdict === "profitable"
@@ -201,8 +210,10 @@ export function DealTab(): ReactElement {
     });
   }
 
-  const analysisA = editingB ? analyzeDeal(planA, scenario) : analysis;
-  const analysisB = planB ? analyzeDeal(applyOverrides(planA, planB.overrides), scenario) : null;
+  const analysisA = editingB ? analyzeDeal(resolveUtilities(planA, postalCode), scenario) : analysis;
+  const analysisB = planB
+    ? analyzeDeal(resolveUtilities(applyOverrides(planA, planB.overrides), postalCode), scenario)
+    : null;
 
   return (
     <div>
@@ -487,6 +498,37 @@ export function DealTab(): ReactElement {
         </div>
 
         <div className="kr-deal-inputs">
+          {/* First, because it is what a plan B most often changes, and because
+              it now sizes both the wind premium and the utility estimate. */}
+          <Panel title="The house">
+            <Field label="Bedrooms">
+              <NumericInput
+                value={inputs.bedrooms}
+                onChange={(v) => set("bedrooms", Math.max(0, Math.round(v)))}
+                maxFractionDigits={0}
+                min={0}
+              />
+            </Field>
+            <Field label="Bathrooms" hint="Halves allowed — 2.5.">
+              <NumericInput
+                value={inputs.bathrooms}
+                // Snapped to the half: the server only stores whole and half baths.
+                onChange={(v) => set("bathrooms", Math.max(0, Math.round(v * 2) / 2))}
+                maxFractionDigits={1}
+                min={0}
+              />
+            </Field>
+            <Field label="Heated living area (sq ft)" hint="Sizes the wind premium and the utilities.">
+              <NumericInput
+                value={inputs.sqft}
+                onChange={(v) => set("sqft", Math.round(v))}
+                group
+                maxFractionDigits={0}
+                min={0}
+              />
+            </Field>
+          </Panel>
+
           <Panel title="Purchase">
             <Money label="Purchase price" value={inputs.priceCents} onChange={(v) => set("priceCents", v)} />
             <div style={{ gridColumn: "1 / -1" }}>
@@ -737,15 +779,10 @@ export function DealTab(): ReactElement {
             </Field>
             {coastal ? (
               <>
-                <Field label="Heated living area (sq ft)" hint="Wind is priced per square foot.">
-                  <NumericInput
-                    value={inputs.sqft}
-                    onChange={(v) => set("sqft", Math.round(v))}
-                    group
-                    maxFractionDigits={0}
-                    min={0}
-                  />
-                </Field>
+                <Derived
+                  label="Living area (set under The house)"
+                  value={inputs.sqft > 0 ? `${inputs.sqft.toLocaleString("en-US")} sq ft` : "not set"}
+                />
                 <Money label="Base landlord policy / yr" value={inputs.baseHazardCents} onChange={(v) => set("baseHazardCents", v)} />
                 <Money label="Wind & hail per sq ft" value={inputs.windPerSqftCents} onChange={(v) => set("windPerSqftCents", v)} />
                 <Field label="Flood zone">
@@ -797,7 +834,7 @@ export function DealTab(): ReactElement {
 
           <Panel title="Operating expenses">
             <Money label="HOA / mo" value={inputs.monthlyHoaCents} onChange={(v) => set("monthlyHoaCents", v)} />
-            <Money label="Utilities / other / mo" value={inputs.monthlyUtilitiesCents} onChange={(v) => set("monthlyUtilitiesCents", v)} />
+            <UtilityEstimator inputs={inputs} postalCode={postalCode} onChange={patch} />
             <Pct label="Repairs & maintenance" value={inputs.maintenancePct} onChange={(v) => set("maintenancePct", v)} />
             <Pct label="CapEx reserve" value={inputs.capexPct} onChange={(v) => set("capexPct", v)} />
             <Pct label="Property management" value={inputs.managementPct} onChange={(v) => set("managementPct", v)} />
