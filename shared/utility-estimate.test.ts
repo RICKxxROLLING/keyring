@@ -78,26 +78,33 @@ describe("Kill Devil Hills rates", () => {
     expect(line("trash").unknown).toBe(false);
   });
 
-  it("is a complete local estimate", () => {
-    expect(e.rates.confidence).toBe("local");
+  it("says the water rate is the county's, since the town is not on its service list", () => {
+    expect(line("water").disclaimer).toMatch(/Kill Devil Hills may bill its own water/);
+    expect(e.rates.confidence).toBe("partial");
   });
 });
 
 describe("where the rates are not known", () => {
-  it("leaves Nags Head water at $0 and says why, rather than borrowing the county's", () => {
-    const e = estimateUtilities(house(), "27959");
-    const water = e.lines.find((l) => l.key === "water")!;
-    // The town bills its own water. Using Dare County's price here would look
-    // precise and be somebody else's rate.
-    expect(water.monthlyCents).toBe(0);
-    expect(water.unknown).toBe(true);
-    expect(water.basis).toMatch(/Town of Nags Head/);
-    expect(e.rates.confidence).toBe("partial");
+  it("prices Nags Head and Manteo water at Dare County's rate, and says so on the line", () => {
+    const kdh = estimateUtilities(house(), KDH).lines.find((l) => l.key === "water")!;
+    for (const [zip, town] of [
+      ["27959", "Nags Head"],
+      ["27954", "Manteo"],
+    ] as const) {
+      const e = estimateUtilities(house(), zip);
+      const water = e.lines.find((l) => l.key === "water")!;
+      // Same usage, same county schedule, same bill.
+      expect(water.monthlyCents).toBe(kdh.monthlyCents);
+      expect(water.unknown).toBe(false);
+      // But never presented as the town's own rate.
+      expect(water.disclaimer).toMatch(new RegExp(`${town} may bill its own water`));
+      expect(water.basis).toMatch(/Dare County Water rate/);
+      expect(e.rates.confidence).toBe("partial");
+    }
   });
 
-  it("leaves Manteo's water and sewer blank — both are town-billed", () => {
+  it("still leaves Manteo's sewer blank — the county has no sewer rate to stand in", () => {
     const e = estimateUtilities(house(), "27954");
-    expect(e.lines.find((l) => l.key === "water")!.unknown).toBe(true);
     expect(e.lines.find((l) => l.key === "sewer")!.unknown).toBe(true);
   });
 

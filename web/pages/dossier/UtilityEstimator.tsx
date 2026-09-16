@@ -122,6 +122,16 @@ export function UtilityEstimator(props: {
                 <span role="cell" style={{ gridColumn: "1 / -1", fontSize: 11, color: "var(--ink-3)" }}>
                   {l.basis}
                 </span>
+                {l.disclaimer && (
+                  // On the line it qualifies, in the warning colour: a
+                  // borrowed rate should not read like the town's own.
+                  <span
+                    role="cell"
+                    style={{ gridColumn: "1 / -1", fontSize: 11, fontWeight: 600, color: "var(--warn)" }}
+                  >
+                    ⚠ {l.disclaimer}
+                  </span>
+                )}
               </div>
             ))}
             <div

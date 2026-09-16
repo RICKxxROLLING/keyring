@@ -10,10 +10,12 @@
 //            its reasoning, so a number that looks wrong can be argued with.
 //
 //   RATES  — what that usage costs at this ZIP. Same rule as local-rates.ts:
-//            a figure is only here if it came from somewhere. Where the local
-//            provider's rate is not known, that line is left for you to fill
-//            in and the estimate says it is partial, rather than borrowing a
-//            neighbouring town's price and presenting it as this one's.
+//            a figure is only here if it came from somewhere. Where a town
+//            bills its own water and its rate is not known, Dare County's
+//            published rate stands in — and the line carries a disclaimer
+//            saying so, so it never reads as the town's own price. Where there
+//            is no published rate to stand in at all (Manteo's sewer), the
+//            line is left at $0 and marked unknown.
 //
 // WHY IT IS COMPUTED, NOT TYPED. The comparison this exists for is "add a
 // bedroom". A utilities figure typed in once would stay put while plan B's
@@ -73,6 +75,11 @@ interface WaterRate {
   includedGallons: number;
   /** Cents per 1,000 gallons above that, averaged across the year. */
   centsPerKgal: number;
+  /**
+   * Set when this is Dare County's rate standing in for a town that bills its
+   * own water. Shown on the line itself, next to the number it qualifies.
+   */
+  disclaimer?: string;
 }
 
 type Sewer =
@@ -131,6 +138,27 @@ const DARE_COUNTY_WATER: WaterRate = {
 };
 
 /**
+ * Dare County's rate, used for a town that runs its own water billing.
+ *
+ * Nags Head and Manteo bill their own water, and their schedules were not
+ * readable when this was written. The county's rate is the nearest published
+ * figure for the same water on the same island chain, so it is used — but
+ * labelled, on the line, as the county's number and not the town's.
+ *
+ * Kill Devil Hills gets the same label for a different reason: Dare County
+ * Water's published service list (Kitty Hawk, Southern Shores, Duck,
+ * Colington, Roanoke Island, the Hatteras villages) does not name it, so the
+ * county's rate may not be the rate there either.
+ */
+function countyStandIn(town: string): WaterRate {
+  return {
+    ...DARE_COUNTY_WATER,
+    provider: `Dare County Water rate (July 2026), used for ${town}`,
+    disclaimer: `${town} may bill its own water at a different rate — check a recent bill before relying on this line.`,
+  };
+}
+
+/**
  * Pumping a residential septic tank every three years at about $450. The
  * system itself is on the diligence checklist; this is only the running cost.
  */
@@ -145,41 +173,40 @@ const CONFIRM =
 const TABLE: Record<string, UtilityRates> = {
   "27948": {
     label: "Kill Devil Hills",
-    confidence: "local",
+    confidence: "partial",
     ...DOMINION,
-    water: DARE_COUNTY_WATER,
+    water: countyStandIn("Kill Devil Hills"),
     sewer: SEPTIC,
     // Collected by the town's own sanitation service, not billed separately.
     trashMonthlyCents: 0,
     internetMonthlyCents: INTERNET_CENTS,
-    note: `Dominion electric, Dare County Water, septic, and town trash collection. ${CONFIRM}`,
+    note: `Dominion electric, water at Dare County's rate, septic, and town trash collection. ${CONFIRM}`,
   },
   "27959": {
     label: "Nags Head",
     confidence: "partial",
     ...DOMINION,
-    water: null,
-    waterProviderIfUnknown: "Town of Nags Head",
+    water: countyStandIn("Nags Head"),
     // About 80% of Nags Head is on septic, per the town.
     sewer: SEPTIC,
     trashMonthlyCents: 0,
     internetMonthlyCents: INTERNET_CENTS,
     note:
-      "Nags Head bills its own water and its rate is not in this table — the water line is left " +
-      `at $0 until you enter it. Most of the town is on septic. ${CONFIRM}`,
+      "Water is priced at Dare County's rate; the town bills its own and may charge differently. " +
+      `Most of the town is on septic. ${CONFIRM}`,
   },
   "27954": {
     label: "Manteo",
     confidence: "partial",
     ...DOMINION,
-    water: null,
-    waterProviderIfUnknown: "Town of Manteo",
+    water: countyStandIn("Manteo"),
     sewer: { kind: "unknown", provider: "Town of Manteo" },
     trashMonthlyCents: null,
     internetMonthlyCents: INTERNET_CENTS,
     note:
-      "Manteo bills its own water and sewer, and neither rate is in this table — those lines " +
-      `are $0 until you enter them. ${CONFIRM}`,
+      "Water is priced at Dare County's rate; the town bills its own and may charge differently. " +
+      "Manteo's sewer rate is not in this table and counts as $0 — Dare County has no sewer rate " +
+      `to stand in for it. ${CONFIRM}`,
   },
   "27949": {
     label: "Kitty Hawk, Southern Shores or Duck",
@@ -271,6 +298,8 @@ export interface UtilityLine {
   basis: string;
   /** True when this line has no rate behind it and reads $0 for that reason. */
   unknown: boolean;
+  /** A caveat on the rate used, when it is borrowed from another provider. */
+  disclaimer?: string;
 }
 
 export interface UtilityEstimate {
@@ -335,7 +364,10 @@ export function estimateUtilities(
       monthlyCents: Math.round(w.monthlyBaseCents + (over / 1000) * w.centsPerKgal),
       ownerPays: pays.water,
       unknown: false,
-      basis: `${gallons.toLocaleString("en-US")} gal for ${occupants} people — ${dollars(w.monthlyBaseCents)} base + ${(over / 1000).toFixed(1)}k gal × ${dollars(w.centsPerKgal)} — ${w.provider}`,
+      basis:
+        `${gallons.toLocaleString("en-US")} gal for ${occupants} people — ${dollars(w.monthlyBaseCents)} base + ${(over / 1000).toFixed(1)}k gal × ${dollars(w.centsPerKgal)} — ${w.provider}`,
+      // Kept apart from the basis so the page can show it as a warning.
+      disclaimer: w.disclaimer,
     });
   } else {
     lines.push({
