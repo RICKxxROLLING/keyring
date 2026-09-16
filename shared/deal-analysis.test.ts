@@ -175,6 +175,28 @@ describe("analyzeDeal — projection", () => {
     expect(financed.years[1]!.valueCents).toBe(330_000_00);
   });
 
+  it("raises the rent by the annual increase, compounding, from year 2", () => {
+    const { financed } = analyzeDeal({ ...roundDeal(), rentGrowthPct: 3 });
+    // $2,500 in year 1; then × 1.03 each year: 2,575.00, 2,652.25 ...
+    expect(financed.years[0]!.monthlyRentCents).toBe(2_500_00);
+    expect(financed.years[1]!.monthlyRentCents).toBe(2_575_00);
+    expect(financed.years[2]!.monthlyRentCents).toBe(2_652_25);
+    // Year 10 is nine increases: 2,500 × 1.03^9 = 3,261.933 → 3,261.93.
+    expect(financed.years[9]!.monthlyRentCents).toBe(3_261_93);
+  });
+
+  it("feeds the higher rent into cash flow, not just the rent column", () => {
+    const flat = analyzeDeal({ ...roundDeal(), rentGrowthPct: 0 }).financed;
+    const rising = analyzeDeal({ ...roundDeal(), rentGrowthPct: 3 }).financed;
+    // Same year 1; year 2 differs by exactly the extra rent: $75/mo × 12.
+    expect(rising.years[0]!.cashFlowCents).toBe(flat.years[0]!.cashFlowCents);
+    expect(rising.years[1]!.cashFlowCents - flat.years[1]!.cashFlowCents).toBe(900_00);
+  });
+
+  it("assumes a 3% annual rent increase unless told otherwise", () => {
+    expect(defaultDealInputs().rentGrowthPct).toBe(3);
+  });
+
   it("adds the net sale into the final year for the IRR", () => {
     const { financed } = analyzeDeal({ ...roundDeal(), sellingCostPct: 10 });
     const last = financed.years[9]!;

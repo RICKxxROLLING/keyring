@@ -97,6 +97,12 @@ export interface DealInputs {
 
 export interface YearRow {
   year: number;
+  /**
+   * The monthly rent being charged that year, after rentGrowthPct has been
+   * applied year on year. Shown so the increase is something you can read in
+   * the table rather than something buried inside the cash-flow figure.
+   */
+  monthlyRentCents: number;
   valueCents: number;
   loanBalanceCents: number;
   equityCents: number;
@@ -262,7 +268,9 @@ export function defaultDealInputs(priceCents = 0): DealInputs {
     taxBracketPct: 24,
     landPct: 20,
     appreciationPct: 3,
-    rentGrowthPct: 2,
+    // 3% a year: a typical annual lease increase, and what an owner would
+    // normally put through at renewal. Change it per deal on the numbers tab.
+    rentGrowthPct: 3,
     expenseGrowthPct: 3,
     sellingCostPct: 6,
   };
@@ -468,6 +476,7 @@ function project(
     flows.push(cashFlow);
     years.push({
       year: y,
+      monthlyRentCents: Math.round(input.monthlyRentCents * rentMultiplier),
       valueCents: Math.round(value),
       loanBalanceCents: Math.round(balance),
       equityCents: Math.round(value - balance),

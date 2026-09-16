@@ -39,6 +39,12 @@ import type {
 } from "../../shared/types";
 import * as fx from "./fixtures";
 import { DILIGENCE_TEMPLATE } from "../../shared/diligence-checklist";
+import {
+  analyzeDeal,
+  defaultDealInputs,
+  type DealInputs,
+  type DealScenario,
+} from "../../shared/deal-analysis";
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -938,6 +944,65 @@ function newDiligenceItem(
   };
 }
 
+/* ------------------------------------------------------------------- deals */
+
+/**
+ * The numbers tab. It had no handler, so in mock mode it sat on "Loading…"
+ * forever and could not be looked at, let alone tested. Stored per property and
+ * analysed with the same shared function the server uses, so the mock cannot
+ * show a figure the real app would not.
+ */
+const dealStore = new Map<string, { inputs: DealInputs; scenario: DealScenario; version: number }>();
+
+function dealFor(propertyId: string) {
+  const property = fx.properties.find((p) => p.id === propertyId);
+  const saved = dealStore.get(propertyId);
+  const inputs = saved?.inputs ?? {
+    ...defaultDealInputs(property?.purchasePriceCents ?? 0),
+    sqft: property?.sqft ?? 0,
+    // A prospect with an asking price and a rent, so the tab shows a real
+    // analysis rather than a wall of zeroes.
+    ...(property?.stage === "prospect" ? { priceCents: 485_000_00, monthlyRentCents: 3_400_00 } : {}),
+  };
+  const scenario = saved?.scenario ?? "financed";
+  const version = saved?.version ?? 0;
+  return {
+    propertyId,
+    inputs,
+    scenario,
+    version,
+    saved: version > 0,
+    analysis: analyzeDeal(inputs, scenario),
+  };
+}
+
+const dealHandlers = [
+  http.get("/api/properties/:propertyId/deal", ({ params }) => {
+    if (!fx.properties.some((p) => p.id === params.propertyId)) {
+      return err("NOT_FOUND", "Property not found.", 404);
+    }
+    return ok(dealFor(params.propertyId as string));
+  }),
+
+  http.put("/api/properties/:propertyId/deal", async ({ params, request }) => {
+    const propertyId = params.propertyId as string;
+    const body = (await request.json()) as Record<string, unknown>;
+    const { expectedVersion, scenario, ...inputs } = body;
+    const current = dealStore.get(propertyId);
+    if (current && typeof expectedVersion === "number" && expectedVersion !== current.version) {
+      return err("VERSION_CONFLICT", "This deal analysis changed while you were editing it.", 409, {
+        current: dealFor(propertyId),
+      });
+    }
+    dealStore.set(propertyId, {
+      inputs: inputs as unknown as DealInputs,
+      scenario: (scenario as DealScenario) ?? "financed",
+      version: (current?.version ?? 0) + 1,
+    });
+    return ok(dealFor(propertyId));
+  }),
+];
+
 /* ------------------------------------------------------------------ tenants */
 
 const tenantHandlers = [
@@ -1570,6 +1635,7 @@ export const handlers = [
   ...projectHandlers,
   ...discussionHandlers,
   ...diligenceHandlers,
+  ...dealHandlers,
   ...tenantHandlers,
   ...moneyHandlers,
   ...vendorHandlers,

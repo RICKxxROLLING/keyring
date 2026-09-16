@@ -314,10 +314,11 @@ export function DealTab(): ReactElement {
               />
             </Grid>
             <div className="kr-scroll-x" style={{ marginTop: 12 }}>
-              <table style={{ width: "100%", minWidth: 520, borderCollapse: "collapse", fontSize: 13 }}>
+              <table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
                     <Th>Yr</Th>
+                    <Th align="right">Rent /mo</Th>
                     <Th align="right">Value</Th>
                     <Th align="right">Loan bal</Th>
                     <Th align="right">Equity</Th>
@@ -329,6 +330,7 @@ export function DealTab(): ReactElement {
                   {r.years.map((y) => (
                     <tr key={y.year} style={{ borderTop: "1px solid var(--line-soft)" }}>
                       <Td>{y.year}</Td>
+                      <Td align="right">{formatCents(y.monthlyRentCents)}</Td>
                       <Td align="right">{formatCents(y.valueCents)}</Td>
                       <Td align="right">{formatCents(y.loanBalanceCents)}</Td>
                       <Td align="right">{formatCents(y.equityCents)}</Td>
@@ -564,6 +566,17 @@ export function DealTab(): ReactElement {
               onChange={(v) => set("monthlyOtherIncomeCents", v)}
             />
             <Pct label="Vacancy rate" value={inputs.vacancyPct} onChange={(v) => set("vacancyPct", v)} />
+            {/* Next to the rent it raises, not down with the other growth
+                assumptions: this is the one you set at every renewal. */}
+            <Pct
+              label="Rent increase / yr"
+              value={inputs.rentGrowthPct}
+              onChange={(v) => set("rentGrowthPct", v)}
+            />
+            <Derived
+              label="Rent in year 10"
+              value={`${formatCents(r.years[r.years.length - 1]?.monthlyRentCents ?? 0)} /mo`}
+            />
           </Panel>
 
           <Panel title="Tax & insurance">
@@ -692,7 +705,6 @@ export function DealTab(): ReactElement {
 
           <Panel title="Growth & tax">
             <Pct label="Annual appreciation" value={inputs.appreciationPct} onChange={(v) => set("appreciationPct", v)} />
-            <Pct label="Annual rent growth" value={inputs.rentGrowthPct} onChange={(v) => set("rentGrowthPct", v)} />
             <Pct label="Annual expense growth" value={inputs.expenseGrowthPct} onChange={(v) => set("expenseGrowthPct", v)} />
             <Pct label="Selling costs on exit" value={inputs.sellingCostPct} onChange={(v) => set("sellingCostPct", v)} />
             <Pct label="Income tax bracket" value={inputs.taxBracketPct} onChange={(v) => set("taxBracketPct", v)} />
