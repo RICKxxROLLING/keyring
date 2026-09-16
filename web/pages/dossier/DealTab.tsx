@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPut } from "../../lib/api";
+import { apiDelete, apiGet, apiPut } from "../../lib/api";
 import { useDossier } from "../../lib/dossier-context";
 import { formatCents } from "../../lib/format";
 import { Button } from "../../components/Button";
@@ -18,6 +18,8 @@ import {
   type DealScenario,
 } from "../../../shared/deal-analysis";
 import { ratesForZip } from "../../../shared/local-rates";
+import { applyOverrides, diffInputs, type DealOverrides } from "../../../shared/deal-compare";
+import { PlanComparison, PlanSwitch, type PlanB } from "./DealPlans";
 
 interface DealPayload {
   inputs: DealInputs;
@@ -25,7 +27,15 @@ interface DealPayload {
   version: number;
   saved: boolean;
   analysis: DealAnalysis;
+  variant: VariantPayload | null;
 }
+
+interface VariantPayload {
+  label: string;
+  overrides: DealOverrides;
+  version: number;
+}
+
 
 /**
  * Will this one make money?
@@ -52,35 +62,99 @@ export function DealTab(): ReactElement {
     queryFn: () => apiGet<DealPayload>(`/api/properties/${propertyId}/deal`),
   });
 
-  const [inputs, setInputs] = useState<DealInputs | null>(null);
+  const [planA, setPlanA] = useState<DealInputs | null>(null);
   const [scenario, setScenario] = useState<DealScenario>("financed");
   const [version, setVersion] = useState(0);
+  /**
+   * Plan B, if there is one. Stored as overrides of A — see
+   * shared/deal-compare.ts for why that and not a second copy.
+   */
+  const [planB, setPlanB] = useState<PlanB | null>(null);
+  const [planBVersion, setPlanBVersion] = useState(0);
+  const [editing, setEditing] = useState<"a" | "b">("a");
 
   useEffect(() => {
-    if (saved.data && inputs === null) {
-      setInputs(saved.data.inputs);
+    if (saved.data && planA === null) {
+      setPlanA(saved.data.inputs);
       setScenario(saved.data.scenario);
       setVersion(saved.data.version);
+      if (saved.data.variant) {
+        setPlanB({ label: saved.data.variant.label, overrides: saved.data.variant.overrides });
+        setPlanBVersion(saved.data.variant.version);
+      }
     }
-  }, [saved.data, inputs]);
+  }, [saved.data, planA]);
 
   const save = useMutation({
-    mutationFn: () =>
-      apiPut<DealPayload>(`/api/properties/${propertyId}/deal`, {
-        ...inputs,
+    mutationFn: async () => {
+      const a = await apiPut<DealPayload>(`/api/properties/${propertyId}/deal`, {
+        ...planA,
         scenario,
         ...(version > 0 ? { expectedVersion: version } : {}),
-      }),
-    onSuccess: (data) => {
-      setVersion(data.version);
+      });
+      const b = planB
+        ? await apiPut<VariantPayload>(`/api/properties/${propertyId}/deal/variant`, {
+            label: planB.label.trim() || "Plan B",
+            overrides: planB.overrides,
+            ...(planBVersion > 0 ? { expectedVersion: planBVersion } : {}),
+          })
+        : null;
+      return { a, b };
+    },
+    onSuccess: ({ a, b }) => {
+      setVersion(a.version);
+      if (b) setPlanBVersion(b.version);
       void queryClient.invalidateQueries({ queryKey: ["deal", propertyId] });
     },
   });
 
-  if (saved.isLoading || !inputs) return <Spinner />;
+  const removeB = useMutation({
+    mutationFn: async () => {
+      // Never saved: nothing on the server to remove.
+      if (planBVersion > 0) await apiDelete(`/api/properties/${propertyId}/deal/variant`);
+    },
+    onSuccess: () => {
+      setPlanB(null);
+      setPlanBVersion(0);
+      setEditing("a");
+      void queryClient.invalidateQueries({ queryKey: ["deal", propertyId] });
+    },
+  });
+
+  if (saved.isLoading || !planA) return <Spinner />;
+
+  const editingB = editing === "b" && planB !== null;
+  /**
+   * The plan on screen. Every field below reads from this and writes through
+   * patch(), so the whole form edits B without a second copy of the form.
+   */
+  const inputs: DealInputs = editingB ? applyOverrides(planA, planB.overrides) : planA;
+
+  /**
+   * Write to whichever plan is on screen.
+   *
+   * On B the change is stored as an override, and a field set back to A's own
+   * value is un-overridden — B resumes following A for it, rather than staying
+   * pinned to a number that merely happens to match today.
+   */
+  function patch(change: Partial<DealInputs>): void {
+    if (editingB) {
+      const base = planA!;
+      setPlanB((prev) =>
+        prev
+          ? {
+              ...prev,
+              overrides: diffInputs(base, { ...applyOverrides(base, prev.overrides), ...change }),
+            }
+          : prev,
+      );
+    } else {
+      setPlanA((prev) => (prev ? { ...prev, ...change } : prev));
+    }
+  }
 
   function set<K extends keyof DealInputs>(key: K, value: DealInputs[K]): void {
-    setInputs((prev) => (prev ? { ...prev, [key]: value } : prev));
+    patch({ [key]: value } as Partial<DealInputs>);
   }
 
   const analysis = analyzeDeal(inputs, scenario);
@@ -117,26 +191,56 @@ export function DealTab(): ReactElement {
 
   function applyLocal(): void {
     if (!local) return;
-    setInputs((prev) =>
-      prev
-        ? {
-            ...prev,
-            taxRatePct: local.taxRatePct,
-            insuranceAnnualCents: null,
-            windPerSqftCents: local.windPerSqftCents,
-            baseHazardCents: local.baseHazardCents,
-            floodAnnualCents: FLOOD_ZONE_ANNUAL_CENTS[local.floodZone] ?? prev.floodAnnualCents,
-            sqft: propertySqft || prev.sqft,
-          }
-        : prev,
-    );
+    patch({
+      taxRatePct: local.taxRatePct,
+      insuranceAnnualCents: null,
+      windPerSqftCents: local.windPerSqftCents,
+      baseHazardCents: local.baseHazardCents,
+      floodAnnualCents: FLOOD_ZONE_ANNUAL_CENTS[local.floodZone] ?? inputs.floodAnnualCents,
+      sqft: propertySqft || inputs.sqft,
+    });
   }
+
+  const analysisA = editingB ? analyzeDeal(planA, scenario) : analysis;
+  const analysisB = planB ? analyzeDeal(applyOverrides(planA, planB.overrides), scenario) : null;
 
   return (
     <div>
+      <PlanSwitch
+        color={color}
+        editing={editingB ? "b" : "a"}
+        planB={planB}
+        onEdit={setEditing}
+        onCreate={(label) => {
+          setPlanB({ label, overrides: {} });
+          setEditing("b");
+        }}
+        onRename={(label) => setPlanB((prev) => (prev ? { ...prev, label } : prev))}
+        onRemove={() => removeB.mutate()}
+        removing={removeB.isPending}
+      />
+
       {/* Answers left of centre on desktop, first on mobile — see the note above. */}
       <div className="kr-deal-grid">
         <div className="kr-deal-answers">
+          {planB && analysisB && (
+            <PlanComparison
+              scenario={scenario}
+              planA={planA}
+              planB={planB}
+              a={scenario === "financed" ? analysisA.financed : analysisA.cash}
+              b={scenario === "financed" ? analysisB.financed : analysisB.cash}
+              onReset={(key) => {
+                // Always about B, whichever plan is on screen.
+                setPlanB((prev) => {
+                  if (!prev) return prev;
+                  const next = { ...prev.overrides };
+                  delete next[key];
+                  return { ...prev, overrides: next };
+                });
+              }}
+            />
+          )}
           <div
             role="status"
             style={{
@@ -729,7 +833,7 @@ export function DealTab(): ReactElement {
         }}
       >
         <Button onClick={() => save.mutate()} disabled={save.isPending}>
-          {save.isPending ? "Saving…" : "Save this analysis"}
+          {save.isPending ? "Saving…" : planB ? "Save both plans" : "Save this analysis"}
         </Button>
         <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
           {save.isSuccess

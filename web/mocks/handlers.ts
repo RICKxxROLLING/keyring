@@ -45,6 +45,7 @@ import {
   type DealInputs,
   type DealScenario,
 } from "../../shared/deal-analysis";
+import { applyOverrides, type DealOverrides } from "../../shared/deal-compare";
 
 /* ------------------------------------------------------------------- helpers */
 
@@ -953,6 +954,13 @@ function newDiligenceItem(
  * show a figure the real app would not.
  */
 const dealStore = new Map<string, { inputs: DealInputs; scenario: DealScenario; version: number }>();
+const variantStore = new Map<string, { label: string; overrides: DealOverrides; version: number }>();
+
+function variantFor(propertyId: string, inputs: DealInputs, scenario: DealScenario) {
+  const v = variantStore.get(propertyId);
+  if (!v) return null;
+  return { ...v, analysis: analyzeDeal(applyOverrides(inputs, v.overrides), scenario) };
+}
 
 function dealFor(propertyId: string) {
   const property = fx.properties.find((p) => p.id === propertyId);
@@ -973,6 +981,7 @@ function dealFor(propertyId: string) {
     version,
     saved: version > 0,
     analysis: analyzeDeal(inputs, scenario),
+    variant: variantFor(propertyId, inputs, scenario),
   };
 }
 
@@ -1000,6 +1009,35 @@ const dealHandlers = [
       version: (current?.version ?? 0) + 1,
     });
     return ok(dealFor(propertyId));
+  }),
+
+  http.put("/api/properties/:propertyId/deal/variant", async ({ params, request }) => {
+    const propertyId = params.propertyId as string;
+    const body = (await request.json()) as {
+      label: string;
+      overrides: DealOverrides;
+      expectedVersion?: number;
+    };
+    if ("scenario" in (body.overrides ?? {})) {
+      return err("VALIDATION_FAILED", "Plan B cannot change the financing scenario.", 422);
+    }
+    const current = variantStore.get(propertyId);
+    if (current && body.expectedVersion !== undefined && body.expectedVersion !== current.version) {
+      return err("VERSION_CONFLICT", "Plan B changed while you were editing it.", 409, { current });
+    }
+    variantStore.set(propertyId, {
+      label: body.label,
+      overrides: body.overrides ?? {},
+      version: (current?.version ?? 0) + 1,
+    });
+    const deal = dealFor(propertyId);
+    return ok(variantFor(propertyId, deal.inputs, deal.scenario));
+  }),
+
+  http.delete("/api/properties/:propertyId/deal/variant", ({ params }) => {
+    const propertyId = params.propertyId as string;
+    if (!variantStore.delete(propertyId)) return err("NOT_FOUND", "Plan B not found.", 404);
+    return ok({ id: propertyId, deleted: true });
   }),
 ];
 

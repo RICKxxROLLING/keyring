@@ -9,12 +9,13 @@ import { z } from "zod";
 import { getDb, tx } from "../../db/index.js";
 import { requireAuth, requireUser } from "../../auth/middleware.js";
 import { parseBody, parseParams, zId, zVersion } from "../../lib/validate.js";
-import { ok, versionConflict } from "../../lib/errors.js";
+import { deleted, notFound, ok, versionConflict } from "../../lib/errors.js";
 import { nowIso } from "../../lib/time.js";
 import { mapRow } from "../common/rowmap.js";
 import { requirePropertyExists } from "../common/access.js";
 import { recordMutation, publishAfterCommit } from "../common/crud.js";
 import { analyzeDeal, defaultDealInputs, type DealInputs, type DealScenario } from "../../../shared/deal-analysis.js";
+import { applyOverrides, type DealOverrides } from "../../../shared/deal-compare.js";
 import type { AppContext } from "../../context.js";
 
 /** Every stored column, camelCased. The analysis inputs plus the row's identity. */
@@ -100,6 +101,68 @@ const COLUMNS = [
   ["scenario", "scenario"],
 ] as const;
 
+/**
+ * Plan B's overrides: any subset of A's inputs, validated exactly as A's are.
+ * `scenario` is not overridable — financed-vs-cash is how the two plans are
+ * VIEWED, and letting B pick a different one would compare a mortgage with a
+ * cash purchase and call the difference the bedroom.
+ */
+const OverridesSchema = DealInputSchema.omit({ scenario: true, expectedVersion: true })
+  .partial()
+  .strict();
+
+const VariantSchema = z
+  .object({
+    label: z.string().trim().min(1, "Name plan B.").max(80),
+    overrides: OverridesSchema,
+    expectedVersion: zVersion.optional(),
+  })
+  .strict();
+
+interface VariantRow {
+  label: string;
+  overrides: DealOverrides;
+  version: number;
+}
+
+/**
+ * Plan B, or null.
+ *
+ * The stored JSON is re-validated on the way out. An input renamed or removed
+ * in a later version of the analyzer would otherwise ride along as an unknown
+ * key and be spread over A's inputs, and a value that no longer passes the
+ * schema is better dropped than fed into the arithmetic.
+ */
+function readVariant(propertyId: string): VariantRow | null {
+  const row = getDb()
+    .prepare(`SELECT label, overrides, version FROM property_deal_variants WHERE property_id = ?`)
+    .get(propertyId) as { label: string; overrides: string; version: number } | undefined;
+  if (!row) return null;
+  let parsed: unknown = {};
+  try {
+    parsed = JSON.parse(row.overrides);
+  } catch {
+    parsed = {};
+  }
+  const checked = OverridesSchema.safeParse(parsed);
+  return {
+    label: row.label,
+    overrides: checked.success ? (checked.data as DealOverrides) : {},
+    version: row.version,
+  };
+}
+
+/** The variant as the client receives it: stored overrides plus B's analysis. */
+function variantPayload(
+  propertyId: string,
+  inputs: DealInputs,
+  scenario: DealScenario,
+): (VariantRow & { analysis: ReturnType<typeof analyzeDeal> }) | null {
+  const v = readVariant(propertyId);
+  if (!v) return null;
+  return { ...v, analysis: analyzeDeal(applyOverrides(inputs, v.overrides), scenario) };
+}
+
 function readRow(propertyId: string): DealRow | null {
   const row = getDb()
     .prepare(`SELECT * FROM property_deal_inputs WHERE property_id = ?`)
@@ -149,7 +212,99 @@ export function registerDealRoutes(app: FastifyInstance, _ctx: AppContext): void
       /** version 0 means nothing has been saved for this property yet. */
       saved: version > 0,
       analysis: analyzeDeal(inputs, scenario),
+      variant: variantPayload(propertyId, inputs, scenario),
     });
+  });
+
+  /**
+   * Create or replace plan B.
+   *
+   * PUT for the same reason as A: the overrides are one coherent set, and a
+   * half-applied change would compare a plan nobody meant.
+   */
+  app.put("/api/properties/:propertyId/deal/variant", { preHandler: [requireAuth] }, async (req) => {
+    const user = requireUser(req);
+    const { propertyId } = parseParams(req, z.object({ propertyId: zId }).strict());
+    requirePropertyExists(propertyId);
+    const body = parseBody(req, VariantSchema);
+
+    const result = tx(() => {
+      const existing = readVariant(propertyId);
+      if (existing && body.expectedVersion !== undefined && existing.version !== body.expectedVersion) {
+        throw versionConflict("Plan B changed while you were editing it.", existing);
+      }
+      const at = nowIso();
+      const json = JSON.stringify(body.overrides);
+      if (existing) {
+        getDb()
+          .prepare(
+            `UPDATE property_deal_variants
+                SET label = ?, overrides = ?, updated_at = ?, updated_by = ?, version = version + 1
+              WHERE property_id = ?`,
+          )
+          .run(body.label, json, at, user.id, propertyId);
+      } else {
+        getDb()
+          .prepare(
+            `INSERT INTO property_deal_variants (property_id, label, overrides, created_at,
+               updated_at, created_by, updated_by, version)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+          )
+          .run(propertyId, body.label, json, at, at, user.id, user.id);
+      }
+      recordMutation(req, {
+        action: existing ? "update" : "create",
+        entityType: "property",
+        entityId: propertyId,
+        propertyId,
+        summary: existing
+          ? `updated plan B ("${body.label}") in the deal analysis`
+          : `added plan B ("${body.label}") to the deal analysis`,
+        after: { label: body.label, overrides: body.overrides },
+      });
+      return readVariant(propertyId)!;
+    });
+
+    publishAfterCommit({
+      action: "updated",
+      entityType: "property",
+      entityId: propertyId,
+      propertyId,
+      version: result.version,
+      actorId: user.id,
+    });
+
+    const { inputs, scenario } = inputsFor(propertyId);
+    return ok(variantPayload(propertyId, inputs, scenario));
+  });
+
+  app.delete("/api/properties/:propertyId/deal/variant", { preHandler: [requireAuth] }, async (req) => {
+    const user = requireUser(req);
+    const { propertyId } = parseParams(req, z.object({ propertyId: zId }).strict());
+    requirePropertyExists(propertyId);
+    const existing = readVariant(propertyId);
+    if (!existing) throw notFound("Plan B");
+    tx(() => {
+      getDb().prepare(`DELETE FROM property_deal_variants WHERE property_id = ?`).run(propertyId);
+      recordMutation(req, {
+        action: "delete",
+        entityType: "property",
+        entityId: propertyId,
+        propertyId,
+        summary: `removed plan B ("${existing.label}") from the deal analysis`,
+        // What it was, so dropping it is recoverable by hand from the log.
+        after: { label: existing.label, overrides: existing.overrides },
+      });
+    });
+    publishAfterCommit({
+      action: "updated",
+      entityType: "property",
+      entityId: propertyId,
+      propertyId,
+      version: 0,
+      actorId: user.id,
+    });
+    return deleted(propertyId);
   });
 
   /**
@@ -229,6 +384,8 @@ export function registerDealRoutes(app: FastifyInstance, _ctx: AppContext): void
       version,
       saved: true,
       analysis: analyzeDeal(savedInputs, savedScenario),
+      // B follows A, so saving A changes B's numbers too.
+      variant: variantPayload(propertyId, savedInputs, savedScenario),
     });
   });
 }
