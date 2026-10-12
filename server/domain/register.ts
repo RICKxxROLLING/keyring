@@ -18,6 +18,7 @@ import { registerDossierRoutes } from "./dossier/routes.js";
 import { registerDashboardRoutes } from "./dashboard/routes.js";
 import { registerDealRoutes } from "./deals/routes.js";
 import { registerTimelineRoutes } from "./timeline/routes.js";
+import { registerRoutingRoutes } from "./routing/routes.js";
 import { registerUploadRoutes } from "../uploads/routes.uploads.js";
 import { registerSearchRoutes } from "../search/routes.search.js";
 import { purgeSoftDeletedFiles } from "../uploads/routes.uploads.js";
@@ -39,6 +40,7 @@ export async function registerDomain(app: FastifyInstance, ctx: AppContext): Pro
   registerDashboardRoutes(app, ctx);
   registerDealRoutes(app, ctx);
   registerTimelineRoutes(app, ctx);
+  registerRoutingRoutes(app, ctx);
   registerUploadRoutes(app, ctx);
   registerSearchRoutes(app, ctx);
 

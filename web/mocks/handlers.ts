@@ -21,6 +21,8 @@ import type {
   PropertyExpense,
   PropertyView,
   ProjectLine,
+  RoutePayload,
+  RouteStop,
   ProjectView,
   RentEntry,
   SearchHit,
@@ -1676,7 +1678,79 @@ const opsHandlers = [
   ),
 ];
 
+/**
+ * The maintenance route. Points are fixed per demo property so the map has a
+ * shape; open work orders come from the work-order fixtures.
+ */
+const ROUTE_POINTS: Record<string, [number, number]> = {
+  prp_00000001: [41.9304, -74.0018],
+  prp_00000002: [41.7476, -74.0868],
+  prp_00000003: [42.0409, -74.1182],
+  prp_00000004: [42.0773, -73.9529],
+  prp_00000005: [41.9270, -73.9974],
+};
+
+const routeHandlers = [
+  http.get("/api/maintenance/route", () => {
+    const open = fx.workOrders.filter((w) => w.status !== "done" && w.status !== "cancelled");
+    const stops: RouteStop[] = fx.properties
+      .filter((p) => p.stage === "owned" && !p.archivedAt && open.some((w) => w.propertyId === p.id))
+      .map((p) => {
+        const pt = ROUTE_POINTS[p.id] ?? null;
+        return {
+          propertyId: p.id,
+          name: p.name,
+          address: `${p.addressLine1}, ${p.city}, ${p.state} ${p.postalCode}`,
+          heroColor: p.heroColor,
+          latitude: pt ? pt[0] : null,
+          longitude: pt ? pt[1] : null,
+          locationSource: pt ? ("geocoder" as const) : null,
+          tasks: open
+            .filter((w) => w.propertyId === p.id)
+            .map((w) => ({
+              workOrderId: w.id,
+              number: w.number,
+              title: w.title,
+              status: w.status,
+              priority: w.priority,
+              dueDate: w.dueDate,
+              scheduledFor: w.scheduledFor,
+              unitLabel: null,
+              version: w.version,
+            })),
+        };
+      });
+    const payload: RoutePayload = {
+      home: {
+        address: "1 Main St, Kingston, NY 12401",
+        latitude: 41.9270,
+        longitude: -74.0179,
+        source: "geocoder",
+        updatedAt: new Date().toISOString(),
+      },
+      stops,
+    };
+    return ok(payload);
+  }),
+  http.post("/api/maintenance/route/locate", () => ok({ located: [], failed: [] })),
+  http.put("/api/maintenance/route/home", async ({ request }) => {
+    const body = (await request.json()) as { address: string; latitude?: number; longitude?: number };
+    return ok({
+      address: body.address,
+      latitude: body.latitude ?? 41.927,
+      longitude: body.longitude ?? -74.0179,
+      source: body.latitude === undefined ? "geocoder" : "manual",
+      updatedAt: new Date().toISOString(),
+    });
+  }),
+  http.put("/api/maintenance/route/locations/:propertyId", async ({ params, request }) => {
+    const body = (await request.json()) as { latitude: number; longitude: number };
+    return ok({ propertyId: params.propertyId, ...body, locationSource: "manual" });
+  }),
+];
+
 export const handlers = [
+  ...routeHandlers,
   ...authHandlers,
   ...realtimeHandlers,
   ...aggregateHandlers,
