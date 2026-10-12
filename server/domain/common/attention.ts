@@ -6,8 +6,14 @@ import { getEnv } from "../../config/env.js";
 import { todayLocal, daysBetween } from "../../lib/time.js";
 import type { AttentionItem, AttentionKind } from "../../../shared/types.js";
 
+// Every query below joins `properties p`, so the archived check rides along with the id filter.
+// An archived property (a prospect you passed on) is off the ring, and its leftover due dates
+// should not keep asking for a hand.
 function propertyFilter(propertyId: string | null, column = "p.id"): { sql: string; params: unknown[] } {
-  return propertyId ? { sql: `AND ${column} = ?`, params: [propertyId] } : { sql: "", params: [] };
+  const live = "AND p.archived_at IS NULL";
+  return propertyId
+    ? { sql: `${live} AND ${column} = ?`, params: [propertyId] }
+    : { sql: live, params: [] };
 }
 
 /** Computes the full needs-attention feed, optionally scoped to one property. */

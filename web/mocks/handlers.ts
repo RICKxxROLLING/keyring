@@ -296,7 +296,7 @@ const realtimeHandlers = [
 const aggregateHandlers = [
   http.get("/api/dashboard", () => {
     const payload: DashboardPayload = {
-      properties: fx.properties.map(propertyCard),
+      properties: fx.properties.filter((p) => !p.archivedAt).map(propertyCard),
       needsAttention: fx.attentionItems,
       totals: {
         properties: fx.properties.length,
@@ -438,6 +438,13 @@ const aggregateHandlers = [
     Object.assign(p, body, { version: p.version + 1, updatedAt: new Date().toISOString(), updatedBy: fx.CURRENT_USER_ID });
     delete (p as unknown as Record<string, unknown>)["expectedVersion"];
     return ok(p);
+  }),
+
+  http.delete("/api/properties/:propertyId", ({ params }) => {
+    const i = fx.properties.findIndex((x) => x.id === params.propertyId);
+    if (i < 0) return err("NOT_FOUND", "Property not found.", 404);
+    fx.properties.splice(i, 1);
+    return ok({ id: params.propertyId, deleted: true });
   }),
 
   http.get("/api/properties/:propertyId/units", ({ params }) => ok(page<Unit>(fx.units.filter((u) => u.propertyId === params.propertyId)))),
