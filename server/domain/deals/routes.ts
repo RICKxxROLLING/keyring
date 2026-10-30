@@ -32,6 +32,14 @@ const cents = z.number().int().min(0).max(1_000_000_000_00);
 
 const DealInputSchema = z
   .object({
+    dealKind: z.enum(["buy", "build"]),
+    buildCostPerSqftCents: cents,
+    unitSqft: z.number().int().min(0).max(100_000),
+    // Thirty is where the units table stops looking; a lot that takes more is a
+    // development, not a rental, and wants a proper pro forma.
+    unitCount: z.number().int().min(1).max(30),
+    rentPerUnitCents: cents,
+    siteWorkCents: cents,
     priceCents: cents,
     closingCostsCents: cents,
     rehabCents: cents,
@@ -74,6 +82,12 @@ const DealInputSchema = z
   .strict();
 
 const COLUMNS = [
+  ["deal_kind", "dealKind"],
+  ["build_cost_per_sqft_cents", "buildCostPerSqftCents"],
+  ["unit_sqft", "unitSqft"],
+  ["unit_count", "unitCount"],
+  ["rent_per_unit_cents", "rentPerUnitCents"],
+  ["site_work_cents", "siteWorkCents"],
   ["price_cents", "priceCents"],
   ["closing_costs_cents", "closingCostsCents"],
   ["rehab_cents", "rehabCents"],

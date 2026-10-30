@@ -26,8 +26,11 @@ export function UtilityEstimator(props: {
   inputs: DealInputs;
   postalCode: string | null;
   onChange: (change: Partial<DealInputs>) => void;
+  /** On a build: the layout and size are one unit's, and so is the bill. */
+  perUnit?: boolean;
 }): ReactElement {
   const { inputs } = props;
+  const each = props.perUnit ? " per unit" : "";
   const estimate = estimateUtilities(inputs, props.postalCode);
   const auto = inputs.utilitiesAuto;
   const someUnknown = estimate.lines.some((l) => l.unknown && l.ownerPays);
@@ -146,7 +149,7 @@ export function UtilityEstimator(props: {
                 fontSize: 13.5,
               }}
             >
-              <span role="cell">Owner pays / mo</span>
+              <span role="cell">Owner pays / mo{each}</span>
               <span role="cell" className="kr-tabular">
                 {formatCents(estimate.ownerMonthlyCents)}
               </span>
@@ -162,8 +165,8 @@ export function UtilityEstimator(props: {
         </>
       ) : (
         <Field
-          label="Utilities / other / mo"
-          hint={`The estimate for this house would be ${formatCents(estimate.ownerMonthlyCents)}.`}
+          label={`Utilities / other / mo${each}`}
+          hint={`The estimate for ${props.perUnit ? "one unit" : "this house"} would be ${formatCents(estimate.ownerMonthlyCents)}.`}
         >
           <MoneyInput
             valueCents={inputs.monthlyUtilitiesCents}

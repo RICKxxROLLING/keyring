@@ -219,4 +219,72 @@ describe("deal analysis routes", () => {
     const res = await testApp.app.inject({ method: "GET", url: `/api/properties/${p.id}/deal` });
     expect(res.statusCode).toBe(401);
   });
+
+  // "An option for a lot bought for land only, with units built new on it."
+  it("saves a build — land, $/sq ft, units, rent per unit — and costs the finished project", async () => {
+    testApp = await createTestApp();
+    const user = createTestUser({ role: "manager" });
+    const p = await makeProspect(testApp, user.headers);
+
+    const res = await testApp.app.inject({
+      method: "PUT",
+      url: `/api/properties/${p.id}/deal`,
+      headers: user.headers,
+      payload: body({
+        dealKind: "build",
+        priceCents: 100_000_00,
+        buildCostPerSqftCents: 250_00,
+        unitSqft: 1200,
+        unitCount: 3,
+        rentPerUnitCents: 3_800_00,
+        siteWorkCents: 25_000_00,
+        insuranceAnnualCents: 6_000_00,
+      }),
+    });
+    expect(res.statusCode).toBe(200);
+    const saved = unwrap<DealPayload>(res);
+    expect(saved.inputs).toMatchObject({ dealKind: "build", unitCount: 3, rentPerUnitCents: 3_800_00 });
+    // Three units' rent, computed here from the per-unit figure.
+    expect(saved.analysis.financed.grossAnnualCents).toBe(3 * 3_800_00 * 12);
+    // Tax is on the finished project — land + 3,600 sq ft × $250 + site work.
+    expect(saved.analysis.financed.taxCents).toBe(Math.round((1_025_000_00 * 0.5432) / 100));
+
+    const again = unwrap<DealPayload>(
+      await testApp.app.inject({ method: "GET", url: `/api/properties/${p.id}/deal`, headers: user.headers }),
+    );
+    expect(again.inputs).toMatchObject({ dealKind: "build", buildCostPerSqftCents: 250_00, siteWorkCents: 25_000_00 });
+  });
+
+  it("refuses a build with no units, or more than the table looks at", async () => {
+    testApp = await createTestApp();
+    const user = createTestUser({ role: "manager" });
+    const p = await makeProspect(testApp, user.headers);
+    for (const unitCount of [0, 31]) {
+      const res = await testApp.app.inject({
+        method: "PUT",
+        url: `/api/properties/${p.id}/deal`,
+        headers: user.headers,
+        payload: body({ dealKind: "build", unitCount }),
+      });
+      expect(res.statusCode).toBe(422);
+    }
+  });
+
+  it("reads an analysis saved before builds existed as a purchase", async () => {
+    testApp = await createTestApp();
+    const user = createTestUser({ role: "manager" });
+    const p = await makeProspect(testApp, user.headers);
+    await testApp.app.inject({
+      method: "PUT",
+      url: `/api/properties/${p.id}/deal`,
+      headers: user.headers,
+      payload: body({ monthlyRentCents: 3_000_00 }),
+    });
+    const again = unwrap<DealPayload>(
+      await testApp.app.inject({ method: "GET", url: `/api/properties/${p.id}/deal`, headers: user.headers }),
+    );
+    expect(again.inputs.dealKind).toBe("buy");
+    expect(again.analysis.financed.grossAnnualCents).toBe(36_000_00);
+  });
 });
+

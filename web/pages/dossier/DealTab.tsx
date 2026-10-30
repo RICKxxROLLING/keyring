@@ -9,6 +9,10 @@ import { hero } from "../../components/KeyGlyph";
 import { MoneyInput, NumericInput } from "../../components/NumericInput";
 import {
   analyzeDeal,
+  buildCosts,
+  expandBuild,
+  MAX_UNITS,
+  unitsToProfit,
   estimateClosingCosts,
   FLOOD_ZONE_ANNUAL_CENTS,
   maxPriceForCashFlow,
@@ -16,6 +20,7 @@ import {
   type DealAnalysis,
   type DealInputs,
   type DealScenario,
+  type UnitsToProfit,
 } from "../../../shared/deal-analysis";
 import { ratesForZip } from "../../../shared/local-rates";
 import { applyOverrides, diffInputs, type DealOverrides } from "../../../shared/deal-compare";
@@ -175,6 +180,14 @@ export function DealTab(): ReactElement {
   const plus200 = maxPriceForCashFlow(priced, 200_00, scenario);
   const rentNeeded = rentNeededForCashFlow(priced, 0, scenario);
 
+  // Land and build. The analysis runs on the finished project (see expandBuild),
+  // so everything below the switch reads the same either way; these are the
+  // build's own figures, for the panels only a build has.
+  const isBuild = inputs.dealKind === "build";
+  const costs = buildCosts(inputs);
+  const expanded = expandBuild(priced);
+  const units = isBuild ? unitsToProfit(priced, scenario) : null;
+
   const tone =
     analysis.verdict === "profitable"
       ? { fg: "var(--ok)", bg: "var(--ok-fill)", glyph: "✓", label: "Profitable" }
@@ -183,7 +196,8 @@ export function DealTab(): ReactElement {
         : { fg: "var(--warn)", bg: "var(--warn-fill)", glyph: "!", label: "Marginal" };
 
   const coastal = inputs.insuranceAnnualCents === null;
-  const windCents = inputs.sqft * inputs.windPerSqftCents;
+  // From the finished project, so a build's wind premium covers every unit.
+  const windCents = expanded.sqft * expanded.windPerSqftCents;
   const closing = estimateClosingCosts(inputs, scenario);
 
   // Local figures for this property's own ZIP, if there are any. Offered, never
@@ -297,12 +311,29 @@ export function DealTab(): ReactElement {
             ))}
           </div>
 
-          <Panel title={`What it's worth paying — ${scenario === "financed" ? "financed" : "all cash"}`}>
+          {isBuild && units && (
+            <UnitsPanel
+              units={units}
+              current={inputs.unitCount}
+              scenario={scenario}
+              rentNeededPerUnit={rentNeeded}
+              color={color}
+              onPick={(n) => set("unitCount", n)}
+            />
+          )}
+
+          <Panel
+            title={`${isBuild ? "What the land is worth paying" : "What it's worth paying"} — ${scenario === "financed" ? "financed" : "all cash"}`}
+          >
             <Grid>
               <Stat
                 label="Break even ($0/mo)"
                 value={breakEven === null ? "—" : formatCents(breakEven)}
-                note="highest price that doesn't lose money"
+                note={
+                  isBuild
+                    ? `most to pay for the land with ${inputs.unitCount} unit${inputs.unitCount === 1 ? "" : "s"}`
+                    : "highest price that doesn't lose money"
+                }
               />
               <Stat
                 label="Target +$100/mo"
@@ -317,9 +348,13 @@ export function DealTab(): ReactElement {
                 tone={plus200 === null ? undefined : "ok"}
               />
               <Stat
-                label="Rent needed at asking"
+                label={isBuild ? "Rent needed per unit" : "Rent needed at asking"}
                 value={rentNeeded === null ? "—" : `${formatCents(rentNeeded)}/mo`}
-                note="to break even at the current price"
+                note={
+                  isBuild
+                    ? "to break even at this land price and unit count"
+                    : "to break even at the current price"
+                }
               />
             </Grid>
             {plus200 !== null && (
@@ -328,13 +363,13 @@ export function DealTab(): ReactElement {
                 onClick={() => set("priceCents", plus200)}
                 style={{ marginTop: 12 }}
               >
-                Use the +$200/mo price
+                {isBuild ? "Use the +$200/mo land price" : "Use the +$200/mo price"}
               </Button>
             )}
             <Note>
-              Solves for price holding rent, size, insurance and loan terms fixed. A bigger house
-              carries more wind premium, which lowers what you can afford. All cash supports a
-              higher price — switch above to compare.
+              {isBuild
+                ? "Solves for the land price holding the units, build cost, rent and loan terms fixed. All cash supports a higher price — switch above to compare."
+                : "Solves for price holding rent, size, insurance and loan terms fixed. A bigger house carries more wind premium, which lowers what you can afford. All cash supports a higher price — switch above to compare."}
             </Note>
           </Panel>
 
@@ -500,7 +535,113 @@ export function DealTab(): ReactElement {
         <div className="kr-deal-inputs">
           {/* First, because it is what a plan B most often changes, and because
               it now sizes both the wind premium and the utility estimate. */}
-          <Panel title="The house">
+          <Panel title="What you're buying">
+            <div
+              role="group"
+              aria-label="What you're buying"
+              style={{ gridColumn: "1 / -1", display: "flex", gap: 6 }}
+            >
+              {(
+                [
+                  ["buy", "A house"],
+                  ["build", "Land to build on"],
+                ] as const
+              ).map(([kind, label]) => (
+                <button
+                  key={kind}
+                  type="button"
+                  aria-pressed={inputs.dealKind === kind}
+                  onClick={() => {
+                    if (kind === inputs.dealKind) return;
+                    // Carry the rent across the first time, so switching does
+                    // not open on a build that earns nothing.
+                    if (kind === "build" && inputs.rentPerUnitCents === 0 && inputs.monthlyRentCents > 0) {
+                      patch({ dealKind: kind, rentPerUnitCents: inputs.monthlyRentCents });
+                    } else {
+                      set("dealKind", kind);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "9px 12px",
+                    borderRadius: 11,
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    border: `1px solid ${inputs.dealKind === kind ? hero.border(color, 0.45) : "var(--line)"}`,
+                    background: inputs.dealKind === kind ? hero.tint(color, 14) : "var(--panel)",
+                    color: "var(--ink)",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Note>
+              {isBuild
+                ? "Bare land, with new units built on it. The price below is the land; the build is costed per square foot."
+                : "A house that already stands. Switch to land to cost a new build instead."}
+            </Note>
+          </Panel>
+
+          {isBuild && (
+            <Panel title="The build">
+              <Field label="Units on the land" hint={`Up to ${MAX_UNITS}. The answers show how many it takes.`}>
+                <NumericInput
+                  value={inputs.unitCount}
+                  onChange={(v) => set("unitCount", Math.min(MAX_UNITS, Math.max(1, Math.round(v))))}
+                  maxFractionDigits={0}
+                  min={1}
+                />
+              </Field>
+              <Field label="Size of each unit (sq ft)">
+                <NumericInput
+                  value={inputs.unitSqft}
+                  onChange={(v) => set("unitSqft", Math.max(0, Math.round(v)))}
+                  group
+                  maxFractionDigits={0}
+                  min={0}
+                />
+              </Field>
+              <Money
+                label="Build cost per sq ft"
+                value={inputs.buildCostPerSqftCents}
+                onChange={(v) => set("buildCostPerSqftCents", v)}
+              />
+              <Money
+                label="Site work & permits"
+                value={inputs.siteWorkCents}
+                onChange={(v) => set("siteWorkCents", v)}
+              />
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  padding: "10px 12px",
+                  borderRadius: 11,
+                  background: "var(--panel-2)",
+                  border: "1px solid var(--line)",
+                }}
+              >
+                <Derived label="Land" value={formatCents(costs.landCents)} />
+                <Derived
+                  label={`Construction — ${costs.totalSqft.toLocaleString("en-US")} sq ft`}
+                  value={formatCents(costs.constructionCents)}
+                />
+                <Derived label="Site work & permits" value={formatCents(costs.siteWorkCents)} />
+                <Derived label="Total project cost" value={formatCents(costs.totalCents)} strong />
+                <Derived
+                  label="Cost per unit, land included"
+                  value={formatCents(Math.round(costs.totalCents / Math.max(1, inputs.unitCount)))}
+                />
+              </div>
+              <Note>
+                Site work is the cost of making bare land buildable — clearing, septic or a sewer
+                tap, the driveway, survey, permits and impact fees. Get a builder&apos;s quote per sq
+                ft for this lot before relying on the figure.
+              </Note>
+            </Panel>
+          )}
+
+          <Panel title={isBuild ? "Each unit" : "The house"}>
             <Field label="Bedrooms">
               <NumericInput
                 value={inputs.bedrooms}
@@ -518,19 +659,27 @@ export function DealTab(): ReactElement {
                 min={0}
               />
             </Field>
-            <Field label="Heated living area (sq ft)" hint="Sizes the wind premium and the utilities.">
-              <NumericInput
-                value={inputs.sqft}
-                onChange={(v) => set("sqft", Math.round(v))}
-                group
-                maxFractionDigits={0}
-                min={0}
-              />
-            </Field>
+            {isBuild ? (
+              <Note>Bedrooms and bathrooms of one unit. They size its utility estimate.</Note>
+            ) : (
+              <Field label="Heated living area (sq ft)" hint="Sizes the wind premium and the utilities.">
+                <NumericInput
+                  value={inputs.sqft}
+                  onChange={(v) => set("sqft", Math.round(v))}
+                  group
+                  maxFractionDigits={0}
+                  min={0}
+                />
+              </Field>
+            )}
           </Panel>
 
-          <Panel title="Purchase">
-            <Money label="Purchase price" value={inputs.priceCents} onChange={(v) => set("priceCents", v)} />
+          <Panel title={isBuild ? "Buying the land" : "Purchase"}>
+            <Money
+              label={isBuild ? "Land price" : "Purchase price"}
+              value={inputs.priceCents}
+              onChange={(v) => set("priceCents", v)}
+            />
             <div style={{ gridColumn: "1 / -1" }}>
               <Money
                 label="Closing costs"
@@ -598,8 +747,9 @@ export function DealTab(): ReactElement {
                 </div>
               </details>
             </div>
-            <Money label="Upfront repairs" value={inputs.rehabCents} onChange={(v) => set("rehabCents", v)} />
-            <Field label="After-repair value basis">
+            {/* A build has nothing to repair and is valued at what it cost. */}
+            {!isBuild && <Money label="Upfront repairs" value={inputs.rehabCents} onChange={(v) => set("rehabCents", v)} />}
+            {!isBuild && <Field label="After-repair value basis">
               <Select
                 value={inputs.arvCents === null ? inputs.arvMode : "manual"}
                 onChange={(e) => {
@@ -615,8 +765,8 @@ export function DealTab(): ReactElement {
                 <option value="aggressive">Aggressive — $2.00 per $1 of repairs</option>
                 <option value="manual">Set manually</option>
               </Select>
-            </Field>
-            {inputs.arvCents !== null ? (
+            </Field>}
+            {isBuild ? null : inputs.arvCents !== null ? (
               <Money label="After-repair value" value={inputs.arvCents} onChange={(v) => set("arvCents", v)} />
             ) : (
               <Derived label="After-repair value" value={formatCents(analysis.arvCents)} />
@@ -705,7 +855,21 @@ export function DealTab(): ReactElement {
           </Panel>
 
           <Panel title="Income">
-            <Money label="Monthly rent" value={inputs.monthlyRentCents} onChange={(v) => set("monthlyRentCents", v)} />
+            {isBuild ? (
+              <>
+                <Money
+                  label="Rent per unit / mo"
+                  value={inputs.rentPerUnitCents}
+                  onChange={(v) => set("rentPerUnitCents", v)}
+                />
+                <Derived
+                  label={`Rent from ${inputs.unitCount} unit${inputs.unitCount === 1 ? "" : "s"} / mo`}
+                  value={formatCents(expanded.monthlyRentCents)}
+                />
+              </>
+            ) : (
+              <Money label="Monthly rent" value={inputs.monthlyRentCents} onChange={(v) => set("monthlyRentCents", v)} />
+            )}
             <Money
               label="Other income / mo"
               value={inputs.monthlyOtherIncomeCents}
@@ -780,10 +944,10 @@ export function DealTab(): ReactElement {
             {coastal ? (
               <>
                 <Derived
-                  label="Living area (set under The house)"
-                  value={inputs.sqft > 0 ? `${inputs.sqft.toLocaleString("en-US")} sq ft` : "not set"}
+                  label={isBuild ? "Living area (all units)" : "Living area (set under The house)"}
+                  value={expanded.sqft > 0 ? `${expanded.sqft.toLocaleString("en-US")} sq ft` : "not set"}
                 />
-                <Money label="Base landlord policy / yr" value={inputs.baseHazardCents} onChange={(v) => set("baseHazardCents", v)} />
+                <Money label={isBuild ? "Base landlord policy / yr, per unit" : "Base landlord policy / yr"} value={inputs.baseHazardCents} onChange={(v) => set("baseHazardCents", v)} />
                 <Money label="Wind & hail per sq ft" value={inputs.windPerSqftCents} onChange={(v) => set("windPerSqftCents", v)} />
                 <Field label="Flood zone">
                   <Select
@@ -803,7 +967,7 @@ export function DealTab(): ReactElement {
                     <option value="custom">Custom</option>
                   </Select>
                 </Field>
-                <Money label="Flood premium / yr" value={inputs.floodAnnualCents} onChange={(v) => set("floodAnnualCents", v)} />
+                <Money label={isBuild ? "Flood premium / yr, per unit" : "Flood premium / yr"} value={inputs.floodAnnualCents} onChange={(v) => set("floodAnnualCents", v)} />
                 <div
                   style={{
                     marginTop: 10,
@@ -813,9 +977,9 @@ export function DealTab(): ReactElement {
                     border: "1px solid var(--line)",
                   }}
                 >
-                  <Derived label="Base landlord" value={formatCents(inputs.baseHazardCents)} />
+                  <Derived label="Base landlord" value={formatCents(expanded.baseHazardCents)} />
                   <Derived label="Wind & hail" value={formatCents(windCents)} />
-                  <Derived label="Flood (NFIP)" value={formatCents(inputs.floodAnnualCents)} />
+                  <Derived label="Flood (NFIP)" value={formatCents(expanded.floodAnnualCents)} />
                   <Derived label="Total insurance / yr" value={formatCents(r.insuranceCents)} strong />
                 </div>
                 <Note>
@@ -834,7 +998,12 @@ export function DealTab(): ReactElement {
 
           <Panel title="Operating expenses">
             <Money label="HOA / mo" value={inputs.monthlyHoaCents} onChange={(v) => set("monthlyHoaCents", v)} />
-            <UtilityEstimator inputs={inputs} postalCode={postalCode} onChange={patch} />
+            <UtilityEstimator
+              inputs={isBuild ? { ...inputs, sqft: inputs.unitSqft } : inputs}
+              postalCode={postalCode}
+              onChange={patch}
+              perUnit={isBuild}
+            />
             <Pct label="Repairs & maintenance" value={inputs.maintenancePct} onChange={(v) => set("maintenancePct", v)} />
             <Pct label="CapEx reserve" value={inputs.capexPct} onChange={(v) => set("capexPct", v)} />
             <Pct label="Property management" value={inputs.managementPct} onChange={(v) => set("managementPct", v)} />
@@ -849,7 +1018,13 @@ export function DealTab(): ReactElement {
             <Pct label="Annual expense growth" value={inputs.expenseGrowthPct} onChange={(v) => set("expenseGrowthPct", v)} />
             <Pct label="Selling costs on exit" value={inputs.sellingCostPct} onChange={(v) => set("sellingCostPct", v)} />
             <Pct label="Income tax bracket" value={inputs.taxBracketPct} onChange={(v) => set("taxBracketPct", v)} />
-            <Pct label="Land % (not depreciable)" value={inputs.landPct} onChange={(v) => set("landPct", v)} />
+            {isBuild ? (
+              // Worked out from the land's share of the project cost, so the
+              // depreciation is on what was built and nothing else.
+              <Derived label="Land % (not depreciable)" value={`${expanded.landPct.toFixed(1)}%`} />
+            ) : (
+              <Pct label="Land % (not depreciable)" value={inputs.landPct} onChange={(v) => set("landPct", v)} />
+            )}
             <Note>
               Depreciation over 27.5 years and the mortgage-interest deduction are estimated to
               show after-tax cash flow. Depreciation recapture on sale is not modelled.
@@ -886,6 +1061,121 @@ export function DealTab(): ReactElement {
         commit to anything.
       </p>
     </div>
+  );
+}
+
+// -------------------------------------------------------------- the build
+
+/**
+ * How many units the land needs to make money.
+ *
+ * The question asked was "how many units on the land are needed to make a
+ * profit", so the answer is a count, said first, with the table under it that
+ * shows how cash flow climbs as units are added. A row's count is a button:
+ * picking one sets it, and the rest of the page follows.
+ *
+ * When each unit loses money on its own, more units only lose more, and the
+ * page says that instead of pointing at a count that does not exist — the
+ * lever is then the rent or the build cost, and the rent needed is shown.
+ */
+function UnitsPanel(props: {
+  units: UnitsToProfit;
+  current: number;
+  scenario: DealScenario;
+  rentNeededPerUnit: number | null;
+  color: string | null;
+  onPick: (units: number) => void;
+}): ReactElement {
+  const { units, current, scenario, color } = props;
+  const { breakEvenUnits: be, profitableUnits: pro } = units;
+  const plural = (n: number): string => `${n} unit${n === 1 ? "" : "s"}`;
+
+  const headline =
+    pro !== null
+      ? be !== null && be < pro
+        ? `${plural(be)} to break even, ${plural(pro)} to be profitable.`
+        : `${plural(pro)} to be profitable.`
+      : be !== null
+        ? `${plural(be)} to break even. Up to ${MAX_UNITS} never clears $100/mo at 6% cash-on-cash.`
+        : units.marginPerUnitCents <= 0
+          ? "No number of units makes this work — each unit costs more to carry than it rents for."
+          : `More than ${MAX_UNITS} units — more than this table looks at.`;
+
+  // Enough rows to show the answer and a little past it, and the current count.
+  const shown = Math.min(MAX_UNITS, Math.max(6, current + 1, (pro ?? be ?? 0) + 2));
+  const rows = units.rows.slice(0, shown);
+
+  return (
+    <Panel title={`How many units it takes — ${scenario === "financed" ? "financed" : "all cash"}`}>
+      <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 15, fontWeight: 600 }}>{headline}</p>
+      <p style={{ gridColumn: "1 / -1", margin: "4px 0 0", fontSize: 12.5, color: "var(--ink-3)" }}>
+        Each unit adds {formatCents(units.marginPerUnitCents)}/mo once the land is paid for.
+        {units.marginPerUnitCents <= 0 && props.rentNeededPerUnit !== null
+          ? ` At ${plural(current)}, rent needs to reach ${formatCents(props.rentNeededPerUnit)}/mo per unit to break even.`
+          : ""}
+      </p>
+      <div className="kr-scroll-x" style={{ gridColumn: "1 / -1", marginTop: 10 }}>
+        <table style={{ width: "100%", minWidth: 420, borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr>
+              <Th>Units</Th>
+              <Th align="right">Project cost</Th>
+              <Th align="right">Cash flow /mo</Th>
+              <Th align="right">Cash-on-cash</Th>
+              <Th> </Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const mark = row.units === pro ? "Profitable" : row.units === be ? "Breaks even" : null;
+              const isCurrent = row.units === current;
+              return (
+                <tr
+                  key={row.units}
+                  style={{
+                    borderTop: "1px solid var(--line-soft)",
+                    background: isCurrent ? hero.tint(color, 12) : undefined,
+                  }}
+                >
+                  <Td>
+                    <button
+                      type="button"
+                      onClick={() => props.onPick(row.units)}
+                      aria-pressed={isCurrent}
+                      aria-label={`Plan for ${plural(row.units)}`}
+                      style={{
+                        fontWeight: isCurrent ? 700 : 500,
+                        textDecoration: isCurrent ? "none" : "underline",
+                      }}
+                    >
+                      {row.units}
+                    </button>
+                  </Td>
+                  <Td align="right">{formatCents(row.totalCostCents)}</Td>
+                  <Td align="right" tone={row.monthlyCashFlowCents >= 0 ? "ok" : "bad"}>
+                    {formatCents(row.monthlyCashFlowCents)}
+                  </Td>
+                  <Td align="right">{`${row.cashOnCashPct.toFixed(1)}%`}</Td>
+                  <Td>
+                    {mark && (
+                      <span className="kr-label" style={{ fontSize: 9, color: "var(--ok)" }}>
+                        {mark}
+                      </span>
+                    )}
+                  </Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <Note>
+        Profitable means the page&apos;s usual bar: $100/mo of cash flow and 6% cash-on-cash. Pick a
+        count to plan around it. Whether the lot is zoned for that many units — and has the septic
+        capacity for them — is a question for the county before it is one for this table. The
+        months of construction before the first rent are not counted.
+      </Note>
+    </Panel>
   );
 }
 
