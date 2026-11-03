@@ -11,7 +11,9 @@ import {
   analyzeDeal,
   buildCosts,
   expandBuild,
+  MAX_STORIES,
   MAX_UNITS,
+  storyFactor,
   unitsToProfit,
   estimateClosingCosts,
   FLOOD_ZONE_ANNUAL_CENTS,
@@ -593,7 +595,18 @@ export function DealTab(): ReactElement {
                   min={1}
                 />
               </Field>
-              <Field label="Size of each unit (sq ft)">
+              <Field
+                label="Stories"
+                hint={`Units stacked on up to ${MAX_STORIES} floors share one foundation and one roof.`}
+              >
+                <NumericInput
+                  value={inputs.stories}
+                  onChange={(v) => set("stories", Math.min(MAX_STORIES, Math.max(1, Math.round(v))))}
+                  maxFractionDigits={0}
+                  min={1}
+                />
+              </Field>
+              <Field label="Size of each unit (sq ft)" hint="One unit, not the whole building.">
                 <NumericInput
                   value={inputs.unitSqft}
                   onChange={(v) => set("unitSqft", Math.max(0, Math.round(v)))}
@@ -602,11 +615,15 @@ export function DealTab(): ReactElement {
                   min={0}
                 />
               </Field>
-              <Money
-                label="Build cost per sq ft"
-                value={inputs.buildCostPerSqftCents}
-                onChange={(v) => set("buildCostPerSqftCents", v)}
-              />
+              <Field
+                label="Build cost per sq ft (one story)"
+                hint="What this quality costs built on one level — about $150–$200 for builder-grade wood frame, $250+ for custom. Stacking is taken off below."
+              >
+                <MoneyInput
+                  valueCents={inputs.buildCostPerSqftCents}
+                  onChange={(v) => set("buildCostPerSqftCents", v)}
+                />
+              </Field>
               <Money
                 label="Site work & permits"
                 value={inputs.siteWorkCents}
@@ -622,10 +639,19 @@ export function DealTab(): ReactElement {
                 }}
               >
                 <Derived label="Land" value={formatCents(costs.landCents)} />
+                {inputs.stories > 1 && (
+                  <Derived
+                    label={`Per sq ft on ${inputs.stories} stories (${Math.round((1 - storyFactor(inputs.stories)) * 1000) / 10}% off)`}
+                    value={formatCents(costs.effectiveCostPerSqftCents)}
+                  />
+                )}
                 <Derived
                   label={`Construction — ${costs.totalSqft.toLocaleString("en-US")} sq ft`}
                   value={formatCents(costs.constructionCents)}
                 />
+                {costs.stackingSavingsCents > 0 && (
+                  <Derived label="Saved by stacking" value={formatCents(costs.stackingSavingsCents)} />
+                )}
                 <Derived label="Site work & permits" value={formatCents(costs.siteWorkCents)} />
                 <Derived label="Total project cost" value={formatCents(costs.totalCents)} strong />
                 <Derived
@@ -634,9 +660,12 @@ export function DealTab(): ReactElement {
                 />
               </div>
               <Note>
-                Site work is the cost of making bare land buildable — clearing, septic or a sewer
-                tap, the driveway, survey, permits and impact fees. Get a builder&apos;s quote per sq
-                ft for this lot before relying on the figure.
+                Stacking saves on the foundation and roof, which are sized by the footprint — about
+                15% of a one-story building&apos;s cost, spread across the floors. Stairs, fire walls
+                and sprinklers that a stacked building needs stay in the per-sq-ft rate. Site work
+                is the cost of making bare land buildable — clearing, septic or a sewer tap, the
+                driveway, survey, permits and impact fees. Get a builder&apos;s quote for this lot
+                before relying on any of it.
               </Note>
             </Panel>
           )}

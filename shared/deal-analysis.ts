@@ -49,8 +49,19 @@ export interface DealInputs {
   dealKind: DealKind;
 
   // ---- new construction (dealKind "build" only)
-  /** Construction cost per square foot of finished unit, in cents. */
+  /**
+   * Construction cost per square foot of finished floor, in cents, for this
+   * quality of building ON ONE STORY. Stacking floors then lowers it — see
+   * storyFactor — so the figure entered is the one a builder would quote for a
+   * single-level building, and the page shows what it comes to once stacked.
+   */
   buildCostPerSqftCents: number;
+  /**
+   * Floors the units are stacked on. Foundation and roof cover the footprint,
+   * not the floor area, so a three-story building puts three floors of units on
+   * one foundation and under one roof.
+   */
+  stories: number;
   /** Finished size of each unit. */
   unitSqft: number;
   /** How many units go on the land. */
@@ -289,9 +300,13 @@ export function defaultDealInputs(priceCents = 0): DealInputs {
   return {
     dealKind: "buy",
     // A plain starting point for a build, used only once one is chosen: one
-    // 1,200 sq ft unit at $250/sq ft, which is mid-range for new coastal
-    // construction to code. Change it to a builder's number as soon as there is one.
-    buildCostPerSqftCents: 250_00,
+    // 1,200 sq ft unit at $185/sq ft on one story — builder-grade wood frame.
+    // Stacked three high that comes to about $167, the middle of the current
+    // $130–$190 range for low-rise wood-frame ("garden-style") apartments. It is
+    // not a custom-home rate; those run $250 and up. Change it to a builder's
+    // number as soon as there is one.
+    buildCostPerSqftCents: 185_00,
+    stories: 1,
     unitSqft: 1200,
     unitCount: 1,
     rentPerUnitCents: 0,
@@ -346,9 +361,50 @@ export const FLOOD_ZONE_ANNUAL_CENTS: Record<string, number> = {
   VE: 450_000,
 };
 
+/**
+ * Share of a one-story building's construction cost that is set by its
+ * FOOTPRINT rather than its floor area: the foundation and the roof.
+ *
+ * NAHB's 2024 Cost of Constructing a Home survey puts the foundation at about
+ * 10.5% of construction cost; roof framing and roofing add roughly another
+ * 5%. Those are the parts that do not grow when a floor is added, which is the
+ * whole saving of building up.
+ *
+ * It is deliberately a modest number. Stacking also ADDS cost that a one-story
+ * building does not carry — stairs and landings, rated fire walls and floors
+ * between units, a sprinkler system, heavier shear walls and hold-downs for
+ * wind on a taller box — and those are left inside the per-sq-ft rate rather
+ * than netted off here, so the discount is never larger than the evidence.
+ * A pile foundation makes the footprint share larger and the saving bigger.
+ */
+export const FOOTPRINT_COST_SHARE = 0.15;
+
+/** Most floors a build can be — the ceiling for the light wood-frame building this models. */
+export const MAX_STORIES = 3;
+
+/**
+ * What one square foot costs on `stories` floors, as a fraction of what it
+ * costs on one: the floor-area share stays, the footprint share is divided
+ * among the floors. One story is 1.0, two 0.925, three 0.90.
+ *
+ * Three is the limit on purpose. In North Carolina a fourth residential story
+ * generally moves a building out of light wood-frame residential rules and
+ * into commercial construction, and cost research finds a jump there rather
+ * than a further saving (Eriksen & Orlando, 2024). A taller building is a
+ * different kind of project, and its cost should come from a builder.
+ */
+export function storyFactor(stories: number): number {
+  const n = Math.min(MAX_STORIES, Math.max(1, Math.round(stories)));
+  return 1 - FOOTPRINT_COST_SHARE + FOOTPRINT_COST_SHARE / n;
+}
+
 export interface BuildCosts {
   landCents: number;
   constructionCents: number;
+  /** The entered one-story rate, after stacking. What a sq ft actually costs here. */
+  effectiveCostPerSqftCents: number;
+  /** What stacking saved against building the same floor area on one story. */
+  stackingSavingsCents: number;
   siteWorkCents: number;
   /** Land + construction + site work: what the finished project cost. */
   totalCents: number;
@@ -358,11 +414,14 @@ export interface BuildCosts {
 export function buildCosts(input: DealInputs): BuildCosts {
   const units = Math.max(0, Math.round(input.unitCount));
   const totalSqft = units * input.unitSqft;
-  const constructionCents = totalSqft * input.buildCostPerSqftCents;
+  const effectiveCostPerSqftCents = Math.round(input.buildCostPerSqftCents * storyFactor(input.stories));
+  const constructionCents = totalSqft * effectiveCostPerSqftCents;
   const landCents = input.priceCents;
   return {
     landCents,
     constructionCents,
+    effectiveCostPerSqftCents,
+    stackingSavingsCents: totalSqft * input.buildCostPerSqftCents - constructionCents,
     siteWorkCents: input.siteWorkCents,
     totalCents: landCents + constructionCents + input.siteWorkCents,
     totalSqft,

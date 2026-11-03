@@ -286,5 +286,29 @@ describe("deal analysis routes", () => {
     expect(again.inputs.dealKind).toBe("buy");
     expect(again.analysis.financed.grossAnnualCents).toBe(36_000_00);
   });
-});
 
+  it("stores how many stories a build is, and refuses more than the discount covers", async () => {
+    testApp = await createTestApp();
+    const user = createTestUser({ role: "manager" });
+    const p = await makeProspect(testApp, user.headers);
+    const saved = unwrap<DealPayload>(
+      await testApp.app.inject({
+        method: "PUT",
+        url: `/api/properties/${p.id}/deal`,
+        headers: user.headers,
+        payload: body({ dealKind: "build", priceCents: 0, siteWorkCents: 0, unitCount: 6, unitSqft: 864, stories: 3, buildCostPerSqftCents: 185_00 }),
+      }),
+    );
+    expect(saved.inputs.stories).toBe(3);
+    // Tax is on land + construction: 5,184 sq ft at $166.50 stacked.
+    expect(saved.analysis.financed.taxCents).toBe(Math.round((5184 * 166_50 * 0.5432) / 100));
+
+    const tooTall = await testApp.app.inject({
+      method: "PUT",
+      url: `/api/properties/${p.id}/deal`,
+      headers: user.headers,
+      payload: body({ dealKind: "build", stories: 4 }),
+    });
+    expect(tooTall.statusCode).toBe(422);
+  });
+});

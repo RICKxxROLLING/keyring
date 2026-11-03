@@ -11,6 +11,7 @@ import {
   expandBuild,
   maxPriceForCashFlow,
   rentNeededForCashFlow,
+  storyFactor,
   unitsToProfit,
   type DealInputs,
 } from "./deal-analysis.js";
@@ -41,6 +42,49 @@ describe("buildCosts", () => {
     expect(c.siteWorkCents).toBe(25_000_00);
     expect(c.totalCents).toBe(100_000_00 + 900_000_00 + 25_000_00);
     expect(c.totalSqft).toBe(3600);
+  });
+});
+
+describe("building up", () => {
+  // "There's some type of discount in price per square foot when building up."
+  it("spreads the foundation and roof — 15% of a one-story building — over the floors", () => {
+    expect(storyFactor(1)).toBe(1);
+    expect(storyFactor(2)).toBeCloseTo(0.925, 10);
+    expect(storyFactor(3)).toBeCloseTo(0.9, 10);
+    // Three stories is the most this models; nothing further is claimed above it.
+    expect(storyFactor(4)).toBe(storyFactor(3));
+    expect(storyFactor(0)).toBe(1);
+  });
+
+  it("prices the 1099 Ocean Trail six-unit condo as drawn", () => {
+    // Six 864 sq ft units, two per floor, three stories: 5,184 sq ft.
+    const c = buildCosts(
+      lot({
+        unitCount: 6,
+        unitSqft: 864,
+        stories: 3,
+        buildCostPerSqftCents: 185_00,
+        priceCents: 0,
+        siteWorkCents: 0,
+      }),
+    );
+    expect(c.totalSqft).toBe(5184);
+    expect(c.effectiveCostPerSqftCents).toBe(166_50);
+    expect(c.constructionCents).toBe(5184 * 166_50); // $863,136
+    expect(c.stackingSavingsCents).toBe(5184 * 185_00 - 5184 * 166_50); // $95,904
+  });
+
+  it("changes nothing for a one-story build", () => {
+    const flat = buildCosts(lot({ unitCount: 3, stories: 1 }));
+    expect(flat.constructionCents).toBe(3 * 1200 * 250_00);
+    expect(flat.stackingSavingsCents).toBe(0);
+  });
+
+  it("makes a taller building need fewer units, never more", () => {
+    const one = unitsToProfit(lot({ stories: 1 }), "financed");
+    const three = unitsToProfit(lot({ stories: 3 }), "financed");
+    expect(three.marginPerUnitCents).toBeGreaterThan(one.marginPerUnitCents);
+    expect(three.breakEvenUnits!).toBeLessThanOrEqual(one.breakEvenUnits!);
   });
 });
 

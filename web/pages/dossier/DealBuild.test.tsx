@@ -97,6 +97,7 @@ describe("land to build on", () => {
     renderDeal();
     await user.click(await screen.findByRole("button", { name: "Land to build on" }));
     await setValue(user, /^Land price/, "100000");
+    await setValue(user, /^Build cost per sq ft/, "250");
     await setValue(user, /^Rent per unit/, "3800");
 
     const panel = unitsPanel();
@@ -135,5 +136,22 @@ describe("land to build on", () => {
     await user.click(screen.getByRole("button", { name: "Save this analysis" }));
     await waitFor(() => expect(sent).not.toBeNull());
     expect(sent).toMatchObject({ dealKind: "build", unitCount: 4 });
+  });
+
+  it("takes the stacking discount off when the units go up, and says what it saved", async () => {
+    const user = userEvent.setup();
+    renderDeal();
+    await user.click(await screen.findByRole("button", { name: "Land to build on" }));
+    await setValue(user, /^Build cost per sq ft/, "185");
+    await setValue(user, /^Size of each unit/, "864");
+    await setValue(user, /^Units on the land/, "6");
+    await setValue(user, /^Stories/, "3");
+
+    const build = screen.getByRole("heading", { name: "The build" }).closest("section")!;
+    expect(within(build).getByText(/Per sq ft on 3 stories \(10% off\)/)).toBeInTheDocument();
+    expect(within(build).getByText("$166.50")).toBeInTheDocument();
+    // 5,184 sq ft × $166.50, and $95,904 less than the same floor area on one story.
+    expect(within(build).getByText("$863,136.00")).toBeInTheDocument();
+    expect(within(build).getByText("$95,904.00")).toBeInTheDocument();
   });
 });
