@@ -96,7 +96,7 @@ describe("demo data toggle", () => {
       .run(noteId, realId, at, at, owner.id, owner.id);
 
     const removed = removeDemoData();
-    expect(removed.properties).toBe(5);
+    expect(removed.properties).toBe(6);
 
     const survivor = getDb().prepare(`SELECT name FROM properties WHERE id = ?`).get(realId) as
       | { name: string }
@@ -182,7 +182,7 @@ describe("demo data toggle", () => {
     expect(unwrap<{ loaded: boolean }>(res).loaded).toBe(true);
 
     const status = getDemoStatus();
-    expect(status.properties).toBe(5);
+    expect(status.properties).toBe(6);
     // The real one is untouched and still counted as yours.
     expect(status.realProperties).toBe(1);
     expect(
@@ -207,7 +207,7 @@ describe("demo data toggle", () => {
     const flagged = getDb()
       .prepare(`SELECT COUNT(*) AS n FROM properties WHERE is_demo = 1`)
       .get() as { n: number };
-    expect(flagged.n).toBe(5);
+    expect(flagged.n).toBe(6);
   });
 
   it("refuses a second load while the demo is already present", async () => {
@@ -222,7 +222,44 @@ describe("demo data toggle", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(unwrap<{ loaded: boolean }>(res).loaded).toBe(false);
-    // Still five, not ten.
-    expect(getDemoStatus().properties).toBe(5);
+    // Still six, not twelve.
+    expect(getDemoStatus().properties).toBe(6);
+  });
+
+  it("includes a prospect with its workspace, and takes all of it back out", async () => {
+    testApp = await createTestApp();
+    const owner = createTestUser({ role: "owner" });
+    await loadDemoData();
+
+    const prospect = getDb()
+      .prepare(`SELECT id, postal_code FROM properties WHERE is_demo = 1 AND stage = 'prospect'`)
+      .all() as { id: string; postal_code: string }[];
+    expect(prospect).toHaveLength(1);
+    const id = prospect[0]!.id;
+    // A ZIP the utility estimator has rates for, so the numbers tab shows them.
+    expect(prospect[0]!.postal_code).toBe("27959");
+
+    const count = (table: string) =>
+      (getDb().prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE property_id = ?`).get(id) as { n: number }).n;
+    const workspace = ["property_comments", "diligence_items", "projects", "property_deal_inputs", "property_deal_variants"];
+    for (const table of workspace) expect(count(table), table).toBeGreaterThan(0);
+
+    // Plan B must be readable by the route that re-validates it, or it is
+    // silently dropped and the comparison never appears.
+    const variant = getDb()
+      .prepare(`SELECT overrides FROM property_deal_variants WHERE property_id = ?`)
+      .get(id) as { overrides: string };
+    expect(JSON.parse(variant.overrides)).toMatchObject({ bedrooms: 4 });
+    const deal = await testApp.app.inject({
+      method: "GET",
+      url: `/api/properties/${id}/deal`,
+      headers: bodyless(owner.headers),
+    });
+    expect(deal.statusCode).toBe(200);
+    const body = unwrap<{ variant: { label: string } | null; analysis: unknown }>(deal);
+    expect(body.variant?.label).toBe("Add a bedroom");
+
+    removeDemoData();
+    for (const table of workspace) expect(count(table), table).toBe(0);
   });
 });

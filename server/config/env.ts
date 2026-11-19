@@ -53,6 +53,14 @@ export interface Env {
    */
   TRUST_PROXY: boolean | string;
   SECURE_COOKIES: boolean;
+  /**
+   * Which copy of Keyring this is, when it is not the real one — "test" on the
+   * test server. Unset (null) in production. Shown as a banner on every page,
+   * the sign-in page included, so nobody types real data into the test copy
+   * or demo data into the real one. Runtime, not baked into the image: the
+   * image tested on the test server is the exact one promoted to production.
+   */
+  INSTANCE: string | null;
 }
 
 function str(key: string, fallback?: string): string {
@@ -143,6 +151,7 @@ export function loadEnv(): Env {
     LOG_LEVEL: str("LOG_LEVEL", "info") as Env["LOG_LEVEL"],
     TRUST_PROXY: trustProxy,
     SECURE_COOKIES: bool("SECURE_COOKIES", origin.startsWith("https://")),
+    INSTANCE: (process.env.KEYRING_INSTANCE ?? "").trim().slice(0, 24) || null,
   };
   cached = env;
   return env;

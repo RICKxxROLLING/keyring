@@ -1,4 +1,4 @@
-# Build and publish the Keyring image to GitHub Container Registry.
+# Test, build and publish the Keyring image to GitHub Container Registry.
 #
 # Why this exists: without it, the Unraid stack builds from source on the
 # server. That means every update is `git pull` + `docker compose up --build`
@@ -6,14 +6,31 @@
 # — Compose Manager's "check for updates" always reports "latest", because a
 # locally-built tag has no registry to compare against.
 #
-# With a published image the stack pulls instead of builds, so the plugin's
-# update check is meaningful and its update button does the whole job.
+# Two channels, one per branch:
+#
+#   test  → :test    what the keyring-test stack on the server follows
+#   main  → :latest  what production follows
+#
+# The intended path for a change is test first, then main:
+#
+#   1. push to `test`            → checks pass → image built → :test + :sha-<commit>
+#   2. update the keyring-test stack, try it on real hardware with demo data
+#   3. fast-forward main to it   → checks pass → :latest is POINTED AT :sha-<commit>
+#
+# Step 3 does not rebuild. Main fast-forwarded to a tested commit has the same
+# SHA, the image for that SHA already exists, and it is promoted by retagging —
+# so production runs the byte-for-byte image that was tried on the test server,
+# not a fresh build of the same source that merely ought to be identical.
+# A commit that reaches main without going through test (a hotfix, a merge
+# commit) has no image yet and is built as before.
+#
+# Nothing is published unless lint, typecheck and the test suite pass first.
 
 name: Publish image
 
 on:
   push:
-    branches: [main]
+    branches: [main, test]
     # Skip the build for changes that cannot affect the image.
     paths-ignore:
       - "docs/**"
@@ -25,8 +42,26 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+concurrency:
+  # One publish per branch at a time; a newer push supersedes a queued one.
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Lint, typecheck and test
+        run: npm run check
+
   publish:
+    needs: check
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,22 +91,58 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }} # provided automatically
 
+      - name: Pick the channel
+        id: channel
+        run: |
+          image="${REGISTRY}/${IMAGE_NAME,,}"
+          case "${GITHUB_REF_NAME}" in
+            main) tag=latest ;;
+            test) tag=test ;;
+            *) echo "::error::No channel for branch ${GITHUB_REF_NAME}"; exit 1 ;;
+          esac
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "sha_ref=${image}:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      # Promotion: main pointing at a commit that was already built for test.
+      - name: Look for an image already built from this commit
+        id: existing
+        if: github.ref_name == 'main'
+        run: |
+          if docker buildx imagetools inspect "${{ steps.channel.outputs.sha_ref }}" >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "Promoting the tested image ${{ steps.channel.outputs.sha_ref }} — no rebuild."
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No image for this commit yet (it did not go through test) — building."
+          fi
+
+      - name: Promote it to latest
+        if: steps.existing.outputs.found == 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag "${{ steps.channel.outputs.image }}:latest" \
+            "${{ steps.channel.outputs.sha_ref }}"
+
       - name: Derive version
         id: version
+        if: steps.existing.outputs.found != 'true'
         run: echo "value=$(node scripts/version.mjs)" >> "$GITHUB_OUTPUT"
 
       - name: Derive tags
         id: meta
+        if: steps.existing.outputs.found != 'true'
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
+            type=raw,value=${{ steps.channel.outputs.tag }}
             type=sha,format=long
-          # `latest` is what the Unraid stack follows; the sha tag gives you
-          # something specific to roll back to.
+          # The channel tag is what a stack follows; the sha tag is what gets
+          # promoted, and something specific to roll back to.
 
       - name: Build and push
+        if: steps.existing.outputs.found != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .

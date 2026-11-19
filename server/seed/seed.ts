@@ -834,14 +834,219 @@ export async function seedDemoData(opts: { standalone?: boolean } = {}): Promise
 
   await seedUploads();
 
+  seedProspect();
+
   const unitCount = properties.reduce((sum, p) => sum + p.units.length, 0);
+  const propertyCount = properties.length + 1; // + the prospect
   return {
     seeded: true,
-    properties: properties.length,
+    properties: propertyCount,
     units: unitCount,
     vendors: vendors.length,
-    message: `Seeded ${properties.length} properties, ${unitCount} units, ${vendors.length} vendors.`,
+    message: `Seeded ${propertyCount} properties (one a prospect), ${unitCount} units, ${vendors.length} vendors.`,
   };
+
+  // ----------------------------------------------------------------- prospect
+  //
+  // One house being considered, not owned. Every prospect screen (the
+  // renovation tab, diligence, the discussion, plan A against plan B, the
+  // utility estimate) renders against a property in this stage, and five owned
+  // houses never exercise any of it. Kept OUT of `properties` above so the
+  // tenant, lease, work-order and turnover passes do not give it a tenant.
+  //
+  // In Nags Head on purpose: 27959 is a ZIP the utility estimator knows, so the
+  // numbers tab shows local rates and the borrowed-water-rate disclaimer.
+  function seedProspect(): void {
+    tx(() => {
+      const propertyId = newId("prp");
+      const at = nowIso();
+      db.prepare(
+        `INSERT INTO properties (id, name, address_line1, address_line2, city, state, postal_code,
+           country, property_type, year_built, sqft, lot_sqft, parcel_number, purchase_date,
+           purchase_price_cents, mortgage_lender, mortgage_payment_cents, insurance_carrier,
+           insurance_policy_number, cover_upload_id, notes, sort_order, archived_at, hero_color,
+           stage, created_at, updated_at, created_by, updated_by, version, is_demo)
+         VALUES (?, 'Wrightsville Cottage', '812 W Soundside Rd', NULL, 'Nags Head', 'NC', '27959',
+           'US', 'single_family', 1994, 1620, 7500, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+           NULL, ?, NULL, ?, 'prospect', ?, ?, ?, ?, 1, 1)`,
+      ).run(
+        propertyId,
+        propDefs.length,
+        HERO_COLORS[propDefs.length % HERO_COLORS.length]!.value,
+        at,
+        at,
+        uid,
+        uid,
+      );
+      indexEntity({
+        entityType: "property",
+        entityId: propertyId,
+        propertyId,
+        title: "Wrightsville Cottage",
+        body: "812 W Soundside Rd Nags Head NC 27959",
+        url: `/p/${propertyId}`,
+        updatedAt: at,
+      });
+
+      // Renovation: one priced project with spend against it, one still an idea.
+      const kitchenId = newId("prj");
+      const deckId = newId("prj");
+      const project = db.prepare(
+        `INSERT INTO projects (id, property_id, title, description, status, priority, owner_id,
+           target_start, target_end, actual_start, actual_end, budget_cents, created_at,
+           updated_at, created_by, updated_by, version)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, 1)`,
+      );
+      project.run(
+        kitchenId, propertyId, "Kitchen and both baths",
+        "Cabinets, counters, and a full re-fit of the hall bath. The primary just needs a vanity.",
+        "quoted", "high", uid, 4_200_000, at, at, uid, uid,
+      );
+      project.run(
+        deckId, propertyId, "Deck, stairs and rails",
+        "Rear deck boards are soft in three places. Rails are not to code.",
+        "idea", "normal", null, null, at, at, uid, uid,
+      );
+      const budgetLine = db.prepare(
+        `INSERT INTO project_lines (id, project_id, kind, label, category, amount_cents,
+           incurred_on, vendor_id, note, created_at, updated_at, created_by, updated_by, version)
+         VALUES (?, ?, 'budget', ?, NULL, ?, NULL, NULL, NULL, ?, ?, ?, ?, 1)`,
+      );
+      budgetLine.run(newId("pln"), kitchenId, "Cabinets and counters", 2_400_000, at, at, uid, uid);
+      budgetLine.run(newId("pln"), kitchenId, "Hall bath re-fit", 1_500_000, at, at, uid, uid);
+      budgetLine.run(newId("pln"), kitchenId, "Primary bath vanity", 300_000, at, at, uid, uid);
+      for (const p of [
+        { id: kitchenId, title: "Kitchen and both baths" },
+        { id: deckId, title: "Deck, stairs and rails" },
+      ]) {
+        indexEntity({
+          entityType: "project",
+          entityId: p.id,
+          propertyId,
+          title: p.title,
+          body: "",
+          url: `/p/${propertyId}/projects?project=${p.id}`,
+          updatedAt: at,
+        });
+      }
+
+      // Money already spent deciding, in the ledger like any other cost.
+      const expense = db.prepare(
+        `INSERT INTO property_expenses (id, property_id, unit_id, category, description,
+           amount_cents, incurred_on, vendor_id, work_order_id, project_id, note, created_at,
+           updated_at, created_by, updated_by, version)
+         VALUES (?, ?, NULL, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 1)`,
+      );
+      expense.run(
+        newId("exp"), propertyId, "legal", "Structural inspection — deck and pilings", 65_000,
+        addDays(today, -5), deckId, "Engineer's letter to follow.", at, at, uid, uid,
+      );
+      expense.run(newId("exp"), propertyId, "other", "Survey", 55_000, addDays(today, -4), null, null, at, at, uid, uid);
+
+      // The discussion. One author, since the seed only knows the owner.
+      const comment = db.prepare(
+        `INSERT INTO property_comments (id, property_id, body, sentiment, created_at, updated_at,
+           created_by, updated_by, version)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      );
+      const thread: [string, "like" | "dislike" | null, number][] = [
+        ["Walked it this morning. Sound views from the upper deck are the whole pitch — you can see the water from the kitchen too.", "like", -8],
+        ["Ground floor is enclosed and it is not obvious anyone permitted it. That is either a bonus room or a problem, and I do not know which yet.", "dislike", -8],
+        ["Added it to the checklist. Town will have the permit history if there is any.", null, -7],
+        ["Kitchen is original. Budgeting 42k for kitchen and both baths, which is the number the whole deal turns on.", "dislike", -6],
+        ["Quiet end of the road, and the lot next door is town-owned so nothing goes up beside it.", "like", -3],
+      ];
+      thread.forEach(([body, sentiment, day], i) => {
+        // Spread across the days, in order, so the thread reads oldest first.
+        const when = new Date(Date.now() + day * 86_400_000 + i * 60_000).toISOString();
+        comment.run(newId("pcm"), propertyId, body, sentiment, when, when, uid, uid);
+      });
+
+      // Diligence, part-way through: some verified, some waiting, one blocked.
+      const diligence = db.prepare(
+        `INSERT INTO diligence_items (id, property_id, label, category, status, detail, finding,
+           source_url, due_date, assignee_id, upload_id, sort_order, created_at, updated_at,
+           created_by, updated_by, version)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, ?, ?, ?, ?, ?, 1)`,
+      );
+      const items: {
+        label: string;
+        category: string;
+        status: string;
+        detail?: string;
+        finding?: string;
+        dueIn?: number;
+        mine?: boolean;
+      }[] = [
+        {
+          label: "Septic permit — and the bedroom count on it", category: "permits", status: "received",
+          detail: "Ask the county environmental health office for the improvement permit and the operation permit.",
+          finding: "Permit is for 3 bedrooms. Listing says 4. Waiting on the town to say which one governs occupancy.",
+          dueIn: 4, mine: true,
+        },
+        {
+          label: "Past building permits and certificates of occupancy", category: "permits", status: "requested",
+          detail: "Pull the permit history from the town. The enclosed ground floor is the one to check.", dueIn: 2,
+        },
+        {
+          label: "Short-term rental rules for this address", category: "permits", status: "todo",
+          detail: "Registration, occupancy limits, parking minimums. Occupancy is often tied back to the septic permit.",
+        },
+        {
+          label: "Elevation certificate", category: "land", status: "verified",
+          detail: "Ask the seller first; the town or the surveyor may have one.",
+          finding: "Finished floor 12.4ft against a BFE of 9ft. Good — the flood quote came back reasonable because of it.",
+        },
+        { label: "FEMA flood zone and base flood elevation", category: "land", status: "verified", finding: "Zone AE, BFE 9ft. Map dated 2020." },
+        {
+          label: "Survey — boundaries, setbacks, encroachments", category: "land", status: "received",
+          finding: "Neighbour's shed is about 2ft over the line at the rear. Needs a decision before closing.",
+        },
+        {
+          label: "Structural and termite inspection", category: "structure", status: "verified",
+          finding: "Pilings sound. Deck framing is not — three soft boards and rails below height. See the deck project.",
+        },
+        {
+          label: "Insurance quotes — wind and hail, and flood", category: "financial", status: "requested",
+          detail: "Real quotes, not estimates. Wind and hail is a separate policy here.", dueIn: 6, mine: true,
+        },
+        {
+          label: "Rental history, if it has been rented", category: "financial", status: "blocked",
+          finding: "Seller says it has never been rented. Nothing to produce, so this is a modelling exercise now.",
+        },
+        { label: "HOA or POA documents and dues", category: "legal", status: "not_applicable", finding: "No association." },
+      ];
+      items.forEach((d, i) => {
+        diligence.run(
+          newId("dil"), propertyId, d.label, d.category, d.status, d.detail ?? null, d.finding ?? null,
+          d.dueIn === undefined ? null : addDays(today, d.dueIn), d.mine ? uid : null, i, at, at, uid, uid,
+        );
+      });
+
+      // The numbers: plan A as listed, plan B with the fourth bedroom the
+      // septic permit may or may not allow — which is the question this house
+      // actually poses.
+      db.prepare(
+        `INSERT INTO property_deal_inputs (property_id, price_cents, closing_costs_cents, rehab_cents,
+           monthly_rent_cents, sqft, bedrooms, bathrooms, utilities_auto, utility_payer,
+           rent_growth_pct, scenario, created_at, updated_at, created_by, updated_by, version)
+         VALUES (?, 58500000, 1200000, 4200000, 340000, 1620, 3, 2, 1, 'tenant_utilities',
+           3, 'financed', ?, ?, ?, ?, 1)`,
+      ).run(propertyId, at, at, uid, uid);
+      db.prepare(
+        `INSERT INTO property_deal_variants (property_id, label, overrides, created_at, updated_at,
+           created_by, updated_by, version)
+         VALUES (?, 'Add a bedroom', ?, ?, ?, ?, ?, 1)`,
+      ).run(
+        propertyId,
+        JSON.stringify({ bedrooms: 4, rehabCents: 8_000_000, monthlyRentCents: 395_000 }),
+        at,
+        at,
+        uid,
+        uid,
+      );
+    });
+  }
 
 }
 

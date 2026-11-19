@@ -354,3 +354,59 @@ Change it back to `:latest` when you want to follow main again.
 The bottom of `docker/unraid/docker-compose.stack.yml` has a commented build
 context for exactly this. Use the tag `keyring:local` rather than the GHCR one,
 so a later registry pull does not look like a downgrade.
+
+---
+
+## The test server
+
+A second copy of Keyring on the same box, for trying a change on real hardware
+with demo data before it reaches the real one. It has its own Compose Manager
+project (`keyring-test`), its own database and secrets, and no tunnel: it is
+reachable on the LAN only, at `http://<server-lan-ip>:8090`. Every page carries
+a **TEST SERVER** strip and the tab title starts with `[TEST]`.
+
+| File | Paste into |
+|---|---|
+| `docker/unraid/docker-compose.test.yml` | **keyring-test → Edit Stack** |
+| `docker/unraid/test.env` | **keyring-test → Edit .env** (generate fresh secrets — see the top of the file) |
+
+### The flow for a change
+
+```
+work → push to `test` ──CI: lint, typecheck, tests──▶ :test + :sha-<commit>
+                                                        │
+       keyring-test → Update Stack ◀────────────────────┘
+       try it on your phone / laptop against demo data
+                                                        │
+       git push origin test:main  (fast-forward) ──CI──▶ :latest = that same :sha-<commit>
+                                                        │
+       keyring → Update Stack ◀─────────────────────────┘
+```
+
+The last step **promotes rather than rebuilds**: because main fast-forwards to
+the commit already built for test, CI finds `:sha-<commit>` in the registry and
+points `:latest` at it. Production gets the exact image you tried, not a
+second build that should be identical. If main ever moves to a commit that
+never went through test (a merge commit, a hotfix pushed straight to main),
+CI builds it as before — so prefer fast-forwards, and the log says which
+happened.
+
+Nothing is published at all unless the checks pass, on either branch.
+
+### First run
+
+1. Sign in at `http://<server-lan-ip>:8090/setup` with the one-time token from
+   `/mnt/user/appdata/keyring-test/data/setup-token.txt` (or the container log).
+   Accounts here are separate from production's; you will set up 2FA again.
+2. **Admin → Demo data → Load.** That is five owned properties and a prospect
+   in Nags Head with renovation, diligence, discussion and a plan A/B deal.
+3. Invite the other two if you want to test real-time changes between people.
+
+### What not to do with it
+
+- **Do not restore a production backup into it.** It was set up so that real
+  tenants' details never live on a LAN-only, less-watched copy.
+- **Do not route it through the Cloudflare tunnel.** Use the VPN when away.
+- **Migrations only go forward.** A test build can migrate the test database
+  past what production has; that is expected. To start clean, stop the stack,
+  delete `/mnt/user/appdata/keyring-test/data`, and start it again.

@@ -1,0 +1,67 @@
+# Test server — a second, isolated copy of Keyring on the same Unraid box.
+#
+# Add it as its own project in Compose Manager (name: keyring-test), next to
+# the production `keyring` project. What it shares and what it does not:
+#
+#   shares   nothing but the hardware
+#   own      database, uploads, backups, accounts and sessions — its own
+#            appdata folder and its own secrets
+#   never    the production volume. It is not mounted, so nothing running
+#            here can read, change or delete a real property or tenant.
+#
+# It runs the `:test` image, built from the repo's `test` branch after the
+# checks pass. Try a change here first; when it is good, fast-forward main to
+# the same commit and production is promoted to this exact image (see
+# .github/workflows/publish.yml). Update it with Compose Manager's
+# "Update Stack" on this project only.
+#
+# Every page says TEST SERVER across the top (KEYRING_INSTANCE=test), so the
+# two copies cannot be mistaken for each other on a phone.
+#
+# SECURITY: LAN only. There is no cloudflared service here, and there should
+# not be — reach it at http://<server-lan-ip>:8090, or over the VPN when away.
+# It still has real sign-in and 2FA: same image, same rules as production.
+#
+# DATA: demo data only. Load it from Admin → Demo data after the first sign-in.
+# Do not restore a production backup here — that would put real tenants'
+# details on a server that was set up to never hold them.
+
+name: keyring-test
+
+services:
+  keyring:
+    image: ghcr.io/rickxxrolling/keyring:${KEYRING_TEST_TAG:-test}
+    # Always check the registry on `up`, so "Update Stack" actually fetches
+    # the newest :test build rather than reusing the local copy.
+    pull_policy: always
+    container_name: keyring-test
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TZ: ${APP_TIMEZONE:-America/New_York}
+      # Set here rather than only in .env so the banner cannot be lost by
+      # editing the env file.
+      KEYRING_INSTANCE: test
+    ports:
+      # Must match the port in APP_ORIGIN in .env.
+      - "${KEYRING_PORT:-8090}:8080"
+    volumes:
+      - ${KEYRING_DATA_DIR:-/mnt/user/appdata/keyring-test/data}:/data
+    healthcheck:
+      test: ["CMD", "node", "/healthcheck.mjs"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+# ---------------------------------------------------------------------------
+# PINNING A BUILD
+#
+# KEYRING_TEST_TAG in .env picks a different image, e.g. to try an older build
+# against today's demo data, or to reproduce a bug in a specific version:
+#
+#   KEYRING_TEST_TAG=sha-<full commit sha>
+#
+# Every published commit has one. Remove the line to follow :test again.
+# ---------------------------------------------------------------------------

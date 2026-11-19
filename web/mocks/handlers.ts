@@ -1645,6 +1645,12 @@ const opsHandlers = [
     HttpResponse.json({ status: "ok", version: "1.0.0-mock", uptimeSeconds: 3600, dbOk: true, migrations: 4, time: new Date().toISOString() }),
   ),
 
+  // The real API answers null in production. VITE_MOCK_INSTANCE=test shows
+  // the test-server banner against the mocks.
+  http.get("/api/instance", () =>
+    ok({ instance: (import.meta.env.VITE_MOCK_INSTANCE as string | undefined) || null }),
+  ),
+
   http.get("/api/ops/info", () =>
     ok({
       version: "1.0.0-mock",

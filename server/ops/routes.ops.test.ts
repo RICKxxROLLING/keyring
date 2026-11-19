@@ -30,6 +30,27 @@ describe("ops routes", () => {
     }
   });
 
+  it("GET /api/instance is public and says null unless KEYRING_INSTANCE is set", async () => {
+    const before = process.env.KEYRING_INSTANCE;
+    try {
+      delete process.env.KEYRING_INSTANCE;
+      testApp = await createTestApp();
+      let res = await testApp.app.inject({ method: "GET", url: "/api/instance" });
+      expect(res.statusCode).toBe(200);
+      expect(unwrap<{ instance: string | null }>(res).instance).toBeNull();
+      await testApp.close();
+
+      process.env.KEYRING_INSTANCE = "  test  ";
+      testApp = await createTestApp();
+      res = await testApp.app.inject({ method: "GET", url: "/api/instance" });
+      // No session needed: the sign-in page is where it matters most.
+      expect(unwrap<{ instance: string | null }>(res).instance).toBe("test");
+    } finally {
+      if (before === undefined) delete process.env.KEYRING_INSTANCE;
+      else process.env.KEYRING_INSTANCE = before;
+    }
+  });
+
   it("GET /healthz is public, unenveloped, and reports ok on a healthy DB", async () => {
     testApp = await createTestApp();
     const res = await testApp.app.inject({ method: "GET", url: "/healthz" });
