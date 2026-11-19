@@ -1,6 +1,6 @@
 import { useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { PmFrequency, PmTemplate, WorkOrderView } from "../../../shared/types";
 import { apiPatch, apiPost } from "../../lib/api";
 import { qk } from "../../lib/query";
@@ -100,7 +100,13 @@ export function MaintenanceTab(): ReactElement {
       <NotForProspect what="The maintenance queue" />
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-900">Work orders</h2>
-        <Button onClick={() => setShowNewWo((v) => !v)}>+ Work order</Button>
+        <span className="flex items-center gap-3">
+          {/* The same open work across every property, as one drive. */}
+          <Link to="/route" className="text-sm" style={{ color: "var(--ink-2)", textDecoration: "underline" }}>
+            Plan a route
+          </Link>
+          <Button onClick={() => setShowNewWo((v) => !v)}>+ Work order</Button>
+        </span>
       </div>
 
       {showNewWo && (

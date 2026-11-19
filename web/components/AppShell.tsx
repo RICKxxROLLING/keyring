@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useSession } from "../lib/session";
 import { useOnlineStatus } from "../lib/offline";
 import { useConnectionState } from "../lib/realtime";
-import { BellIcon, HomeIcon, PlusIcon, SearchIcon, UserIcon, WifiOffIcon } from "./icons";
+import { BellIcon, HomeIcon, PlusIcon, RouteIcon, SearchIcon, UserIcon, WifiOffIcon } from "./icons";
 import { QuickAddSheet } from "./QuickAdd";
 import { NotificationBell } from "./NotificationBell";
 import { OfflineBanner } from "./OfflineBanner";
@@ -15,6 +15,7 @@ import { ThemeToggle } from "./ThemeToggle";
 const NAV_ITEMS = [
   { to: "/", label: "Home", icon: HomeIcon },
   { to: "/search", label: "Search", icon: SearchIcon },
+  { to: "/route", label: "Route", icon: RouteIcon },
   { to: "/inbox", label: "Inbox", icon: BellIcon },
   { to: "/settings", label: "You", icon: UserIcon },
 ];

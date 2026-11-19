@@ -22,6 +22,11 @@
 export type DownPaymentMode = "percent" | "amount";
 export type ArvMode = "fixed" | "conservative" | "aggressive";
 export type DealScenario = "financed" | "cash";
+/**
+ * What is being bought. "buy" is a house that already stands; "build" is land,
+ * with new units put up on it — see expandBuild for how a build is costed.
+ */
+export type DealKind = "buy" | "build";
 
 /** Rehab multiplier applied to the after-repair value. */
 const ARV_MULTIPLIER: Record<ArvMode, number> = {
@@ -36,6 +41,39 @@ const DEPRECIATION_YEARS = 27.5;
 const PROJECTION_YEARS = 10;
 
 export interface DealInputs {
+  /**
+   * Buy a house, or buy land and build. A build keeps every other input on the
+   * page — financing, tax, insurance, growth — and adds the fields below; the
+   * analysis is then run on the finished project (see expandBuild).
+   */
+  dealKind: DealKind;
+
+  // ---- new construction (dealKind "build" only)
+  /**
+   * Construction cost per square foot of finished floor, in cents, for this
+   * quality of building ON ONE STORY. Stacking floors then lowers it — see
+   * storyFactor — so the figure entered is the one a builder would quote for a
+   * single-level building, and the page shows what it comes to once stacked.
+   */
+  buildCostPerSqftCents: number;
+  /**
+   * Floors the units are stacked on. Foundation and roof cover the footprint,
+   * not the floor area, so a three-story building puts three floors of units on
+   * one foundation and under one roof.
+   */
+  stories: number;
+  /** Finished size of each unit. */
+  unitSqft: number;
+  /** How many units go on the land. */
+  unitCount: number;
+  rentPerUnitCents: number;
+  /**
+   * One-off costs of making bare land buildable: clearing, septic or sewer tap,
+   * driveway, survey, permits and impact fees. On a coastal lot these are
+   * routinely five figures, so they are a field rather than an afterthought.
+   */
+  siteWorkCents: number;
+
   // ---- the house
   /**
    * The layout being analysed. Not arithmetic on their own — rent is still
@@ -260,6 +298,19 @@ export function estimateClosingCosts(
 /** Sensible starting point for a new analysis. Coastal defaults match the original. */
 export function defaultDealInputs(priceCents = 0): DealInputs {
   return {
+    dealKind: "buy",
+    // A plain starting point for a build, used only once one is chosen: one
+    // 1,200 sq ft unit at $185/sq ft on one story — builder-grade wood frame.
+    // Stacked three high that comes to about $167, the middle of the current
+    // $130–$190 range for low-rise wood-frame ("garden-style") apartments. It is
+    // not a custom-home rate; those run $250 and up. Change it to a builder's
+    // number as soon as there is one.
+    buildCostPerSqftCents: 185_00,
+    stories: 1,
+    unitSqft: 1200,
+    unitCount: 1,
+    rentPerUnitCents: 0,
+    siteWorkCents: 0,
     // A typical Outer Banks single-family layout, used only until the
     // property's own units say otherwise.
     bedrooms: 3,
@@ -310,7 +361,117 @@ export const FLOOD_ZONE_ANNUAL_CENTS: Record<string, number> = {
   VE: 450_000,
 };
 
-export function analyzeDeal(input: DealInputs, scenario: DealScenario = "financed"): DealAnalysis {
+/**
+ * Share of a one-story building's construction cost that is set by its
+ * FOOTPRINT rather than its floor area: the foundation and the roof.
+ *
+ * NAHB's 2024 Cost of Constructing a Home survey puts the foundation at about
+ * 10.5% of construction cost; roof framing and roofing add roughly another
+ * 5%. Those are the parts that do not grow when a floor is added, which is the
+ * whole saving of building up.
+ *
+ * It is deliberately a modest number. Stacking also ADDS cost that a one-story
+ * building does not carry — stairs and landings, rated fire walls and floors
+ * between units, a sprinkler system, heavier shear walls and hold-downs for
+ * wind on a taller box — and those are left inside the per-sq-ft rate rather
+ * than netted off here, so the discount is never larger than the evidence.
+ * A pile foundation makes the footprint share larger and the saving bigger.
+ */
+export const FOOTPRINT_COST_SHARE = 0.15;
+
+/** Most floors a build can be — the ceiling for the light wood-frame building this models. */
+export const MAX_STORIES = 3;
+
+/**
+ * What one square foot costs on `stories` floors, as a fraction of what it
+ * costs on one: the floor-area share stays, the footprint share is divided
+ * among the floors. One story is 1.0, two 0.925, three 0.90.
+ *
+ * Three is the limit on purpose. In North Carolina a fourth residential story
+ * generally moves a building out of light wood-frame residential rules and
+ * into commercial construction, and cost research finds a jump there rather
+ * than a further saving (Eriksen & Orlando, 2024). A taller building is a
+ * different kind of project, and its cost should come from a builder.
+ */
+export function storyFactor(stories: number): number {
+  const n = Math.min(MAX_STORIES, Math.max(1, Math.round(stories)));
+  return 1 - FOOTPRINT_COST_SHARE + FOOTPRINT_COST_SHARE / n;
+}
+
+export interface BuildCosts {
+  landCents: number;
+  constructionCents: number;
+  /** The entered one-story rate, after stacking. What a sq ft actually costs here. */
+  effectiveCostPerSqftCents: number;
+  /** What stacking saved against building the same floor area on one story. */
+  stackingSavingsCents: number;
+  siteWorkCents: number;
+  /** Land + construction + site work: what the finished project cost. */
+  totalCents: number;
+  totalSqft: number;
+}
+
+export function buildCosts(input: DealInputs): BuildCosts {
+  const units = Math.max(0, Math.round(input.unitCount));
+  const totalSqft = units * input.unitSqft;
+  const effectiveCostPerSqftCents = Math.round(input.buildCostPerSqftCents * storyFactor(input.stories));
+  const constructionCents = totalSqft * effectiveCostPerSqftCents;
+  const landCents = input.priceCents;
+  return {
+    landCents,
+    constructionCents,
+    effectiveCostPerSqftCents,
+    stackingSavingsCents: totalSqft * input.buildCostPerSqftCents - constructionCents,
+    siteWorkCents: input.siteWorkCents,
+    totalCents: landCents + constructionCents + input.siteWorkCents,
+    totalSqft,
+  };
+}
+
+/**
+ * A build, restated as the finished building it produces, so the one model
+ * below costs both kinds of deal and every answer on the page — verdict,
+ * projection, plan B, what-to-pay — works for a build unchanged.
+ *
+ *   price      → land + construction + site work. It is what the project cost,
+ *                and it is what a new building is assessed and valued at, so
+ *                property tax, cap rate (here: yield on cost), the 1% rule and
+ *                the starting value all read correctly from it.
+ *   repairs    → none. Construction is in the price; nothing to fix on day one.
+ *   land share → the land's actual share of the cost, so depreciation is taken
+ *                on the building and only the building.
+ *   rent       → rent per unit × units. Utilities are per unit too.
+ *   size       → sq ft per unit × units, which sizes the wind premium.
+ *   insurance  → the base hazard and flood premiums are charged per unit, on
+ *                the cautious assumption that each unit carries its own policy.
+ *                Enter a total in place of the coastal estimate if one
+ *                building's policy will cover them all.
+ *
+ * Not modelled: the months of construction before any rent comes in, and the
+ * interest carried on a construction loan through them. The analysis starts
+ * on the day the units are let.
+ */
+export function expandBuild(input: DealInputs): DealInputs {
+  if (input.dealKind !== "build") return input;
+  const c = buildCosts(input);
+  const units = Math.max(0, Math.round(input.unitCount));
+  return {
+    ...input,
+    priceCents: c.totalCents,
+    rehabCents: 0,
+    arvCents: null,
+    arvMode: "fixed",
+    landPct: c.totalCents > 0 ? (c.landCents / c.totalCents) * 100 : 0,
+    monthlyRentCents: input.rentPerUnitCents * units,
+    monthlyUtilitiesCents: input.monthlyUtilitiesCents * units,
+    sqft: c.totalSqft,
+    baseHazardCents: input.baseHazardCents * units,
+    floodAnnualCents: input.floodAnnualCents * units,
+  };
+}
+
+export function analyzeDeal(raw: DealInputs, scenario: DealScenario = "financed"): DealAnalysis {
+  const input = expandBuild(raw);
   const arvCents =
     input.arvCents ??
     Math.round(input.priceCents + input.rehabCents * ARV_MULTIPLIER[input.arvMode]);
@@ -603,8 +764,12 @@ export function rentNeededForCashFlow(
   targetMonthlyCents: number,
   scenario: DealScenario = "financed",
 ): number | null {
-  const at = (monthlyRentCents: number): number =>
-    analyzeDeal({ ...input, monthlyRentCents }, scenario)[scenario].monthlyCashFlowCents;
+  // On a build the thing you set is the rent per unit, so that is what is solved for.
+  const at = (rent: number): number =>
+    analyzeDeal(
+      input.dealKind === "build" ? { ...input, rentPerUnitCents: rent } : { ...input, monthlyRentCents: rent },
+      scenario,
+    )[scenario].monthlyCashFlowCents;
 
   let low = 0;
   let high = 1_000_000_00;
@@ -626,6 +791,9 @@ export function rentNeededForCashFlow(
  * Found by bisection on price rather than algebraically, because price feeds
  * the loan, the property tax AND the after-repair value, and the closed form is
  * both ugly and easy to get subtly wrong when any assumption changes.
+ *
+ * On a build, priceCents is the land, so this is the most the LAND is worth
+ * paying with the planned units on it — construction costs held fixed.
  */
 export function maxPriceForCashFlow(
   input: DealInputs,
@@ -647,4 +815,69 @@ export function maxPriceForCashFlow(
   // Rounded to the nearest $500, as the original does — false precision on a
   // number this soft would invite haggling over dollars.
   return Math.round(low / 50_000) * 50_000;
+}
+
+export interface UnitCountRow {
+  units: number;
+  totalCostCents: number;
+  monthlyCashFlowCents: number;
+  cashOnCashPct: number;
+  verdict: Verdict;
+}
+
+export interface UnitsToProfit {
+  rows: UnitCountRow[];
+  /** Fewest units that do not lose money each month; null if none up to the limit. */
+  breakEvenUnits: number | null;
+  /** Fewest units that clear the "profitable" bar ($100/mo and 6% cash-on-cash). */
+  profitableUnits: number | null;
+  /**
+   * What one more unit adds to monthly cash flow, once the land is paid for.
+   * When this is zero or negative, more units can never rescue the deal — the
+   * problem is the rent or the build cost, not the count — and the page says so
+   * rather than pointing at a number of units that does not exist.
+   */
+  marginPerUnitCents: number;
+}
+
+/** How far the units table looks. Past this, the answer is "not on this land". */
+export const MAX_UNITS = 30;
+
+/**
+ * How many units it takes for a build to make money.
+ *
+ * Every unit brings its own rent and its own costs — construction, its share
+ * of tax and insurance, its loan payment — while the land is paid for once. So
+ * cash flow climbs by roughly the same step with each unit, and the land is
+ * what the first few units have to carry. This walks the count up from one and
+ * reports where it crosses break-even and where it clears the verdict's bar.
+ *
+ * Takes inputs with utilities already resolved, like analyzeDeal: the per-unit
+ * utility figure does not depend on the count.
+ */
+export function unitsToProfit(
+  input: DealInputs,
+  scenario: DealScenario = "financed",
+  maxUnits = MAX_UNITS,
+): UnitsToProfit {
+  const rows: UnitCountRow[] = [];
+  let breakEvenUnits: number | null = null;
+  let profitableUnits: number | null = null;
+  for (let units = 1; units <= maxUnits; units += 1) {
+    const plan = { ...input, dealKind: "build" as const, unitCount: units };
+    const a = analyzeDeal(plan, scenario);
+    const r = a[scenario];
+    rows.push({
+      units,
+      totalCostCents: buildCosts(plan).totalCents,
+      monthlyCashFlowCents: r.monthlyCashFlowCents,
+      cashOnCashPct: r.cashOnCashPct,
+      verdict: a.verdict,
+    });
+    if (breakEvenUnits === null && r.monthlyCashFlowCents >= 0) breakEvenUnits = units;
+    if (profitableUnits === null && a.verdict === "profitable") profitableUnits = units;
+  }
+  const marginPerUnitCents =
+    rows.length >= 2 ? rows[1]!.monthlyCashFlowCents - rows[0]!.monthlyCashFlowCents : 0;
+  return { rows, breakEvenUnits, profitableUnits, marginPerUnitCents };
 }

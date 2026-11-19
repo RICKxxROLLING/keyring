@@ -654,7 +654,10 @@ h1, h2, h3, .kr-display {
 .kr-deal-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: 1fr;
+  /* minmax(0, …), not 1fr: a plain 1fr column grows to fit its widest content,
+     so on a phone the ten-year table pushed the whole tab wider than the
+     screen instead of scrolling inside its own box. */
+  grid-template-columns: minmax(0, 1fr);
 }
 .kr-deal-answers,
 .kr-deal-inputs {
@@ -662,6 +665,7 @@ h1, h2, h3, .kr-display {
   gap: 14px;
   align-content: start;
   min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 900px) {
   .kr-deal-grid {

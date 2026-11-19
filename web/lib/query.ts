@@ -22,6 +22,7 @@ export const qk = {
   timeline: (id: string) => ["timeline", id] as const,
   workOrder: (id: string) => ["work-order", id] as const,
   workOrders: (propertyId: string | null) => ["work-orders", propertyId] as const,
+  maintenanceRoute: ["maintenance-route"] as const,
   project: (id: string) => ["project", id] as const,
   vendors: ["vendors"] as const,
   notifications: ["notifications"] as const,

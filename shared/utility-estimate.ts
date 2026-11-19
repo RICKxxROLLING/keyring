@@ -444,8 +444,12 @@ export function estimateUtilities(
  */
 export function resolveUtilities(inputs: DealInputs, postalCode: string | null | undefined): DealInputs {
   if (!inputs.utilitiesAuto) return inputs;
+  // On a build the bedrooms and bathrooms describe ONE unit, so the estimate is
+  // sized to one unit's floor area and stays per unit; expandBuild multiplies
+  // it by the unit count along with the rent.
+  const sized = inputs.dealKind === "build" ? { ...inputs, sqft: inputs.unitSqft } : inputs;
   return {
     ...inputs,
-    monthlyUtilitiesCents: estimateUtilities(inputs, postalCode).ownerMonthlyCents,
+    monthlyUtilitiesCents: estimateUtilities(sized, postalCode).ownerMonthlyCents,
   };
 }

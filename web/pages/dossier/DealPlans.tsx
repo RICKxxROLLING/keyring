@@ -203,6 +203,13 @@ type Kind = "money" | "pct" | "count" | "sqft" | "bool" | "text";
  * the comparison cannot show you.
  */
 const FIELDS: Record<keyof DealInputs, { label: string; kind: Kind }> = {
+  dealKind: { label: "Buying", kind: "text" },
+  buildCostPerSqftCents: { label: "Build cost per sq ft (one story)", kind: "money" },
+  stories: { label: "Stories", kind: "count" },
+  unitSqft: { label: "Size of each unit (sq ft)", kind: "count" },
+  unitCount: { label: "Units on the land", kind: "count" },
+  rentPerUnitCents: { label: "Rent per unit / mo", kind: "money" },
+  siteWorkCents: { label: "Site work & permits", kind: "money" },
   bedrooms: { label: "Bedrooms", kind: "count" },
   bathrooms: { label: "Bathrooms", kind: "count" },
   utilitiesAuto: { label: "Estimate utilities", kind: "bool" },

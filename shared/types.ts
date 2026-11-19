@@ -1076,3 +1076,55 @@ export interface OpsInfo {
   retentionDays: number;
   uptimeSeconds: number;
 }
+
+/* ------------------------------------------------------- route planning -- */
+
+/** Where a coordinate came from: looked up from the address, or typed in. */
+export type LocationSource = "geocoder" | "manual";
+
+/** Where one person's maintenance day starts and ends. */
+export interface RouteHomeBase {
+  address: string;
+  latitude: number;
+  longitude: number;
+  source: LocationSource;
+  updatedAt: ISODateTime;
+}
+
+/** One open work order, as a line on the day's to-do list. */
+export interface RouteTask {
+  workOrderId: Id;
+  number: number;
+  title: string;
+  status: WorkOrderStatus;
+  priority: Priority;
+  dueDate: ISODate | null;
+  scheduledFor: ISODate | null;
+  unitLabel: string | null;
+  version: number;
+}
+
+/** A property with open work, and where it is (null until it has been found). */
+export interface RouteStop {
+  propertyId: Id;
+  name: string;
+  /** One line, as handed to the maps app: '118 Maple St, Kingston, NY 12401'. */
+  address: string;
+  heroColor: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationSource: LocationSource | null;
+  tasks: RouteTask[];
+}
+
+export interface RoutePayload {
+  /** The signed-in user's own home base; null until they set one. */
+  home: RouteHomeBase | null;
+  /** Unordered. The client orders them (shared/route-plan.ts) so skipping a stop re-plans instantly. */
+  stops: RouteStop[];
+}
+
+export interface LocateResult {
+  located: Id[];
+  failed: { propertyId: Id; name: string; address: string }[];
+}

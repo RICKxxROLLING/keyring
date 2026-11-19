@@ -226,6 +226,7 @@ export function KeyRail(): ReactElement {
           </NavLink>
           <div style={{ display: "grid", gap: 2, marginTop: 14, paddingLeft: 6 }}>
             <RailLink to="/search">Search</RailLink>
+            <RailLink to="/route">Maintenance route</RailLink>
             <RailLink to="/vendors">Vendors</RailLink>
             {isOwner && <RailLink to="/admin">Admin</RailLink>}
             <RailLink to="/settings">Settings</RailLink>

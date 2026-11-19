@@ -10,6 +10,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createTestApp, createTestUser, unwrap, type TestApp } from "../../testing/harness.js";
 import type { DashboardPayload, PropertyView } from "../../../shared/types.js";
 
+function bodyless(h: Record<string, string>): Record<string, string> {
+  const rest = { ...h };
+  delete rest["content-type"];
+  return rest;
+}
+
 async function makeProperty(
   testApp: TestApp,
   headers: Record<string, string>,
@@ -133,6 +139,96 @@ describe("property stage", () => {
 
     const dash = await dashboard(testApp, user.headers);
     expect(dash.totals.properties).toBe(1);
+  });
+
+  // The ask: "a way to remove prospective properties that i did not buy so they
+  // can be cleared from the list". Passing on one archives it: off the ring and
+  // out of "Needs a hand", but nothing is lost and it can be put back.
+  it("passing on a prospect clears it from the ring and the attention feed", async () => {
+    testApp = await createTestApp();
+    const user = createTestUser({ role: "manager" });
+    await makeProperty(testApp, user.headers, "Keeper", "owned");
+    const prospect = await makeProperty(testApp, user.headers, "Not this one", "prospect");
+
+    // A leftover overdue request — the kind of thing that would otherwise keep
+    // nagging about a house you walked away from.
+    const wo = await testApp.app.inject({
+      method: "POST",
+      url: `/api/properties/${prospect.id}/work-orders`,
+      headers: user.headers,
+      payload: { title: "Get roof quote", dueDate: "2020-01-01" },
+    });
+    expect(wo.statusCode).toBe(201);
+    let dash = await dashboard(testApp, user.headers);
+    expect(dash.needsAttention.some((a) => a.propertyId === prospect.id)).toBe(true);
+
+    const passed = await testApp.app.inject({
+      method: "PATCH",
+      url: `/api/properties/${prospect.id}`,
+      headers: user.headers,
+      payload: { archivedAt: new Date().toISOString(), expectedVersion: prospect.version },
+    });
+    expect(passed.statusCode).toBe(200);
+
+    dash = await dashboard(testApp, user.headers);
+    expect(dash.properties.map((p) => p.name)).toEqual(["Keeper"]);
+    expect(dash.needsAttention.some((a) => a.propertyId === prospect.id)).toBe(false);
+
+    // Still there for anyone who asks for archived properties, so it can come back.
+    const all = await testApp.app.inject({
+      method: "GET",
+      url: "/api/properties?includeArchived=true",
+      headers: user.headers,
+    });
+    const archived = unwrap<{ items: PropertyView[] }>(all).items.find((p) => p.id === prospect.id);
+    expect(archived?.archivedAt).not.toBeNull();
+
+    const restored = await testApp.app.inject({
+      method: "PATCH",
+      url: `/api/properties/${prospect.id}`,
+      headers: user.headers,
+      payload: { archivedAt: null, expectedVersion: archived!.version },
+    });
+    expect(restored.statusCode).toBe(200);
+    dash = await dashboard(testApp, user.headers);
+    expect(dash.properties.map((p) => p.name).sort()).toEqual(["Keeper", "Not this one"]);
+    expect(dash.needsAttention.some((a) => a.propertyId === prospect.id)).toBe(true);
+  });
+
+  it("an owner can delete a passed prospect for good, with everything on it", async () => {
+    testApp = await createTestApp();
+    const owner = createTestUser({ role: "owner" });
+    const manager = createTestUser({ role: "manager" });
+    const prospect = await makeProperty(testApp, owner.headers, "Gone", "prospect");
+    const project = await testApp.app.inject({
+      method: "POST",
+      url: `/api/properties/${prospect.id}/projects`,
+      headers: owner.headers,
+      payload: { title: "Gut the kitchen", status: "planning" },
+    });
+    expect(project.statusCode).toBe(201);
+
+    // Deleting is the owner's call, as it already was for any property.
+    const refused = await testApp.app.inject({
+      method: "DELETE",
+      url: `/api/properties/${prospect.id}`,
+      headers: bodyless(manager.headers),
+    });
+    expect(refused.statusCode).toBe(403);
+
+    const res = await testApp.app.inject({
+      method: "DELETE",
+      url: `/api/properties/${prospect.id}`,
+      headers: bodyless(owner.headers),
+    });
+    expect(res.statusCode).toBe(200);
+
+    const gone = await testApp.app.inject({
+      method: "GET",
+      url: `/api/properties/${prospect.id}`,
+      headers: owner.headers,
+    });
+    expect(gone.statusCode).toBe(404);
   });
 
   it("rejects a stage that is not one of the two", async () => {

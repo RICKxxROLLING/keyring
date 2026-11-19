@@ -7,6 +7,7 @@ import { useSession } from "../lib/session";
 import { formatCents } from "../lib/format";
 import { PropertyCard } from "../components/PropertyCard";
 import { AttentionFeed } from "../components/AttentionFeed";
+import { PassedOnList } from "../components/PassedOnList";
 import { ErrorNotice, Spinner } from "../components/Form";
 import { StatPlate, ProgressBar, DoorBars, RequestDots } from "../components/StatPlate";
 
@@ -132,6 +133,8 @@ export function DashboardPage(): ReactElement {
           <PropertyCard key={p.id} property={p} />
         ))}
       </div>
+
+      <PassedOnList />
 
       <div
         style={{

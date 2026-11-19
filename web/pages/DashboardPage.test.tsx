@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
+import { server } from "../mocks/server";
+import * as fx from "../mocks/fixtures";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { DashboardPage } from "./DashboardPage";
@@ -35,5 +38,30 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Lease expiring")).toBeInTheDocument();
     expect(screen.getByText("Unit vacant")).toBeInTheDocument();
     expect(screen.getByText("Rent unpaid")).toBeInTheDocument();
+  });
+
+  it("folds prospects you passed on away under the ring, still reachable", async () => {
+    const cottage = fx.properties.find((p) => p.id === "prp_00000006")!;
+    server.use(
+      http.get("/api/properties", () =>
+        HttpResponse.json({
+          ok: true,
+          data: {
+            items: [...fx.properties, { ...cottage, id: "prp_00000099", name: "Soundside Lot", archivedAt: "2026-10-01T12:00:00.000Z" }],
+            nextCursor: null,
+          },
+        }),
+      ),
+    );
+    renderDashboard();
+
+    expect(await screen.findByText("Passed on · 1")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Soundside Lot/ })).toHaveAttribute("href", "/p/prp_00000099");
+  });
+
+  it("says nothing about passed prospects when there are none", async () => {
+    renderDashboard();
+    expect(await screen.findByText("Maple Street Duplex")).toBeInTheDocument();
+    expect(screen.queryByText(/^Passed on/)).not.toBeInTheDocument();
   });
 });
