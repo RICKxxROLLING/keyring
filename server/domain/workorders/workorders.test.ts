@@ -102,6 +102,51 @@ describe("work order status flow", () => {
     expect(unwrap<WorkOrderView>(bRes).number).toBe(1);
   });
 
+  it("only the author edits a comment; the author or an owner deletes it", async () => {
+    const propertyId = await createProperty();
+    const wo = unwrap<WorkOrderView>(
+      await app.app.inject({
+        method: "POST",
+        url: `/api/properties/${propertyId}/work-orders`,
+        headers: user.headers,
+        payload: { title: "Gutter", status: "new", priority: "normal" },
+      }),
+    );
+    const comment = unwrap<{ id: string; version: number }>(
+      await app.app.inject({
+        method: "POST",
+        url: `/api/work-orders/${wo.id}/comments`,
+        headers: user.headers,
+        payload: { body: "Booked for Tuesday" },
+      }),
+    );
+    const colleague = createTestUser({ role: "manager", handle: "colleague" });
+    const owner = createTestUser({ role: "owner", handle: "boss" });
+
+    for (const other of [colleague, owner]) {
+      const edit = await app.app.inject({
+        method: "PATCH",
+        url: `/api/work-order-comments/${comment.id}`,
+        headers: other.headers,
+        payload: { body: "Never booked", expectedVersion: comment.version },
+      });
+      expect(edit.statusCode).toBe(403);
+    }
+    const notMine = await app.app.inject({
+      method: "DELETE",
+      url: `/api/work-order-comments/${comment.id}`,
+      headers: noBody(colleague),
+    });
+    expect(notMine.statusCode).toBe(403);
+
+    const byOwner = await app.app.inject({
+      method: "DELETE",
+      url: `/api/work-order-comments/${comment.id}`,
+      headers: noBody(owner),
+    });
+    expect(byOwner.statusCode).toBe(200);
+  });
+
   it("comment thread supports create, edit, delete, and notifies @mentions", async () => {
     const propertyId = await createProperty();
     const woRes = await app.app.inject({

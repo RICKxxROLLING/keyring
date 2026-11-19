@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getDb, tx } from "../../db/index.js";
 import { requireAuth, requireUser } from "../../auth/middleware.js";
 import { parseBody, parseParams, zText, zVersion, IdParamSchema } from "../../lib/validate.js";
-import { ok, deleted, notFound } from "../../lib/errors.js";
+import { ok, deleted, notFound, forbidden } from "../../lib/errors.js";
 import { newId } from "../../lib/ids.js";
 import { nowIso } from "../../lib/time.js";
 import { onePage } from "../../lib/paging.js";
@@ -114,8 +114,14 @@ export function registerCommentRoutes(app: FastifyInstance, _ctx: AppContext): v
   app.patch("/api/work-order-comments/:id", { preHandler: [requireAuth] }, async (req) => {
     const user = requireUser(req);
     const { id } = parseParams(req, IdParamSchema);
-    const body = parseBody(req, PatchCommentSchema);
     const existing = getCommentRow(id);
+    // Same rule as the property discussion: a comment says who wrote it, so
+    // only that person may change what it says — not even an owner. Without
+    // this, anyone could rewrite a colleague's words under their name.
+    if (existing.createdBy !== user.id) {
+      throw forbidden("You can only edit your own comments.");
+    }
+    const body = parseBody(req, PatchCommentSchema);
     const wo = getWorkOrderRow(existing.workOrderId);
     const view = tx(() => {
       const changes = patchWithVersionGuard({
@@ -181,6 +187,10 @@ export function registerCommentRoutes(app: FastifyInstance, _ctx: AppContext): v
     const user = requireUser(req);
     const { id } = parseParams(req, IdParamSchema);
     const existing = getCommentRow(id);
+    // The author, or an owner tidying up.
+    if (existing.createdBy !== user.id && user.role !== "owner") {
+      throw forbidden("You can only delete your own comments.");
+    }
     const wo = getWorkOrderRow(existing.workOrderId);
     tx(() => {
       const info = db.prepare(`DELETE FROM work_order_comments WHERE id = ?`).run(id);

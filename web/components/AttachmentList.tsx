@@ -21,7 +21,19 @@ import { formatDate } from "../lib/format";
 export function AttachmentList({ uploads }: { uploads: Upload[] }): ReactElement | null {
   if (uploads.length === 0) return null;
   return (
-    <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, display: "grid", gap: 8 }}>
+    // minmax(0, 1fr), not the implicit auto column: an auto column grows to
+    // the row's min-content width, and the three buttons alone are wider than
+    // a 375px phone, so the whole page scrolled sideways.
+    <ul
+      style={{
+        listStyle: "none",
+        margin: "8px 0 0",
+        padding: 0,
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr)",
+        gap: 8,
+      }}
+    >
       {uploads.map((u) => (
         <li key={u.id}>
           <FileRow upload={u} />
@@ -45,9 +57,19 @@ function FileRow({ upload }: { upload: Upload }): ReactElement {
         overflow: "hidden",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
+      {/* Wraps: on a phone the buttons drop below the name rather than
+          squeezing it to nothing. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "6px 10px",
+          padding: "10px 12px",
+        }}
+      >
         <DocMark kind={upload.kind} />
-        <span style={{ minWidth: 0, flex: 1 }}>
+        <span style={{ minWidth: 0, flex: "1 1 140px" }}>
           <span
             style={{
               display: "block",
