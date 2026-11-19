@@ -39,7 +39,9 @@ export async function registerOpsRoutes(app: FastifyInstance, ctx: AppContext): 
 
   // Public: the sign-in page needs it too, since that is where you would type
   // a real password into the wrong copy. It says only "test" or nothing.
-  app.get("/api/instance", async () => ok({ instance: env.INSTANCE }));
+  app.get("/api/instance", async () =>
+    ok({ instance: env.INSTANCE, testSignIn: env.TEST_SIGNIN }),
+  );
 
   await app.register(
     async (r) => {

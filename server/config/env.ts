@@ -61,6 +61,12 @@ export interface Env {
    * image tested on the test server is the exact one promoted to production.
    */
   INSTANCE: string | null;
+  /**
+   * Password-less sign-in as seeded test accounts — see server/auth/test-signin.ts.
+   * Only ever true on a labelled, plain-http instance: loadEnv() refuses to
+   * start otherwise.
+   */
+  TEST_SIGNIN: boolean;
 }
 
 function str(key: string, fallback?: string): string {
@@ -152,7 +158,21 @@ export function loadEnv(): Env {
     TRUST_PROXY: trustProxy,
     SECURE_COOKIES: bool("SECURE_COOKIES", origin.startsWith("https://")),
     INSTANCE: (process.env.KEYRING_INSTANCE ?? "").trim().slice(0, 24) || null,
+    TEST_SIGNIN: bool("KEYRING_TEST_SIGNIN", false),
   };
+  // Fail the boot, loudly, rather than open password-less sign-in anywhere it
+  // could be reached from outside. Production's origin is the https tunnel
+  // hostname, so this variable copied into production's .env stops it starting.
+  if (env.TEST_SIGNIN && !env.INSTANCE) {
+    throw new Error(
+      "KEYRING_TEST_SIGNIN is set but KEYRING_INSTANCE is not. Test sign-in is only for a labelled test server — refusing to start.",
+    );
+  }
+  if (env.TEST_SIGNIN && !env.APP_ORIGIN.startsWith("http://")) {
+    throw new Error(
+      "KEYRING_TEST_SIGNIN is set on an https:// origin. Test sign-in is only for a LAN-only test server, never a public one — refusing to start.",
+    );
+  }
   cached = env;
   return env;
 }

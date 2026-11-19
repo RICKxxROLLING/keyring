@@ -7,6 +7,7 @@ import { Button } from "../components/Button";
 import { EnrollmentFlow } from "../components/EnrollmentFlow";
 import { ErrorNotice, Field, TextInput } from "../components/Form";
 import { AuthLayout } from "../components/AuthLayout";
+import { TestSignIn } from "./TestSignIn";
 
 type Step = "password" | "totp" | "recovery" | "reenroll";
 
@@ -161,6 +162,15 @@ export function LoginPage(): ReactElement {
               }}
             />
           </div>
+        )}
+
+        {step === "password" && (
+          <TestSignIn
+            onSignedIn={(session) => {
+              setSession(session);
+              void navigate(from, { replace: true });
+            }}
+          />
         )}
 
         {step === "password" && (

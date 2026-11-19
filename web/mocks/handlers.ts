@@ -1648,7 +1648,10 @@ const opsHandlers = [
   // The real API answers null in production. VITE_MOCK_INSTANCE=test shows
   // the test-server banner against the mocks.
   http.get("/api/instance", () =>
-    ok({ instance: (import.meta.env.VITE_MOCK_INSTANCE as string | undefined) || null }),
+    ok({
+      instance: (import.meta.env.VITE_MOCK_INSTANCE as string | undefined) || null,
+      testSignIn: false,
+    }),
   ),
 
   http.get("/api/ops/info", () =>

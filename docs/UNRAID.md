@@ -393,14 +393,23 @@ happened.
 
 Nothing is published at all unless the checks pass, on either branch.
 
-### First run
+### Signing in
 
-1. Sign in at `http://<server-lan-ip>:8090/setup` with the one-time token from
-   `/mnt/user/appdata/keyring-test/data/setup-token.txt` (or the container log).
-   Accounts here are separate from production's; you will set up 2FA again.
-2. **Admin → Demo data → Load.** That is five owned properties and a prospect
-   in Nags Head with renovation, diligence, discussion and a plan A/B deal.
-3. Invite the other two if you want to test real-time changes between people.
+Nobody needs an account. There is no setup step; the sign-in page lists three
+test accounts — **Test Owner** and **Test Manager A / B**, matching
+production's three people — and one click signs in as any of them, with no
+password. Two browsers signed in as different accounts is how real-time
+changes between people get tested.
+
+That is `KEYRING_TEST_SIGNIN`, set in the test stack. It is guarded so it
+cannot leak into production: the app refuses to start with it unless
+`KEYRING_INSTANCE` is set *and* `APP_ORIGIN` is plain `http://` (production's
+is the https tunnel hostname), the routes do not exist when it is off, sign-in
+is refused from any non-LAN address, and only the seeded `@keyring.test`
+accounts can be entered this way.
+
+Then **Admin → Demo data → Load**: five owned properties and a prospect in
+Nags Head with renovation, diligence, discussion and a plan A/B deal.
 
 ### What not to do with it
 

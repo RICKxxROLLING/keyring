@@ -18,11 +18,16 @@
 # Every page says TEST SERVER across the top (KEYRING_INSTANCE=test), so the
 # two copies cannot be mistaken for each other on a phone.
 #
-# SECURITY: LAN only. There is no cloudflared service here, and there should
-# not be — reach it at http://<server-lan-ip>:8090, or over the VPN when away.
-# It still has real sign-in and 2FA: same image, same rules as production.
+# SIGN-IN: nobody needs an account here. The sign-in page offers three test
+# accounts (an owner and two managers) and one click signs in as any of them,
+# no password (KEYRING_TEST_SIGNIN, below). That is what lets automated test
+# sessions use it. It is refused from outside the LAN, and the app will not
+# even start with it on an https origin — see server/auth/test-signin.ts.
 #
-# DATA: demo data only. Load it from Admin → Demo data after the first sign-in.
+# SECURITY: LAN only. There is no cloudflared service here, and there must
+# not be — reach it at http://<server-lan-ip>:8090.
+#
+# DATA: demo data only (Admin → Demo data).
 # Do not restore a production backup here — that would put real tenants'
 # details on a server that was set up to never hold them.
 
@@ -43,6 +48,7 @@ services:
       # Set here rather than only in .env so the banner cannot be lost by
       # editing the env file.
       KEYRING_INSTANCE: test
+      KEYRING_TEST_SIGNIN: "1"
     ports:
       # Must match the port in APP_ORIGIN in .env.
       - "${KEYRING_PORT:-8090}:8080"
