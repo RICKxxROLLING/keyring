@@ -15,6 +15,7 @@ import { listWorkOrders } from "../workorders/repo.js";
 import { listProjects } from "../projects/repo.js";
 import { listDiscussion } from "../discussion/repo.js";
 import { listDiligence } from "../diligence/repo.js";
+import { listAppraisal } from "../appraisal/repo.js";
 import { listTenants, listLeases } from "../tenants/repo.js";
 import { listSpecs } from "../specs/repo.js";
 import { listCompliance } from "../compliance/repo.js";
@@ -62,6 +63,7 @@ export function registerDossierRoutes(app: FastifyInstance, _ctx: AppContext): v
       projects: listProjects(propertyId),
       discussion: listDiscussion(propertyId),
       diligence: listDiligence(propertyId),
+      appraisal: listAppraisal(propertyId),
       tenants: listTenants(propertyId),
       leases: listLeases(propertyId),
       rentEntries,

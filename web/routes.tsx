@@ -15,6 +15,7 @@ import { DealTab } from "./pages/dossier/DealTab";
 import { RenovationTab } from "./pages/dossier/RenovationTab";
 import { DiscussionTab } from "./pages/dossier/DiscussionTab";
 import { DiligenceTab } from "./pages/dossier/DiligenceTab";
+import { AppraisalTab } from "./pages/dossier/AppraisalTab";
 import { TenantsTab } from "./pages/dossier/TenantsTab";
 import { MoneyTab } from "./pages/dossier/MoneyTab";
 import { SpecsTab } from "./pages/dossier/SpecsTab";
@@ -73,6 +74,7 @@ export function AppRoutes(): ReactElement {
           <Route path="projects" element={<RenovationTab />} />
           <Route path="discussion" element={<DiscussionTab />} />
           <Route path="diligence" element={<DiligenceTab />} />
+          <Route path="appraisal" element={<AppraisalTab />} />
           <Route path="tenants" element={<TenantsTab />} />
           <Route path="money" element={<MoneyTab />} />
           <Route path="specs" element={<SpecsTab />} />

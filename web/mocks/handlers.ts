@@ -109,6 +109,7 @@ function dossierFor(propertyId: string): PropertyDossier | null {
     projects: fx.projects.filter((p) => p.propertyId === propertyId),
     discussion: fx.propertyComments.filter((c) => c.propertyId === propertyId),
     diligence: fx.diligenceItems.filter((d) => d.propertyId === propertyId),
+    appraisal: [],
     tenants: fx.tenants.filter((t) => t.propertyId === propertyId),
     leases: fx.leases.filter((l) => l.propertyId === propertyId),
     rentEntries: fx.rentEntries.filter((r) => r.propertyId === propertyId),

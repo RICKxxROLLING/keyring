@@ -9,6 +9,7 @@ import { registerWorkOrderRoutes } from "./workorders/routes.js";
 import { registerProjectRoutes } from "./projects/routes.js";
 import { registerDiscussionRoutes } from "./discussion/routes.js";
 import { registerDiligenceRoutes } from "./diligence/routes.js";
+import { registerAppraisalRoutes } from "./appraisal/routes.js";
 import { registerTenantRoutes } from "./tenants/routes.js";
 import { registerMoneyRoutes } from "./money/routes.js";
 import { registerSpecRoutes } from "./specs/routes.js";
@@ -31,6 +32,7 @@ export async function registerDomain(app: FastifyInstance, ctx: AppContext): Pro
   registerProjectRoutes(app, ctx);
   registerDiscussionRoutes(app, ctx);
   registerDiligenceRoutes(app, ctx);
+  registerAppraisalRoutes(app, ctx);
   registerTenantRoutes(app, ctx);
   registerMoneyRoutes(app, ctx);
   registerSpecRoutes(app, ctx);

@@ -26,7 +26,7 @@ export type EntityType =
   | "property" | "unit" | "note"
   | "work_order" | "work_order_comment" | "pm_template"
   | "project" | "project_line"
-  | "property_comment" | "diligence_item"
+  | "property_comment" | "diligence_item" | "appraisal_item"
   | "tenant" | "lease" | "rent_entry" | "property_expense"
   | "vendor" | "spec_entry" | "compliance_item"
   | "turnover" | "turnover_item"
@@ -626,6 +626,84 @@ export interface DiligenceSummary {
   blocked: number;
 }
 
+/* ---------------------------------------------------- appraisal readiness */
+
+/**
+ * Getting a property ready for an appraisal under UAD 3.6 / the redesigned URAR.
+ *
+ * The appraiser fills in the report and owns the ratings. This is the owner's
+ * side: the facts, photos and paper the report will ask for, and the defects
+ * worth fixing (and budgeting) before someone writes them down.
+ */
+export type AppraisalSection =
+  | "site"
+  | "measurement"
+  | "dwelling"
+  | "updates"
+  | "defects"
+  | "energy"
+  | "mitigation"
+  | "additional"
+  | "photos"
+  | "income"
+  | "project"
+  | "other";
+
+/** document: paper to have. photo: something to photograph. fact: a value to know. defect: a thing wrong. */
+export type AppraisalKind = "document" | "photo" | "fact" | "defect";
+
+export type AppraisalStatus = "todo" | "in_progress" | "ready" | "not_applicable";
+
+/** The URAR's defects table records a recommended action against each entry. */
+export type AppraisalRecommendedAction = "none" | "repair" | "replace" | "inspect";
+
+export interface AppraisalItem {
+  id: Id;
+  propertyId: Id;
+  label: string;
+  section: AppraisalSection;
+  kind: AppraisalKind;
+  status: AppraisalStatus;
+  /** What the appraiser is looking for. Set when the item is created. */
+  detail: string | null;
+  /** What you have. Never overwrites detail. */
+  finding: string | null;
+  /** When it was true: measured, installed, inspected, updated. */
+  asOf: ISODate | null;
+  /** Defects only. */
+  recommendedAction: AppraisalRecommendedAction | null;
+  /** Estimated cost to cure. Defects only, in practice. */
+  estimateCents: Cents | null;
+  /** The project this defect's repair is budgeted on. */
+  projectId: Id | null;
+  sortOrder: number;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+  createdBy: Id;
+  updatedBy: Id;
+  version: number;
+}
+
+export interface AppraisalItemView extends AppraisalItem {
+  /** Every file attached, oldest first. Deleted files are left out. */
+  documents: Upload[];
+  /** The budget project, if linked and still present. */
+  project: { id: Id; title: string; status: ProjectStatus } | null;
+}
+
+export interface AppraisalSummary {
+  total: number;
+  ready: number;
+  /** Everything except ready and not_applicable. */
+  outstanding: number;
+  /** Defects not yet ready (fixed) or ruled out. */
+  openDefects: number;
+  /** Sum of estimates on open defects. */
+  costToCureCents: Cents;
+  /** The part of costToCureCents not yet on any project's budget. */
+  unbudgetedCents: Cents;
+}
+
 /* ----------------------------------------------------------- tenants/leases */
 
 export interface Tenant {
@@ -994,6 +1072,8 @@ export interface PropertyDossier {
   /** The property thread, oldest first — see PropertyComment. */
   discussion: PropertyCommentView[];
   diligence: DiligenceItemView[];
+  /** The appraisal-readiness checklist, in list order. */
+  appraisal: AppraisalItemView[];
   tenants: Tenant[];
   leases: LeaseView[];
   rentEntries: RentEntry[];

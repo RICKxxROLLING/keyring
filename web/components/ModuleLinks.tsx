@@ -29,6 +29,9 @@ export function ModuleLinks({ dossier }: { dossier: PropertyDossier }): ReactEle
           { to: "discussion", label: "Discussion", count: dossier.discussion.length },
           { to: "diligence", label: "Diligence", count: dossier.diligence.length },
         ]),
+    // Not on a prospect: an appraisal is ordered on a house you own (to
+    // refinance or sell) or one under contract, not one you are still weighing.
+    ...(prospect ? [] : [{ to: "appraisal", label: "Appraisal", count: dossier.appraisal.length }]),
     { to: "specs", label: "The particulars", count: dossier.specs.length },
     { to: "compliance", label: "Compliance", count: dossier.compliance.length },
     { to: "turnover", label: "Turnover", count: dossier.turnovers.length },

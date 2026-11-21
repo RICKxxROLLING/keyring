@@ -17,6 +17,10 @@ on your router.
   projects, tenants & leases, rent roll & expenses, vendors, a spec vault
   (with maskable secrets like gate codes), compliance & renewal dates,
   turnover checklists, files, and a full audit timeline.
+- Appraisal readiness for UAD 3.6 / the redesigned URAR: a checklist laid out
+  in report order (ANSI Z765 area, required photos, defects, energy and
+  disaster-mitigation features, ADUs and outbuildings), a repair budget built
+  from logged defects, and a one-download binder of every attached document.
 - Realtime presence, soft field locks with live keystream streaming, and
   push notifications — three people editing the same portfolio without
   stepping on each other.
