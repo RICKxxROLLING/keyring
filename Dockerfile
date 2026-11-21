@@ -52,8 +52,11 @@ ENV NODE_ENV=production \
 #   tesseract-ocr-eng is the language data; without it the binary installs but
 #   can read nothing. The app degrades to manual entry when it is absent, so a
 #   dev machine and CI need no equivalent.
+# poppler-utils: pdftotext, for reading the text of an appraisal PDF when
+#   importing one. Same reasoning as tesseract: on this box, nothing sent away.
+#   Without it the importer still takes the UAD 3.6 ZIP or XML and says so.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gosu tini tesseract-ocr tesseract-ocr-eng \
+    && apt-get install -y --no-install-recommends gosu tini tesseract-ocr tesseract-ocr-eng poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

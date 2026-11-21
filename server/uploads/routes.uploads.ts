@@ -1,7 +1,7 @@
 // server/uploads/routes.uploads.ts
 import { createHash } from "node:crypto";
 import { createReadStream, writeFileSync } from "node:fs";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { getDb, tx } from "../db/index.js";
 import { getEnv } from "../config/env.js";
@@ -97,7 +97,7 @@ export function registerUploadRoutes(app: FastifyInstance, _ctx: AppContext): vo
   const db = getDb();
 
   app.post("/api/uploads", { preHandler: [requireAuth] }, async (req, reply) => {
-    const user = requireUser(req);
+    requireUser(req);
     const env = getEnv();
 
     let fileSeen = false;
@@ -144,83 +144,12 @@ export function registerUploadRoutes(app: FastifyInstance, _ctx: AppContext): vo
       caption: fields.caption ?? undefined,
     });
 
-    const propertyId = resolveParentPropertyId(parsedFields.parentType, parsedFields.parentId);
-    const buffer = Buffer.concat(chunks);
-    requireWithinSizeLimit(buffer.length, env.UPLOAD_MAX_BYTES);
-    const detected = requireKnownFileType(buffer);
-
-    const id = newId("upl");
-    const filename = sanitizeFilename(declaredFilename || "upload");
-    const at = nowIso();
-
-    let outBuf: Buffer;
-    let outMime: string;
-    let width: number | null = null;
-    let height: number | null = null;
-    let thumbRel: string | null = null;
-    const { relPath, absPath } = storedPathFor(id, detected.kind === "pdf" ? "pdf" : "jpg");
-
-    if (detected.kind === "image") {
-      const processed = await processImage(buffer);
-      outBuf = processed.output;
-      outMime = processed.outputMime;
-      width = processed.width;
-      height = processed.height;
-      const thumb = thumbPathFor(id);
-      writeFileSync(thumb.absPath, processed.thumb);
-      thumbRel = thumb.relPath;
-    } else {
-      outBuf = buffer;
-      outMime = detected.mime;
-    }
-    writeFileSync(absPath, outBuf);
-    const sha256 = createHash("sha256").update(outBuf).digest("hex");
-
-    const dto = tx(() => {
-      db.prepare(
-        `INSERT INTO uploads (id, parent_type, parent_id, property_id, filename, stored_path,
-           thumb_path, mime, kind, size_bytes, sha256, width, height, caption, uploaded_by,
-           created_at, deleted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-      ).run(
-        id,
-        parsedFields.parentType,
-        parsedFields.parentId,
-        propertyId,
-        filename,
-        relPath,
-        thumbRel,
-        outMime,
-        detected.kind,
-        outBuf.length,
-        sha256,
-        width,
-        height,
-        parsedFields.caption ?? null,
-        user.id,
-        at,
-      );
-      recordMutation(req, {
-        action: "create",
-        entityType: "upload",
-        entityId: id,
-        propertyId,
-        summary: `uploaded "${filename}" on ${parsedFields.parentType}`,
-        after: { filename, kind: detected.kind, parentType: parsedFields.parentType },
-      });
-      const row = mapRow<UploadRow>(
-        db.prepare(`SELECT * FROM uploads WHERE id = ?`).get(id) as Record<string, unknown>,
-      );
-      return toUploadDto(row);
-    });
-    publishAfterCommit({
-      action: "created",
-      entityType: "upload",
-      entityId: id,
-      propertyId,
-      version: 1,
-      actorId: user.id,
-      data: dto,
+    const dto = await storeUpload(req, {
+      buffer: Buffer.concat(chunks),
+      filename: declaredFilename,
+      parentType: parsedFields.parentType,
+      parentId: parsedFields.parentId,
+      caption: parsedFields.caption ?? null,
     });
     return reply.code(201).send(ok(dto));
   });
@@ -405,6 +334,111 @@ export function registerUploadRoutes(app: FastifyInstance, _ctx: AppContext): vo
 }
 
 /** Used by domain modules to validate a singular pointer (coverUploadId, documentUploadId). */
+/**
+ * Validate, process and file one upload — the whole of POST /api/uploads after
+ * the multipart body has been read. Exported so a file that arrives some other
+ * way (the appraisal importer pulls the report PDF out of a UAD 3.6 package)
+ * goes through exactly the same type check, size check, image processing and
+ * audit as one picked from a phone.
+ *
+ * Commits its own transaction and publishes after it, so never call it inside
+ * another tx().
+ */
+export async function storeUpload(
+  req: FastifyRequest,
+  input: {
+    buffer: Buffer;
+    filename: string;
+    parentType: AttachmentParentType;
+    parentId: string;
+    caption: string | null;
+  },
+): Promise<Upload> {
+  const user = requireUser(req);
+  const env = getEnv();
+  const db = getDb();
+  const parsedFields = { parentType: input.parentType, parentId: input.parentId, caption: input.caption };
+  const propertyId = resolveParentPropertyId(parsedFields.parentType, parsedFields.parentId);
+  const buffer = input.buffer;
+  requireWithinSizeLimit(buffer.length, env.UPLOAD_MAX_BYTES);
+  const detected = requireKnownFileType(buffer);
+
+  const id = newId("upl");
+  const filename = sanitizeFilename(input.filename || "upload");
+  const at = nowIso();
+
+  let outBuf: Buffer;
+  let outMime: string;
+  let width: number | null = null;
+  let height: number | null = null;
+  let thumbRel: string | null = null;
+  const { relPath, absPath } = storedPathFor(id, detected.kind === "pdf" ? "pdf" : "jpg");
+
+  if (detected.kind === "image") {
+    const processed = await processImage(buffer);
+    outBuf = processed.output;
+    outMime = processed.outputMime;
+    width = processed.width;
+    height = processed.height;
+    const thumb = thumbPathFor(id);
+    writeFileSync(thumb.absPath, processed.thumb);
+    thumbRel = thumb.relPath;
+  } else {
+    outBuf = buffer;
+    outMime = detected.mime;
+  }
+  writeFileSync(absPath, outBuf);
+  const sha256 = createHash("sha256").update(outBuf).digest("hex");
+
+  const dto = tx(() => {
+    db.prepare(
+      `INSERT INTO uploads (id, parent_type, parent_id, property_id, filename, stored_path,
+         thumb_path, mime, kind, size_bytes, sha256, width, height, caption, uploaded_by,
+         created_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+    ).run(
+      id,
+      parsedFields.parentType,
+      parsedFields.parentId,
+      propertyId,
+      filename,
+      relPath,
+      thumbRel,
+      outMime,
+      detected.kind,
+      outBuf.length,
+      sha256,
+      width,
+      height,
+      parsedFields.caption ?? null,
+      user.id,
+      at,
+    );
+    recordMutation(req, {
+      action: "create",
+      entityType: "upload",
+      entityId: id,
+      propertyId,
+      summary: `uploaded "${filename}" on ${parsedFields.parentType}`,
+      after: { filename, kind: detected.kind, parentType: parsedFields.parentType },
+    });
+    const row = mapRow<UploadRow>(
+      db.prepare(`SELECT * FROM uploads WHERE id = ?`).get(id) as Record<string, unknown>,
+    );
+    return toUploadDto(row);
+  });
+  publishAfterCommit({
+    action: "created",
+    entityType: "upload",
+    entityId: id,
+    propertyId,
+    version: 1,
+    actorId: user.id,
+    data: dto,
+  });
+  return dto;
+}
+
 export function requireUploadBelongsTo(
   uploadId: string,
   parentType: AttachmentParentType,

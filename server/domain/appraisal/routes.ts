@@ -86,7 +86,7 @@ const SECTIONS = [
 ] as const;
 const KINDS = ["document", "photo", "fact", "defect"] as const;
 const STATUSES = ["todo", "in_progress", "ready", "not_applicable"] as const;
-const ACTIONS = ["none", "repair", "replace", "inspect"] as const;
+const ACTIONS = ["none", "repair", "inspect", "completion"] as const;
 
 const CreateSchema = z
   .object({

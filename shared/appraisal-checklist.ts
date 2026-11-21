@@ -434,11 +434,12 @@ export const APPRAISAL_KIND_LABELS: Record<AppraisalKind, string> = {
   defect: "Defect",
 };
 
+/** The URAR's four, in the report's words where they are clear enough. */
 export const APPRAISAL_ACTION_LABELS: Record<AppraisalRecommendedAction, string> = {
   none: "None — note only",
   repair: "Repair",
-  replace: "Replace",
-  inspect: "Needs inspection",
+  inspect: "Inspection",
+  completion: "Completion — finish the work",
 };
 
 /** Status reads differently for a defect: "ready" means it has been fixed. */

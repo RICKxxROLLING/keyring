@@ -21,6 +21,9 @@ on your router.
   in report order (ANSI Z765 area, required photos, defects, energy and
   disaster-mitigation features, ADUs and outbuildings), a repair budget built
   from logged defects, and a one-download binder of every attached document.
+- Appraisal import: drop in a past appraisal (the UAD 3.6 ZIP or XML, or a
+  PDF), review what was read, and it fills the checklist, logs the report's
+  defects, files the PDF and keeps an appraisal history.
 - Realtime presence, soft field locks with live keystream streaming, and
   push notifications — three people editing the same portfolio without
   stepping on each other.

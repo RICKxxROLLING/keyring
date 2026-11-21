@@ -654,8 +654,11 @@ export type AppraisalKind = "document" | "photo" | "fact" | "defect";
 
 export type AppraisalStatus = "todo" | "in_progress" | "ready" | "not_applicable";
 
-/** The URAR's defects table records a recommended action against each entry. */
-export type AppraisalRecommendedAction = "none" | "repair" | "replace" | "inspect";
+/**
+ * The URAR's own list for a defect (DefectItemRecommendedActionType):
+ * Completion | Inspection | None | Repair. "completion" is unfinished work.
+ */
+export type AppraisalRecommendedAction = "none" | "repair" | "inspect" | "completion";
 
 export interface AppraisalItem {
   id: Id;
@@ -702,6 +705,101 @@ export interface AppraisalSummary {
   costToCureCents: Cents;
   /** The part of costToCureCents not yet on any project's budget. */
   unbudgetedCents: Cents;
+}
+
+/** One imported appraisal: the property's appraisal history. */
+export interface AppraisalReport {
+  id: Id;
+  propertyId: Id;
+  effectiveDate: ISODate | null;
+  opinionOfValueCents: Cents | null;
+  /** As the report states it, e.g. "Refinance", "Purchase". */
+  assignmentType: string | null;
+  /** e.g. "As Is", "Subject To Repairs". */
+  valueCondition: string | null;
+  overallCondition: string | null;
+  overallQuality: string | null;
+  sourceFormat: "uad36_xml" | "pdf";
+  sourceFilename: string;
+  uploadId: Id | null;
+  itemsFilled: number;
+  defectsAdded: number;
+  createdAt: ISODateTime;
+  createdBy: Id;
+}
+
+export interface AppraisalReportView extends AppraisalReport {
+  /** The report PDF, if one was filed and still exists. */
+  document: Upload | null;
+}
+
+/** Fields on the property record an import can offer to fill. */
+export type ImportablePropertyField = "yearBuilt" | "sqft" | "lotSqft" | "parcelNumber";
+
+/**
+ * One value read out of an appraisal, and where it would go.
+ *
+ * `key` is stable across a preview and the apply that follows it, so the
+ * client sends back keys, never values: what is saved is what the server reads
+ * out of the same file again, not whatever the browser says it read.
+ */
+export interface ImportedFact {
+  key: string;
+  /** What it is, e.g. "Year built". */
+  label: string;
+  /** As it will be written, e.g. "2018". */
+  value: string;
+  /** The checklist item it fills, by label. Created from the starter list if missing. */
+  itemLabel: string | null;
+  /** True when the report shows the item does not apply (no ADU, no solar). */
+  suggestsNotApplicable?: boolean;
+  /** A property-record field this fact can also fill. */
+  propertyField?: ImportablePropertyField;
+  /** The value for that field, typed. */
+  propertyValue?: number | string;
+  /** What the property record holds now, so the review can show old → new. */
+  currentPropertyValue?: number | string | null;
+}
+
+export interface ImportedDefect {
+  key: string;
+  /** Where on the report: "Dwelling exterior — Roof". */
+  where: string;
+  description: string;
+  recommendedAction: AppraisalRecommendedAction | null;
+  estimateCents: Cents | null;
+  affectsSoundness: boolean;
+}
+
+export interface AppraisalImportPreview {
+  format: "uad36_xml" | "pdf";
+  sourceFilename: string;
+  /** Whether the file carries a report PDF that will be filed under the property. */
+  hasReportPdf: boolean;
+  report: {
+    effectiveDate: ISODate | null;
+    opinionOfValueCents: Cents | null;
+    assignmentType: string | null;
+    valueCondition: string | null;
+    overallCondition: string | null;
+    overallQuality: string | null;
+  };
+  /** The address on the report, to check it is this property. */
+  subjectAddress: string | null;
+  /** True when that address does not look like this property's. */
+  addressMismatch: boolean;
+  facts: ImportedFact[];
+  defects: ImportedDefect[];
+  /** Things the reader could not do, said plainly. */
+  warnings: string[];
+}
+
+export interface AppraisalImportResult {
+  report: AppraisalReportView;
+  itemsFilled: number;
+  itemsCreated: number;
+  defectsAdded: number;
+  propertyFieldsUpdated: ImportablePropertyField[];
 }
 
 /* ----------------------------------------------------------- tenants/leases */
@@ -1074,6 +1172,8 @@ export interface PropertyDossier {
   diligence: DiligenceItemView[];
   /** The appraisal-readiness checklist, in list order. */
   appraisal: AppraisalItemView[];
+  /** Imported appraisals, newest effective date first. */
+  appraisalReports: AppraisalReportView[];
   tenants: Tenant[];
   leases: LeaseView[];
   rentEntries: RentEntry[];

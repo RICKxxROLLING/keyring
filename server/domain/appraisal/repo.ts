@@ -6,6 +6,8 @@ import { toUploadDto, type UploadRow } from "../../uploads/storage.js";
 import type {
   AppraisalItem,
   AppraisalItemView,
+  AppraisalReport,
+  AppraisalReportView,
   ProjectStatus,
   Upload,
 } from "../../../shared/types.js";
@@ -72,4 +74,36 @@ export function unitCount(propertyId: string): number {
     .prepare(`SELECT COUNT(*) AS n FROM units WHERE property_id = ?`)
     .get(propertyId) as { n: number };
   return row.n;
+}
+
+/* ------------------------------------------------------- appraisal reports -- */
+
+export function toReportView(report: AppraisalReport): AppraisalReportView {
+  let document: Upload | null = null;
+  if (report.uploadId) {
+    const row = getDb().prepare(`SELECT * FROM uploads WHERE id = ? AND deleted_at IS NULL`).get(report.uploadId) as
+      | Record<string, unknown>
+      | undefined;
+    document = row ? toUploadDto(mapRow<UploadRow>(row)) : null;
+  }
+  return { ...report, document };
+}
+
+/** Newest effective date first; reports with no date last. */
+export function listAppraisalReports(propertyId: string): AppraisalReportView[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM appraisal_reports WHERE property_id = ?
+        ORDER BY effective_date IS NULL, effective_date DESC, created_at DESC`,
+    )
+    .all(propertyId) as Record<string, unknown>[];
+  return mapRows<AppraisalReport>(rows).map(toReportView);
+}
+
+export function getAppraisalReportRow(id: string): AppraisalReport {
+  const row = getDb().prepare(`SELECT * FROM appraisal_reports WHERE id = ?`).get(id) as
+    | Record<string, unknown>
+    | undefined;
+  if (!row) throw notFound("Appraisal report");
+  return mapRow<AppraisalReport>(row);
 }

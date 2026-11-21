@@ -2,7 +2,9 @@ import { useId, useState, type ReactElement } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import type {
+  AppraisalImportResult,
   AppraisalItemView,
+  AppraisalReportView,
   AppraisalKind,
   AppraisalRecommendedAction,
   AppraisalSection,
@@ -28,6 +30,7 @@ import { StatusPill } from "../../components/StatusPill";
 import { ExpandableRow } from "../../components/ExpandableRow";
 import { CameraIcon } from "../../components/icons";
 import type { Severity } from "../../lib/status";
+import { AppraisalImport } from "./AppraisalImport";
 
 /**
  * Getting ready for an appraisal under UAD 3.6 and the redesigned URAR.
@@ -39,7 +42,7 @@ import type { Severity } from "../../lib/status";
  */
 const STATUSES: AppraisalStatus[] = ["todo", "in_progress", "ready", "not_applicable"];
 const KINDS: AppraisalKind[] = ["document", "photo", "fact", "defect"];
-const ACTIONS: AppraisalRecommendedAction[] = ["none", "repair", "replace", "inspect"];
+const ACTIONS: AppraisalRecommendedAction[] = ["repair", "inspect", "completion", "none"];
 
 function severity(item: AppraisalItemView): Severity {
   if (item.status === "ready") return "ok";
@@ -58,6 +61,8 @@ export function AppraisalTab(): ReactElement {
   const [kind, setKind] = useState<AppraisalKind>("document");
   const [detail, setDetail] = useState("");
   const [estimate, setEstimate] = useState(0);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState<AppraisalImportResult | null>(null);
 
   const propertyId = dossier.property.id;
   const items = dossier.appraisal;
@@ -141,6 +146,15 @@ export function AppraisalTab(): ReactElement {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button
             variant="secondary"
+            onClick={() => {
+              setImporting((v) => !v);
+              setImported(null);
+            }}
+          >
+            Import an appraisal
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => applyTemplate.mutate()}
             disabled={applyTemplate.isPending}
           >
@@ -170,6 +184,27 @@ export function AppraisalTab(): ReactElement {
           lending advice — what is asked for varies by loan and lender.
         </p>
       </details>
+
+      {importing && (
+        <AppraisalImport
+          propertyId={propertyId}
+          onCancel={() => setImporting(false)}
+          onDone={(result) => {
+            setImporting(false);
+            setImported(result);
+            invalidate();
+          }}
+        />
+      )}
+      {imported && (
+        <p role="status" style={{ margin: "0 0 16px", fontSize: 13, color: "var(--ink-2)" }}>
+          Imported: {imported.itemsFilled} checklist {imported.itemsFilled === 1 ? "item" : "items"} filled
+          {imported.itemsCreated > 0 ? ` (${imported.itemsCreated} added to the list)` : ""}
+          {imported.defectsAdded > 0 ? `, ${imported.defectsAdded} ${imported.defectsAdded === 1 ? "defect" : "defects"} logged` : ""}
+          {imported.propertyFieldsUpdated.length > 0 ? `, property details updated` : ""}
+          {imported.report.document ? ". The report is filed under Files." : "."}
+        </p>
+      )}
 
       {applyTemplate.isSuccess && applyTemplate.data.added.length === 0 && (
         <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--ink-3)" }}>
@@ -292,6 +327,7 @@ export function AppraisalTab(): ReactElement {
         </div>
       )}
 
+      {items.length === 0 && <PastAppraisals reports={dossier.appraisalReports} onChanged={invalidate} />}
       {items.length === 0 ? (
         <EmptyState
           title="Nothing on the list"
@@ -304,7 +340,7 @@ export function AppraisalTab(): ReactElement {
         />
       ) : (
         <>
-          <div style={{ display: "grid", gap: 22 }}>
+          <div style={{ display: "grid", gap: 22, gridTemplateColumns: "minmax(0, 1fr)" }}>
             {grouped.map((group) => (
               <section key={group.section}>
                 <h3 className="kr-label" style={{ margin: "0 0 10px" }}>
@@ -328,7 +364,7 @@ export function AppraisalTab(): ReactElement {
                     None logged. Use “+ Defect” for each thing you find on the walk-through.
                   </p>
                 ) : (
-                  <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>
+                  <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr)" }}>
                     {group.items.map((item) => (
                       <li key={item.id}>
                         <ExpandableRow
@@ -348,6 +384,8 @@ export function AppraisalTab(): ReactElement {
               </section>
             ))}
           </div>
+
+          <PastAppraisals reports={dossier.appraisalReports} onChanged={invalidate} />
 
           <section style={{ marginTop: 26 }}>
             <h3 className="kr-label" style={{ margin: "0 0 8px" }}>
@@ -369,6 +407,56 @@ export function AppraisalTab(): ReactElement {
         </>
       )}
     </div>
+  );
+}
+
+/** The property's appraisal history, from imports. */
+function PastAppraisals({ reports, onChanged }: { reports: AppraisalReportView[]; onChanged: () => void }): ReactElement | null {
+  const remove = useMutation({
+    mutationFn: (id: string) => apiDelete(`/api/appraisal-reports/${id}`),
+    onSuccess: onChanged,
+  });
+  if (reports.length === 0) return null;
+  return (
+    <section style={{ marginTop: 26 }}>
+      <h3 className="kr-label" style={{ margin: "0 0 8px" }}>
+        Past appraisals
+      </h3>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8, gridTemplateColumns: "minmax(0, 1fr)" }}>
+        {reports.map((r) => (
+          <li
+            key={r.id}
+            style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", fontSize: 13.5, padding: "10px 12px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)" }}
+          >
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <strong className="kr-tabular">{r.opinionOfValueCents !== null ? formatCents(r.opinionOfValueCents) : "Value not read"}</strong>
+              <span style={{ color: "var(--ink-2)" }}>
+                {r.effectiveDate ? ` · ${formatDate(r.effectiveDate)}` : ""}
+                {r.assignmentType ? ` · ${r.assignmentType}` : ""}
+                {r.overallCondition ? ` · ${r.overallCondition}/${r.overallQuality ?? "?"}` : ""}
+              </span>
+              <span style={{ display: "block", fontSize: 12, color: "var(--ink-3)" }}>
+                {r.sourceFormat === "uad36_xml" ? "UAD 3.6 data" : "PDF"} · {r.itemsFilled} filled · {r.defectsAdded} defects
+              </span>
+            </span>
+            {r.document && (
+              <a href={r.document.url} target="_blank" rel="noopener noreferrer" className="kr-quiet-action">
+                Open report
+              </a>
+            )}
+            <button
+              type="button"
+              className="kr-quiet-action"
+              onClick={() => remove.mutate(r.id)}
+              disabled={remove.isPending}
+              title="Removes it from this history. The report stays in Files."
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

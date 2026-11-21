@@ -97,3 +97,9 @@ export async function apiUpload(path: string, form: FormData): Promise<Upload> {
   const res = await request(path, { method: "POST", body: form });
   return unwrap<Upload>(res);
 }
+
+/** A multipart POST whose answer is not an Upload — the appraisal importer. */
+export async function apiPostForm<T>(path: string, form: FormData): Promise<T> {
+  const res = await request(path, { method: "POST", body: form });
+  return unwrap<T>(res);
+}
